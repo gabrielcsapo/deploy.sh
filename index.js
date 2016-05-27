@@ -5,24 +5,28 @@ var GitServer = require('git-server');
 var fs = require('fs');
 var path = require('path');
 var crypto = require('crypto');
+// TODO: implement bunyan as a logger
 
-if(!fs.existsSync(path.resolve(__dirname, 'config', 'user.json'))) {
+// TODO: abstract into lib/startup.js
+if (!fs.existsSync(path.resolve(__dirname, 'config', 'user.json'))) {
     var user = {
         username: 'root',
         password: crypto.randomBytes(20).toString('hex')
     }
     fs.writeFileSync(path.resolve(__dirname, 'config', 'user.json'), JSON.stringify(user));
 }
-if(!fs.existsSync(path.resolve(__dirname, 'config', 'repos.json'))) {
+if (!fs.existsSync(path.resolve(__dirname, 'config', 'repos.json'))) {
     var repos = [{
-        name:'test',
-        anonRead:false,
-        users: [
-            { user:user, permissions:['R','W'] }
-        ]
+        name: 'test',
+        anonRead: false,
+        users: [{
+            user: u ser,
+            permissions: ['R', 'W']
+        }]
     }];
     fs.writeFileSync(path.resolve(__dirname, 'config', 'repos.json'), JSON.stringify(repos));
 }
+// TODO: add checks to make sure the data is not malformed
 var user = require('./config/user.json');
 var repos = require('./config/repos.json');
 repos.forEach(function(repo) {
@@ -30,10 +34,11 @@ repos.forEach(function(repo) {
 });
 
 server = new GitServer(repos, true, path.resolve(__dirname, 'repos'), 7000);
-
+// TODO: log this action
 server.on('commit', function(update, repo) {
-   update.accept();
+    update.accept();
 });
+// TODO: log this action
 server.on('update', function(update, repo) {
     update.accept();
 });
