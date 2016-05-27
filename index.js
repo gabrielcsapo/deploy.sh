@@ -7,7 +7,8 @@ var path = require('path');
 var crypto = require('crypto');
 var basicAuth = require('basic-auth-connect');
 var kue = require('kue');
-// TODO: implement bunyan as a logger
+var bunyan = require('bunyan');
+var log = bunyan.createLogger({name: "node-distribute"});
 
 // TODO: abstract into lib/startup.js
 // TODO: use lowdb, because eventually we want to be able to write to these files
@@ -73,5 +74,5 @@ app.use(function(req, res, next) {
 app.use('/admin/queue', kue.app);
 
 app.listen(port, function() {
-    console.log('node-distribute listening on http://localhost:' + port)
+    log.info('node-distribute listening on http://localhost:' + port)
 });
