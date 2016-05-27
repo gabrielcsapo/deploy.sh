@@ -1,0 +1,23 @@
+{
+  "name": "node-distribute",
+  "version": "0.0.0",
+  "description": "continuous deployment of node services",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gabrielcsapo/node-distribute.git"
+  },
+  "author": "Gabriel J. Csapo <gabecsapo@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gabrielcsapo/node-distribute/issues"
+  },
+  "homepage": "https://github.com/gabrielcsapo/node-distribute#readme",
+  "dependencies": {
+    "express": "^4.13.4",
+    "git-server": "^0.2.0"
+  }
+}

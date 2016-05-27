@@ -1,2 +1,2 @@
 # node-distribute
-continuous deployment of node services 
+> continuous deployment of node services
