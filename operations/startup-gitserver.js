@@ -62,13 +62,8 @@ module.exports = function(log, admin, user, repos) {
         log.info('git:post-update', repo.name, repo.last_commit.branch);
         // TODO: this should be configurable...
         if(repo.last_commit.branch == 'master') {
-            log.info('redeploy the app, build and start');
             admin.deploy(repo.path, repo.name);
         }
-        // TODO: implement starting the app
-        // TODO: use kue to create a priority queue to not block main process
-        // TODO: deploy should clone the repo to app and do a npm install
-        // TODO: once the deploy is done start node process using npm start (PM2?)
         update.accept();
     });
     server.on('fetch', function(update, repo) {

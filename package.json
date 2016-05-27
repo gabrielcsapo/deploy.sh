@@ -18,6 +18,7 @@
   "homepage": "https://github.com/gabrielcsapo/node-distribute#readme",
   "dependencies": {
     "basic-auth-connect": "^1.0.0",
+    "bluebird": "^3.4.0",
     "bunyan": "^1.8.1",
     "express": "^4.13.4",
     "git-server": "^0.2.0",
