@@ -1,4 +1,5 @@
 var GitServer = require('git-server');
+var path = require('path');
 
 module.exports = function(log, user, repos) {
 
