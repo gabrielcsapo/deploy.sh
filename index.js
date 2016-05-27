@@ -5,6 +5,8 @@ var GitServer = require('git-server');
 var fs = require('fs');
 var path = require('path');
 var crypto = require('crypto');
+var basicAuth = require('basic-auth-connect');
+var kue = require('kue');
 // TODO: implement bunyan as a logger
 
 // TODO: abstract into lib/startup.js
@@ -59,16 +61,16 @@ server.on('fetch', function(update, repo) {
 
 var port = process.env.PORT || 1337;
 
-// TODO: this should show a admin portal that uses the user to perform basic auth
 // TODO: should show process values using the PM2 logs?
-// TODO: should show the kue app in the admin portal
 // TODO: admin portal should be able to add repos
 // TODO: admin portal should be able to add users
 // TODO: admin portal should record statics from all apps being run (geo, users, traffic, etc)
 // TODO: admin portal should show all of that data
+app.use(basicAuth(user.username, user.password));
 app.use(function(req, res, next) {
-    // 
+    next();
 });
+app.use('/admin/queue', kue.app);
 
 app.listen(port, function() {
     console.log('node-distribute listening on http://localhost:' + port)
