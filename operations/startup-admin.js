@@ -3,6 +3,8 @@ var app = express();
 var basicAuth = require('basic-auth-connect');
 var kue = require('kue');
 
+var GitDeploy = require('./git-deploy.js');
+
 module.exports = function(log, user, repos) {
     var port = process.env.PORT || 1337;
 
@@ -15,9 +17,18 @@ module.exports = function(log, user, repos) {
     app.use(function(req, res, next) {
         next();
     });
+    kue.app.set('title', 'node-distribute');
     app.use('/admin/queue', kue.app);
 
     app.listen(port, function() {
         log.info('node-distribute listening on http://localhost:' + port)
     });
+
+    deploy = function(location, name) {
+        GitDeploy(location, name);
+    }
+
+    return {
+        deploy: deploy
+    }
 }

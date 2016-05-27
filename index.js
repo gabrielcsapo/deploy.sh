@@ -7,5 +7,5 @@ var startup = require('./operations/startup.js');
 var user = require('./config/user.json');
 var repos = require('./config/repos.json');
 
-var gitserver = require('./operations/startup-gitserver.js')(log, user, repos);
 var admin = require('./operations/startup-admin.js')(log, user, repos);
+var gitserver = require('./operations/startup-gitserver.js')(log, admin, user, repos);
