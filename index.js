@@ -62,9 +62,12 @@ var port = process.env.PORT || 1337;
 // TODO: this should show a admin portal that uses the user to perform basic auth
 // TODO: should show process values using the PM2 logs?
 // TODO: should show the kue app in the admin portal
-
+// TODO: admin portal should be able to add repos
+// TODO: admin portal should be able to add users
+// TODO: admin portal should record statics from all apps being run (geo, users, traffic, etc)
+// TODO: admin portal should show all of that data
 app.use(function(req, res, next) {
-    //
+    // 
 });
 
 app.listen(port, function() {
