@@ -20,10 +20,12 @@
     "basic-auth-connect": "^1.0.0",
     "bluebird": "^3.4.0",
     "bunyan": "^1.8.1",
+    "cross-spawn-async": "^2.2.4",
     "express": "^4.13.4",
     "git-server": "^0.2.0",
     "kue": "^0.11.0",
     "nodegit": "^0.13.0",
+    "npm": "^3.9.2",
     "rimraf": "^2.5.2"
   }
 }

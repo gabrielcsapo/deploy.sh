@@ -3,6 +3,7 @@ var app = express();
 var basicAuth = require('basic-auth-connect');
 var kue = require('kue');
 var Promise = require('bluebird');
+var spawn = require('cross-spawn-async');
 
 var GitDeploy = require('./git-deploy.js');
 
@@ -25,7 +26,7 @@ module.exports = function(log, user, repos) {
         log.info('node-distribute listening on http://localhost:' + port)
     });
 
-    // TODO: cleanup
+    // TODO: cleanup 🖕
     var queue = kue.createQueue({
         redis: {
             port: 6379,
@@ -36,34 +37,56 @@ module.exports = function(log, user, repos) {
         disableSearch: false
     });
 
-    // TODO: cleanup
-    var steps = 2;
+    // TODO: cleanup 🖕
+    var steps = 3;
     queue.process('install', 1, function(job, done) {
         job.progress(0, steps);
         var location = job.data.location;
+        var directory = job.data.directory;
         var name = job.data.name;
         return Promise.resolve()
             .then(function() {
-                log.info('queue:deploying the app');
-                job.log('queue:deploying the app');
+                log.info('queue:deploying the app:', name);
+                job.log('queue:deploying the app:', name);
                 job.progress(1, steps);
-                GitDeploy(location, name);
-            }).then(function() {
-                log.info('queue:restarting the services');
-                job.log('queue:restarting the services');
-                job.progress(2, steps);
+                return GitDeploy(location, name, directory);
+            })
+            .then(function() {
+                return new Promise(function(resolve, reject) {
+                    log.info('queue: running npm install :', name);
+                    job.log('queue: running npm install :', name);
+                    console.log(directory);
+                    var cmd = path.resolve(require.resolve('npm'), '..', '..', 'bin', 'npm-cli.js');
+                    var args = ['install', '--ignore-scripts', '--production'];
+                    var npm = spawn(cmd, args, {
+                        cwd: directory
+                    });
+                    npm.stdout.on('data', function(data) {
+                        console.log(data.toString())
+                    });
+                    npm.stderr.on('data', function(data) {
+                        console.log(data.toString())
+                    });
+                    npm.on('close', function(code) {
+                        resolve();
+                    });
+                });
+            })
+            .then(function() {
+                log.info('queue:restarting the services:', name);
+                job.log('queue:restarting the services:', name);
+                job.progress(3, steps);
                 done();
             });
     });
 
     deploy = function(location, name) {
         // TODO: implement starting the app
-        // TODO: implement running npm install in the app directory
-        // TODO: deploy should clone the repo to app and do a npm install
         // TODO: once the deploy is done start node process using npm start (PM2?)
         var install = queue.create('install', {
             location: location,
-            name: name
+            name: name,
+            directory: path.resolve(__dirname, '..', 'app', name)
         })
         .searchKeys(['title', 'hash'])
         .save();
