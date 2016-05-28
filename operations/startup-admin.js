@@ -8,9 +8,13 @@ var spawn = require('cross-spawn-async');
 
 var GitDeploy = require('./git-deploy.js');
 var portfinder = require('portfinder');
+var httpProxy = require('http-proxy');
+var proxy = httpProxy.createProxyServer({});
 var pm2 = require('pm2');
 
 var logs = {};
+var wildcards = {};
+
 module.exports = function(log, user, repos) {
     var port = process.env.PORT || 1337;
 
@@ -32,7 +36,16 @@ module.exports = function(log, user, repos) {
         });
     });
 
-    // TODO: need to implement subdomains and wildcard routing to proxy to apps on the server
+    app.get('*', function(req, res) {
+      var hostname = req.headers.host.split(":")[0];
+      hostname = hostname.substring(0, hostname.indexOf('.'));
+      if(wildcards[hostname]) {
+          proxy.web(req, res, { target: 'http://127.0.0.1:' + wildcards[hostname]  });
+      } else {
+          res.send('hostname not found');
+      }
+    });
+
     // TODO: admin portal should be able to add repos
     // TODO: admin portal should be able to add users
     // TODO: admin portal should record statics from all apps being run (geo, users, traffic, etc)
@@ -120,7 +133,6 @@ module.exports = function(log, user, repos) {
                     log.error('queue:restart', err.toString());
                     process.exit(2);
                 }
-
                 // TODO: need to be able customized scripts
                 pm2.start({
                     name: name,
@@ -134,6 +146,14 @@ module.exports = function(log, user, repos) {
                     if (err) {
                         log.error('queue:pm2:start', err);
                     }
+                    // Go through repos and check for subdomin and register it with wildcard routes
+                    repos.forEach(function(repo) {
+                        if(repo.name == name) {
+                            if(repo.subdomain) {
+                                wildcards[repo.subdomain] = port;
+                            }
+                        }
+                    });
                     callback();
                 });
             });
