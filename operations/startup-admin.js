@@ -58,6 +58,7 @@ module.exports = function(user, repos) {
         }
     });
 
+    // TODO: need a way to have a main application that serves itself infront of the admin portal
     app.get('*', isAuthenticated, function(req, res, next) {
         var hostname = req.headers.host.split(":")[0];
         hostname = hostname.substring(0, hostname.indexOf('.'));
