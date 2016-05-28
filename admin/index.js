@@ -17,20 +17,14 @@ setInterval(function() {
                         ]
                     });
                 } else {
-                    // TODO: clean this up, just use innerHTML to stuff all the needed elements inside
                     var div = document.createElement('div');
-                    div.id = process.name;
+                    div.innerHTML = '<div id="'+process.name+'">' +
+                        '<h3>' + process.name + ':memory-consumption</h3>' +
+                        '<div id="'+process.name+'-chart"></div>' +
+                    '</div>';
                     document.getElementById('content').appendChild(div);
-                    var name = document.createElement('h3')
-                    name.innerHTML = process.name + ':memory-consumption';
-                    div.appendChild(name);
-                    var chart_div = document.createElement('div');
-                    chart_div.id = process.name + '-chart';
-                    div.appendChild(chart_div);
                     var chart = new Chartist.Line('#' + process.name + '-chart', {
-                        series: [
-                            [process.monit.memory]
-                        ]
+                        series: []
                     }, {
                         axisY: {
                             offset: 40,
