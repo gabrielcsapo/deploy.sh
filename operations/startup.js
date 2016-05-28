@@ -3,10 +3,8 @@ var fs = require('fs');
 var crypto = require('crypto');
 
 module.exports = (function() {
-    // TODO: abstract into lib/startup.js
     // TODO: use lowdb, because eventually we want to be able to write to these files
     // TODO: or abstract this out to be able to save the json files whenever you change the underlying object?
-
     if (!fs.existsSync(path.resolve(__dirname, '..', 'config', 'user.json'))) {
         var user = {
             username: 'root',
@@ -16,6 +14,7 @@ module.exports = (function() {
     }
     if (!fs.existsSync(path.resolve(__dirname, '..', 'config', 'repos.json'))) {
         var repos = [{
+            subdomain: 'test',
             name: 'test',
             anonRead: false,
             users: [{

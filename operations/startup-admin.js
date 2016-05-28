@@ -7,10 +7,10 @@ var path = require('path');
 var spawn = require('cross-spawn-async');
 
 var GitDeploy = require('./git-deploy.js');
+var portfinder = require('portfinder');
 var pm2 = require('pm2');
 
 var logs = {};
-
 module.exports = function(log, user, repos) {
     var port = process.env.PORT || 1337;
 
@@ -114,24 +114,28 @@ module.exports = function(log, user, repos) {
     });
 
     start = function(name, directory, callback) {
-        pm2.connect(true, function(err) {
-            if (err) {
-                log.error('queue:restart', err.toString());
-                process.exit(2);
-            }
-
-            // TODO: need to be able customized scripts
-            // TODO: need to pass randomized port to stop port collisions
-            pm2.start({
-                name: name,
-                cwd: directory,
-                script: 'index.js',
-            }, function(err, apps) {
-                pm2.disconnect();
+        portfinder.getPort(function (err, port) {
+            pm2.connect(true, function(err) {
                 if (err) {
-                    log.error('queue:pm2:start', err);
+                    log.error('queue:restart', err.toString());
+                    process.exit(2);
                 }
-                callback();
+
+                // TODO: need to be able customized scripts
+                pm2.start({
+                    name: name,
+                    cwd: directory,
+                    script: 'index.js',
+                    env: {
+                        PORT: port
+                    }
+                }, function(err, apps) {
+                    pm2.disconnect();
+                    if (err) {
+                        log.error('queue:pm2:start', err);
+                    }
+                    callback();
+                });
             });
         });
     }
