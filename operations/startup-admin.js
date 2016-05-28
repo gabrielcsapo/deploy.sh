@@ -77,6 +77,7 @@ module.exports = function(user, repos) {
     app.get('*', isAuthenticated, function(req, res, next) {
         var hostname = req.headers.host.split(":")[0];
         hostname = hostname.substring(0, hostname.indexOf('.'));
+        // TODO: admin portal should be able to restart itself?
         // TODO: admin portal should be able to add repos
         // TODO: admin portal should be able to add users
         // TODO: admin portal should record statics from all apps being run (geo, users, etc)
