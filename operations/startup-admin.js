@@ -6,10 +6,12 @@ var Promise = require('bluebird');
 var spawn = require('cross-spawn-async');
 
 var GitDeploy = require('./git-deploy.js');
+var pm2 = require('pm2');
 
 module.exports = function(log, user, repos) {
     var port = process.env.PORT || 1337;
 
+    // TODO: need to implement subdomains and wildcard routing to proxy to apps on the server
     // TODO: should show process values using the PM2 logs?
     // TODO: admin portal should be able to add repos
     // TODO: admin portal should be able to add users
@@ -73,23 +75,39 @@ module.exports = function(log, user, repos) {
                 });
             })
             .then(function() {
+                job.progress(3, steps);
                 log.info('queue:restarting the services:', name);
                 job.log('queue:restarting the services:', name);
-                job.progress(3, steps);
-                done();
-            });
+                pm2.connect(function(err) {
+                    if (err) {
+                        console.log(err);
+                        process.exit(2);
+                    }
+
+                    // TODO: figure out how to run start command
+                    // TODO: need to record the app id to kill it in case of redeploy
+                    // TODO: need to pipe all logs to admin portal
+                    // TODO: need to pass randomized port to stop port collisions
+                    pm2.start({
+                        cwd: directory,
+                        script: 'index.js',
+                    }, function(err, apps) {
+                        console.log(err);
+                        console.log(apps);
+                        done();
+                    });
+                });
+            })
     });
 
     deploy = function(location, name) {
-        // TODO: implement starting the app
-        // TODO: once the deploy is done start node process using npm start (PM2?)
         var install = queue.create('install', {
-            location: location,
-            name: name,
-            directory: path.resolve(__dirname, '..', 'app', name)
-        })
-        .searchKeys(['title', 'hash'])
-        .save();
+                location: location,
+                name: name,
+                directory: path.resolve(__dirname, '..', 'app', name)
+            })
+            .searchKeys(['title', 'hash'])
+            .save();
     };
 
     return {
