@@ -4,37 +4,27 @@ var basicAuth = require('basic-auth-connect');
 var kue = require('kue');
 var Promise = require('bluebird');
 var path = require('path');
-var spawn = require('cross-spawn-async');
 
 var GitDeploy = require('./git-deploy.js');
-var portfinder = require('portfinder');
+
 var httpProxy = require('http-proxy');
 var proxy = httpProxy.createProxyServer({});
 var pm2 = require('pm2');
 
-var logs = {};
-var wildcards = {};
+var log = require('./lib/log');
 
 // TODO: cleanup 🖕
-module.exports = function(log, user, repos) {
-    var port = process.env.PORT || 1337;
+module.exports = function(user, repos) {
+    require('./startup-applications')(repos);
 
-    var queue = kue.createQueue({
-        redis: {
-            port: 6379,
-            host: '127.0.0.1',
-            auth: '',
-            options: {}
-        },
-        disableSearch: false
-    });
+    var port = process.env.PORT || 1337;
 
     pm2.launchBus(function(err, bus) {
         bus.on('log:out', function(data) {
-            if (!logs[data.process.name]) {
-                logs[data.process.name] = [];
+            if (!GLOBAL.logs[data.process.name]) {
+                GLOBAL.logs[data.process.name] = [];
             }
-            logs[data.process.name].push(data.data);
+            GLOBAL.logs[data.process.name].push(data.data);
         });
     });
 
@@ -78,7 +68,7 @@ module.exports = function(log, user, repos) {
         if (hostname == 'admin') {
             switch (req.url) {
                 case '/logs/json':
-                    res.send(logs);
+                    res.send(GLOBAL.logs);
                     break;
                 case '/process/json':
                     pm2.connect(true, function(err) {
@@ -89,16 +79,21 @@ module.exports = function(log, user, repos) {
                     });
                     break;
                 case '/':
-                    res.render('admin/index');
+                    res.render('admin');
                     break;
                 default:
                     next();
                     break;
             }
         } else {
-            if (wildcards[hostname]) {
+            if (GLOBAL.wildcards[hostname]) {
                 proxy.web(req, res, {
                     target: 'http://127.0.0.1:' + wildcards[hostname]
+                }, function(e) {
+                    log.error('proxy:error', e.toString());
+                    if (e) {
+                        next();
+                    }
                 });
             } else {
                 next();
@@ -114,114 +109,4 @@ module.exports = function(log, user, repos) {
         log.info('node-distribute listening on http://localhost:' + port)
     });
 
-    // TODO: cleanup 🖕
-    var steps = 3;
-    queue.process('install', 1, function(job, done) {
-        job.progress(0, steps);
-        var location = job.data.location;
-        var directory = job.data.directory;
-        var name = job.data.name;
-        return Promise.resolve()
-            .then(function() {
-                log.info('queue:deploying the app:', name);
-                job.log('queue:deploying the app:', name);
-                job.progress(1, steps);
-                return GitDeploy(location, name, directory);
-            })
-            .then(function() {
-                return new Promise(function(resolve, reject) {
-                    log.info('queue: running npm install :', name);
-                    job.log('queue: running npm install :', name);
-                    logs[name] = [];
-                    var cmd = path.resolve(require.resolve('npm'), '..', '..', 'bin', 'npm-cli.js');
-                    var args = ['install', '--ignore-scripts', '--production'];
-                    var npm = spawn(cmd, args, {
-                        cwd: directory
-                    });
-                    npm.stdout.on('data', function(data) {
-                        logs[name].push(data.toString());
-                    });
-                    npm.stderr.on('data', function(data) {
-                        logs[name].push(data.toString())
-                    });
-                    npm.on('close', function(code) {
-                        resolve();
-                    });
-                });
-            })
-            .then(function() {
-                job.progress(3, steps);
-                log.info('queue:restarting the services:', name);
-                job.log('queue:restarting the services:', name);
-                start(name, directory, function() {
-                    job.remove(function(err) {
-                        if (err) {
-                            logger.error(err);
-                        }
-                        done();
-                    });
-                });
-            });
-    });
-
-    start = function(name, directory, callback) {
-        portfinder.getPort(function(err, port) {
-            pm2.connect(true, function(err) {
-                if (err) {
-                    log.error('queue:restart', err.toString());
-                    process.exit(2);
-                }
-                // TODO: need to be able customized scripts
-                pm2.start({
-                    name: name,
-                    cwd: directory,
-                    script: 'index.js',
-                    env: {
-                        PORT: port
-                    }
-                }, function(err, apps) {
-                    pm2.disconnect();
-                    if (err) {
-                        log.error('queue:pm2:start', err);
-                    }
-                    // Go through repos and check for subdomin and register it with wildcard routes
-                    repos.forEach(function(repo) {
-                        if (repo.name == name) {
-                            if (repo.subdomain) {
-                                wildcards[repo.subdomain] = port;
-                            }
-                        }
-                    });
-                    callback();
-                });
-            });
-        });
-    }
-
-    deploy = function(location, name) {
-        log.info('deploy:stop process', name);
-        pm2.connect(true, function(err) {
-            pm2.stop(name, function(err) {
-                var install = queue.create('install', {
-                        location: location,
-                        name: name,
-                        directory: path.resolve(__dirname, '..', 'app', name)
-                    })
-                    .searchKeys(['title', 'hash'])
-                    .save();
-            });
-        });
-    };
-
-    if (repos) {
-        repos.forEach(function(repo) {
-            start(repo.name, path.resolve(__dirname, '..', 'app', repo.name), function() {
-                log.info('app:started:', repo.name);
-            });
-        });
-    }
-
-    return {
-        deploy: deploy
-    };
 }

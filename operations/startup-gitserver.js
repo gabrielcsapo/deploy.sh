@@ -1,7 +1,9 @@
 var GitServer = require('git-server');
+var gitDeploy = require('./git-deploy');
 var path = require('path');
+var log = require('./lib/log');
 
-module.exports = function(log, admin, user, repos) {
+module.exports = function(user, repos) {
 
     repos.forEach(function(repo) {
         repo.users[0].user = user;
@@ -62,7 +64,7 @@ module.exports = function(log, admin, user, repos) {
         log.info('git:post-update', repo.name, repo.last_commit.branch);
         // TODO: this should be configurable...
         if(repo.last_commit.branch == 'master') {
-            admin.deploy(repo.path, repo.name);
+            gitDeploy(repo.path, repo.name);
         }
         update.accept();
     });

@@ -24,6 +24,11 @@ module.exports = (function() {
         }];
         fs.writeFileSync(path.resolve(__dirname, '..', 'config', 'repos.json'), JSON.stringify(repos, null, 4));
     }
-    // TODO: change this to show any failures so that anything requiring this can check and make sure that nothing failed
-    return true;
+
+    // TODO: add checks to make sure the data is not malformed
+    var user = require('../config/user.json');
+    var repos = require('../config/repos.json');
+
+    var admin = require('./startup-admin.js')(user, repos);
+    var gitserver = require('./startup-gitserver.js')(user, repos);
 }());

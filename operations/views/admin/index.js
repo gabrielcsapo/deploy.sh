@@ -45,7 +45,6 @@ setInterval(function() {
                     }
                 }
             });
-            console.log(processes);
         }
     }
     xhr.send();
