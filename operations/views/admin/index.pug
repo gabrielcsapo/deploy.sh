@@ -19,9 +19,11 @@ html
                     div(class="nav")
                         a(class="text-black" href="/admin/queue") Queue
 
-        div(class="text-center" id="content" style="width:100%;position: absolute;top: 50%;transform: translateY(-50%);")
+        div(class="text-center" id="content" style="width:100%;")
 
         script
             include ../../../node_modules/chartist/dist/chartist.js
+        script
+            include ../../../node_modules/moment/moment.js
         script
             include ./index.js

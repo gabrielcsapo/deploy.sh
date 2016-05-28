@@ -4,9 +4,8 @@ var basicAuth = require('basic-auth-connect');
 var kue = require('kue');
 var Promise = require('bluebird');
 var path = require('path');
-
-var GitDeploy = require('./git-deploy.js');
-
+var responseTime = require('response-time');
+var moment = require('moment');
 var httpProxy = require('http-proxy');
 var proxy = httpProxy.createProxyServer({});
 var pm2 = require('pm2');
@@ -31,6 +30,22 @@ module.exports = function(user, repos) {
     app.set('views', './operations/views')
     app.set('view engine', 'pug');
     kue.app.set('title', 'node-distribute');
+
+    app.use(responseTime(function (req, res, time) {
+        var hostname = req.headers.host.split(":")[0];
+        hostname = hostname.substring(0, hostname.indexOf('.'));
+        repos.forEach(function(repo) {
+            if(repo.subdomain == hostname) {
+                if(!GLOBAL.routes[repo.name]) {
+                    GLOBAL.routes[repo.name] = {};
+                }
+                if(!GLOBAL.routes[repo.name][req.originalUrl]) {
+                    GLOBAL.routes[repo.name][req.originalUrl] = [];
+                }
+                GLOBAL.routes[repo.name][req.originalUrl].push([moment().format('x'), time]);
+            }
+        });
+    }))
 
     var isAuthenticated = function(req, res, next) {
         // Opens the door to having a server that is not authentication protected
@@ -64,7 +79,7 @@ module.exports = function(user, repos) {
         hostname = hostname.substring(0, hostname.indexOf('.'));
         // TODO: admin portal should be able to add repos
         // TODO: admin portal should be able to add users
-        // TODO: admin portal should record statics from all apps being run (geo, users, traffic, etc)
+        // TODO: admin portal should record statics from all apps being run (geo, users, etc)
         // TODO: admin portal should show all of that data
         if (hostname == 'admin') {
             switch (req.url) {
@@ -74,6 +89,9 @@ module.exports = function(user, repos) {
                             list.forEach(function(process) {
                                 if(GLOBAL.logs[process.name]) {
                                     process.logs = GLOBAL.logs[process.name];
+                                }
+                                if(GLOBAL.routes[process.name]) {
+                                    process.routes = GLOBAL.routes[process.name];
                                 }
                             });
                             pm2.disconnect();
