@@ -3,6 +3,7 @@ var app = express();
 var basicAuth = require('basic-auth-connect');
 var kue = require('kue');
 var Promise = require('bluebird');
+var path = require('path');
 var spawn = require('cross-spawn-async');
 
 var GitDeploy = require('./git-deploy.js');
@@ -26,12 +27,12 @@ module.exports = function(log, user, repos) {
 
     pm2.launchBus(function(err, bus) {
         bus.on('log:out', function(data) {
+            if (!logs[data.process.name]) { logs[data.process.name] = []; }
             logs[data.process.name].push(data.data);
         });
     });
 
     // TODO: need to implement subdomains and wildcard routing to proxy to apps on the server
-    // TODO: should show process values using the PM2 logs?
     // TODO: admin portal should be able to add repos
     // TODO: admin portal should be able to add users
     // TODO: admin portal should record statics from all apps being run (geo, users, traffic, etc)
@@ -106,29 +107,34 @@ module.exports = function(log, user, repos) {
                 job.progress(3, steps);
                 log.info('queue:restarting the services:', name);
                 job.log('queue:restarting the services:', name);
-                pm2.connect(true, function(err) {
-                    if (err) {
-                        log.error('queue:restart', err.toString());
-                        process.exit(2);
-                    }
-
-                    // TODO: need to be able customized scripts
-                    // TODO: need to pass randomized port to stop port collisions
-                    pm2.start({
-                        name: name,
-                        cwd: directory,
-                        script: 'index.js',
-                    }, function(err, apps) {
-                        pm2.disconnect();
-                        if (err) {
-                            log.error('queue:pm2:start', err);
-                        }
-                        done();
-                    });
+                start(name, directory, function() {
+                    done();
                 });
             });
     });
 
+    start = function(name, directory, callback) {
+        pm2.connect(true, function(err) {
+            if (err) {
+                log.error('queue:restart', err.toString());
+                process.exit(2);
+            }
+
+            // TODO: need to be able customized scripts
+            // TODO: need to pass randomized port to stop port collisions
+            pm2.start({
+                name: name,
+                cwd: directory,
+                script: 'index.js',
+            }, function(err, apps) {
+                pm2.disconnect();
+                if (err) {
+                    log.error('queue:pm2:start', err);
+                }
+                callback();
+            });
+        });
+    }
 
     deploy = function(location, name) {
         log.info('deploy:stop process', name);
@@ -144,6 +150,14 @@ module.exports = function(log, user, repos) {
             });
         });
     };
+
+    if (repos) {
+        repos.forEach(function(repo) {
+            start(repo.name, path.resolve(__dirname, '..', 'app', repo.name), function() {
+                log.info('app:started:', repo.name);
+            });
+        });
+    }
 
     return {
         deploy: deploy
