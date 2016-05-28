@@ -1,0 +1,8 @@
+.process-container {
+    height:250px;
+}
+.process-logs {
+    text-align: left;
+    height:150px;
+    overflow: scroll;
+}

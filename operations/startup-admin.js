@@ -68,12 +68,14 @@ module.exports = function(user, repos) {
         // TODO: admin portal should show all of that data
         if (hostname == 'admin') {
             switch (req.url) {
-                case '/logs/json':
-                    res.send(GLOBAL.logs);
-                    break;
                 case '/process/json':
                     pm2.connect(true, function(err) {
                         pm2.list(function(err, list) {
+                            list.forEach(function(process) {
+                                if(GLOBAL.logs[process.name]) {
+                                    process.logs = GLOBAL.logs[process.name];
+                                }
+                            });
                             pm2.disconnect();
                             res.send(list);
                         });
