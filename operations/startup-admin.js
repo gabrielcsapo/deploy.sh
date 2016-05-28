@@ -15,10 +15,10 @@ var pm2 = require('pm2');
 var logs = {};
 var wildcards = {};
 
+// TODO: cleanup 🖕
 module.exports = function(log, user, repos) {
     var port = process.env.PORT || 1337;
 
-    // TODO: cleanup 🖕
     var queue = kue.createQueue({
         redis: {
             port: 6379,
@@ -31,50 +31,83 @@ module.exports = function(log, user, repos) {
 
     pm2.launchBus(function(err, bus) {
         bus.on('log:out', function(data) {
-            if (!logs[data.process.name]) { logs[data.process.name] = []; }
+            if (!logs[data.process.name]) {
+                logs[data.process.name] = [];
+            }
             logs[data.process.name].push(data.data);
         });
     });
 
-    app.get('*', function(req, res) {
-      var hostname = req.headers.host.split(":")[0];
-      hostname = hostname.substring(0, hostname.indexOf('.'));
-      if(wildcards[hostname]) {
-          proxy.web(req, res, { target: 'http://127.0.0.1:' + wildcards[hostname]  });
-      } else {
-          res.send('hostname not found');
-      }
-    });
-
-    // TODO: admin portal should be able to add repos
-    // TODO: admin portal should be able to add users
-    // TODO: admin portal should record statics from all apps being run (geo, users, traffic, etc)
-    // TODO: admin portal should show all of that data
-    app.use(basicAuth(user.username, user.password));
-    app.use(function(req, res, next) {
-        next();
-    });
-    app.set('views', 'admin')
+    app.set('views', './operations/views')
     app.set('view engine', 'pug');
     kue.app.set('title', 'node-distribute');
 
-    app.get('/admin', function(req, res) {
-        res.render('index');
+    var isAuthenticated = function(req, res, next) {
+        // Opens the door to having a server that is not authentication protected
+        // This helps with local debugging
+        if (user.username && user.password) {
+            var hostname = req.headers.host.split(":")[0];
+            hostname = hostname.substring(0, hostname.indexOf('.'));
+            if (hostname == 'admin') {
+                return basicAuth(user.username, user.password)(req, res, next);
+            } else {
+                next();
+            }
+        } else {
+            next();
+        }
+    }
+
+    app.use('/queue', isAuthenticated, function(req, res, next) {
+        var hostname = req.headers.host.split(":")[0];
+        hostname = hostname.substring(0, hostname.indexOf('.'));
+        if (hostname == 'admin') {
+            kue.app(req, res, next);
+        } else {
+            next();
+        }
     });
 
-    app.use('/admin/queue', kue.app);
-
-    app.get('/admin/process/json', function(req, res) {
-        pm2.connect(true, function(err) {
-            pm2.list(function(err, list) {
-                pm2.disconnect();
-                res.send(list);
-            });
-        });
+    app.get('*', isAuthenticated, function(req, res, next) {
+        var hostname = req.headers.host.split(":")[0];
+        hostname = hostname.substring(0, hostname.indexOf('.'));
+        // TODO: admin portal should be able to add repos
+        // TODO: admin portal should be able to add users
+        // TODO: admin portal should record statics from all apps being run (geo, users, traffic, etc)
+        // TODO: admin portal should show all of that data
+        if (hostname == 'admin') {
+            switch (req.url) {
+                case '/logs/json':
+                    res.send(logs);
+                    break;
+                case '/process/json':
+                    pm2.connect(true, function(err) {
+                        pm2.list(function(err, list) {
+                            pm2.disconnect();
+                            res.send(list);
+                        });
+                    });
+                    break;
+                case '/':
+                    res.render('admin/index');
+                    break;
+                default:
+                    next();
+                    break;
+            }
+        } else {
+            if (wildcards[hostname]) {
+                proxy.web(req, res, {
+                    target: 'http://127.0.0.1:' + wildcards[hostname]
+                });
+            } else {
+                next();
+            }
+        }
     });
 
-    app.get('/admin/logs/json', function(req, res) {
-        res.send(logs);
+    app.use(function(req, res, next) {
+        res.render('404');
     });
 
     app.listen(port, function() {
@@ -121,13 +154,18 @@ module.exports = function(log, user, repos) {
                 log.info('queue:restarting the services:', name);
                 job.log('queue:restarting the services:', name);
                 start(name, directory, function() {
-                    done();
+                    job.remove(function(err) {
+                        if (err) {
+                            logger.error(err);
+                        }
+                        done();
+                    });
                 });
             });
     });
 
     start = function(name, directory, callback) {
-        portfinder.getPort(function (err, port) {
+        portfinder.getPort(function(err, port) {
             pm2.connect(true, function(err) {
                 if (err) {
                     log.error('queue:restart', err.toString());
@@ -148,8 +186,8 @@ module.exports = function(log, user, repos) {
                     }
                     // Go through repos and check for subdomin and register it with wildcard routes
                     repos.forEach(function(repo) {
-                        if(repo.name == name) {
-                            if(repo.subdomain) {
+                        if (repo.name == name) {
+                            if (repo.subdomain) {
                                 wildcards[repo.subdomain] = port;
                             }
                         }

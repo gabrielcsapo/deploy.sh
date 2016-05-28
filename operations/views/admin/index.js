@@ -4,7 +4,7 @@ var charts = {};
 // TODO: 🤕
 setInterval(function() {
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/admin/process/json");
+    xhr.open("GET", "/process/json");
     xhr.onreadystatechange = function() {
         if (xhr.readyState == 4 && xhr.status == 200) {
             var response = JSON.parse(xhr.responseText);

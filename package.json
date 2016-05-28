@@ -4,7 +4,8 @@
   "description": "continuous deployment of node services",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js | ./node_modules/.bin/bunyan -o short"
+    "start": "node index.js | ./node_modules/.bin/bunyan -o short",
+    "clean": "redis-cli flushall;"
   },
   "repository": {
     "type": "git",
@@ -33,5 +34,8 @@
     "psychic-ui": "^0.1.0",
     "pug": "^2.0.0-alpha8",
     "rimraf": "^2.5.2"
+  },
+  "devDependencies": {
+    "grunt": "^1.0.1"
   }
 }
