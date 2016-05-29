@@ -1,7 +1,9 @@
+/*global Chartist, moment */
 var processes = {};
 var charts = {};
 var logs = {};
 
+// TODO: add the ability to turn off sync? (could be interesting to stop it and be able to turn it on when needed)
 // TODO: 🤕
 var getProcesses = function() {
     var xhr = new XMLHttpRequest();
@@ -75,7 +77,7 @@ var getProcesses = function() {
                           },
                           axisY: {
                             position: 'right'
-                          },
+                          }
                       });
                     charts[process.name] = {};
                     charts[process.name]['memory'] = memory;

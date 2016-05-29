@@ -2,8 +2,6 @@ var express = require('express');
 var app = express();
 var basicAuth = require('basic-auth-connect');
 var kue = require('kue');
-var Promise = require('bluebird');
-var path = require('path');
 var responseTime = require('response-time');
 var moment = require('moment');
 var httpProxy = require('http-proxy');
@@ -86,7 +84,13 @@ module.exports = function(user, repos) {
             switch (req.url) {
                 case '/process/json':
                     pm2.connect(true, function(err) {
+                        if (err) {
+                            throw err;
+                        }
                         pm2.list(function(err, list) {
+                            if (err) {
+                                throw err;
+                            }
                             list.forEach(function(process) {
                                 if(GLOBAL.logs[process.name]) {
                                     process.logs = GLOBAL.logs[process.name];
@@ -110,7 +114,7 @@ module.exports = function(user, repos) {
         } else {
             if (GLOBAL.wildcards[hostname]) {
                 proxy.web(req, res, {
-                    target: 'http://127.0.0.1:' + wildcards[hostname]
+                    target: 'http://127.0.0.1:' + GLOBAL.wildcards[hostname]
                 }, function(e) {
                     log.error('proxy:error', e.toString());
                     if (e) {
@@ -123,7 +127,7 @@ module.exports = function(user, repos) {
         }
     });
 
-    app.use(function(req, res, next) {
+    app.use(function(req, res) {
         res.render('404');
     });
 

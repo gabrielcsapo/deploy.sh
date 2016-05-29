@@ -4,6 +4,7 @@
   "description": "continuous deployment of node services",
   "main": "index.js",
   "scripts": {
+    "test": "./node_modules/.bin/eslint .;",
     "start": "node index.js | ./node_modules/.bin/bunyan -o short",
     "clean": "redis-cli flushall;"
   },

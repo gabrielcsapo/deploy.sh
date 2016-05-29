@@ -20,7 +20,7 @@ module.exports = function(name, directory, repos, callback) {
                         env: {
                             PORT: port
                         }
-                    }, function(err, apps) {
+                    }, function(err) {
                         pm2.disconnect();
                         if (err) {
                             log.error('queue:pm2:start', err);

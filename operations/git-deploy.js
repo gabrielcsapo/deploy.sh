@@ -63,7 +63,11 @@ queue.process('install', 1, function(job, done) {
                     GLOBAL.logs[name].push(data.toString())
                 });
                 npm.on('close', function(code) {
-                    resolve();
+                    if (code === 0) {
+                        resolve();
+                    } else {
+                        reject();
+                    }
                 });
             });
         })
@@ -74,7 +78,7 @@ queue.process('install', 1, function(job, done) {
             startApplication(name, directory, repos, function() {
                 job.remove(function(err) {
                     if (err) {
-                        logger.error(err);
+                        log.error(err);
                     }
                     done();
                 });
@@ -85,8 +89,14 @@ queue.process('install', 1, function(job, done) {
 module.exports = function(location, name) {
     log.info('deploy:stop process', name);
     pm2.connect(true, function(err) {
+        if (err) {
+            throw err;
+        }
         pm2.stop(name, function(err) {
-            var install = queue.create('install', {
+            if (err) {
+                throw err;
+            }
+            queue.create('install', {
                     location: location,
                     name: name,
                     directory: path.resolve(__dirname, '..', 'app', name)
