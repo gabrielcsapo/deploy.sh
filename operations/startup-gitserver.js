@@ -3,7 +3,9 @@ var gitDeploy = require('./git-deploy');
 var path = require('path');
 var log = require('./lib/log');
 
-module.exports = function(user, repos) {
+module.exports = function() {
+    var user = require('./lib/user').get();
+    var repos = require('./lib/repos').get();
 
     repos.forEach(function(repo) {
         repo.users[0].user = user;

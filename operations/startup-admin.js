@@ -11,8 +11,11 @@ var pm2 = require('pm2');
 var log = require('./lib/log');
 
 // TODO: cleanup 🖕
-module.exports = function(user, repos) {
-    require('./startup-applications')(repos);
+module.exports = function() {
+    require('./startup-applications')();
+
+    var user = require('./lib/user');
+    var repos = require('./lib/repos');
 
     var port = process.env.PORT || 1337;
 
@@ -32,7 +35,7 @@ module.exports = function(user, repos) {
     app.use(responseTime(function (req, res, time) {
         var hostname = req.headers.host.split(":")[0];
         hostname = hostname.substring(0, hostname.indexOf('.'));
-        repos.forEach(function(repo) {
+        repos.get().forEach(function(repo) {
             if(repo.subdomain == hostname) {
                 if(!GLOBAL.routes[repo.name]) {
                     GLOBAL.routes[repo.name] = {};
@@ -92,6 +95,7 @@ module.exports = function(user, repos) {
                                 throw err;
                             }
                             list.forEach(function(process) {
+                                process.repo = repos.get(process.name);
                                 if(GLOBAL.logs[process.name]) {
                                     process.logs = GLOBAL.logs[process.name];
                                 }

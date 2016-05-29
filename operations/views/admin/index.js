@@ -2,6 +2,7 @@
 var processes = {};
 var charts = {};
 var logs = {};
+var repo = {};
 
 // TODO: add the ability to turn off sync? (could be interesting to stop it and be able to turn it on when needed)
 // TODO: 🤕
@@ -13,6 +14,7 @@ var getProcesses = function() {
             var response = JSON.parse(xhr.responseText);
             response.forEach(function(process) {
                 if (processes[process.name]) {
+                    repo[process.name].innerHTML = JSON.stringify(process.repo, null, 4);
                     var series = [];
                     for(var key in process.routes) {
                         var data = [];
@@ -40,6 +42,7 @@ var getProcesses = function() {
                     var div = document.createElement('div');
                     div.innerHTML = '<div class="grid process-container" id="'+process.name+'">' +
                         '<h3 class="col-12-12">' + process.name + '</h3>' +
+                        '<div class="col-12-12"><pre style="text-align:left;" id="'+process.name+'-repo"></pre></div>' +
                         '<div class="col-6-12"><h5>memory-consumption</h5><div id="'+process.name+'-chart-memory"></div></div>' +
                         '<div class="col-6-12"><h5>traffic</h5><div id="'+process.name+'-chart-traffic"></div></div>' +
                         '<div class="col-12-12"><div style="padding:10px;"><pre class="process-logs" id="'+process.name+'-logs"></pre><small id="'+process.name+'-logs-count"></small></div></div>' +
@@ -49,6 +52,7 @@ var getProcesses = function() {
                     logs[process.name] = {};
                     logs[process.name]['count'] = document.getElementById(process.name + '-logs-count');
                     logs[process.name]['log'] = document.getElementById(process.name + '-logs');
+                    repo[process.name] = document.getElementById(process.name + '-repo');
                     var memory = new Chartist.Line('#' + process.name + '-chart-memory', {
                         series: []
                     }, {

@@ -18,7 +18,7 @@ var queue = kue.createQueue({
     disableSearch: false
 });
 
-var repos = require('../config/repos.json');
+var repos = require('./lib/repos.js');
 
 var steps = 3;
 queue.process('install', 1, function(job, done) {
@@ -75,7 +75,7 @@ queue.process('install', 1, function(job, done) {
             job.progress(3, steps);
             log.info('queue:restarting the services:', name);
             job.log('queue:restarting the services:', name);
-            startApplication(name, directory, repos, function() {
+            startApplication(name, directory, repos.get(), function() {
                 job.remove(function(err) {
                     if (err) {
                         log.error(err);

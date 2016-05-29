@@ -36,7 +36,8 @@
     "psychic-ui": "^0.1.0",
     "pug": "^2.0.0-alpha8",
     "response-time": "^2.3.1",
-    "rimraf": "^2.5.2"
+    "rimraf": "^2.5.2",
+    "underscore": "^1.8.3"
   },
   "devDependencies": {
     "eslint": "^2.11.0",
