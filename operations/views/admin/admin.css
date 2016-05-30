@@ -1,5 +1,10 @@
+html, body {
+    height: 100%;
+    width: 100%;
+}
 .process-container {
-    height:250px;
+    height: auto;
+    margin: 60px;
 }
 .process-logs {
     text-align: left;

@@ -40,13 +40,14 @@ var getProcesses = function() {
                     });
                 } else {
                     var div = document.createElement('div');
-                    div.innerHTML = '<div class="grid process-container" id="'+process.name+'">' +
+                    div.innerHTML = '<div class="process-container" id="'+process.name+'">' +
+                        '<div class="grid">' +
                         '<h3 class="col-12-12">' + process.name + '</h3>' +
                         '<div class="col-12-12"><h5>repo info</h5><pre style="text-align:left;" id="'+process.name+'-repo"></pre></div>' +
                         '<div class="col-6-12"><h5>memory-consumption</h5><div id="'+process.name+'-chart-memory"></div></div>' +
                         '<div class="col-6-12"><h5>traffic</h5><div id="'+process.name+'-chart-traffic"></div></div>' +
-                        '<div class="col-12-12"><div style="padding:10px;"><pre class="process-logs" id="'+process.name+'-logs"></pre><small id="'+process.name+'-logs-count"></small></div></div>' +
-                        '<div '
+                        '<div class="col-12-12"><div><pre class="process-logs" id="'+process.name+'-logs"></pre><small id="'+process.name+'-logs-count"></small></div></div>' +
+                        '</div>' +
                     '</div>';
                     document.getElementById('content').appendChild(div);
                     logs[process.name] = {};
@@ -57,17 +58,14 @@ var getProcesses = function() {
                         series: []
                     }, {
                         axisY: {
-                            offset: 40,
+                            offset: 60,
                             labelInterpolationFnc: function(value) {
-                                return value + 'mb'
+                                return value.toFixed(1) + 'mb'
                             },
                             scaleMinSpace: 15
                         },
                         fullWidth: true,
-                        showArea: true,
-                        chartPadding: {
-                            right: 40
-                        }
+                        showArea: true
                     });
                     var traffic = new Chartist.Line('#' + process.name + '-chart-traffic', {
                           series: []
@@ -80,6 +78,11 @@ var getProcesses = function() {
                             }
                           },
                           axisY: {
+                              offset: 45,
+                              labelInterpolationFnc: function(value) {
+                                  return value + 'ms'
+                              },
+                              scaleMinSpace: 15,
                             position: 'right'
                           }
                       });
