@@ -7,7 +7,7 @@ var crypto = require('crypto');
 
 var user;
 if (!fs.existsSync(path.resolve(__dirname, '..', '..', 'config', 'user.json'))) {
-    var user = {
+    user = {
         username: 'root',
         password: crypto.randomBytes(20).toString('hex')
     }

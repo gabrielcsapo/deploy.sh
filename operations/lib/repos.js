@@ -3,6 +3,7 @@
 // TODO: add checks to make sure the data is not malformed
 var path = require('path');
 var fs = require('fs');
+var user = require('./user');
 var _ = require('underscore');
 
 var repos;
@@ -12,7 +13,7 @@ if (!fs.existsSync(path.resolve(__dirname, '..', '..', 'config', 'repos.json')))
         name: 'test',
         anonRead: false,
         users: [{
-            user: user,
+            user: user.get(),
             permissions: ['R', 'W']
         }]
     }];
