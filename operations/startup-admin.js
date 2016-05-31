@@ -9,6 +9,7 @@ var proxy = httpProxy.createProxyServer({});
 var pm2 = require('pm2');
 
 var log = require('./lib/log');
+var db = require('./lib/db');
 
 // TODO: cleanup 🖕
 module.exports = function() {
@@ -21,10 +22,7 @@ module.exports = function() {
 
     pm2.launchBus(function(err, bus) {
         bus.on('log:out', function(data) {
-            if (!GLOBAL.logs[data.process.name]) {
-                GLOBAL.logs[data.process.name] = [];
-            }
-            GLOBAL.logs[data.process.name].push(data.data);
+            db(data.process.name, 'logs').push(moment().format() + ': ' + data.data)
         });
     });
 
@@ -37,16 +35,14 @@ module.exports = function() {
         hostname = hostname.substring(0, hostname.indexOf('.'));
         repos.get().forEach(function(repo) {
             if(repo.subdomain == hostname) {
-                if(!GLOBAL.routes[repo.name]) {
-                    GLOBAL.routes[repo.name] = {};
+                if(db(repo.name, 'traffic').find({ url: req.originalUrl})) {
+                    db(repo.name, 'traffic').find({ url: req.originalUrl}).traffic.push([moment().format('x'), time])
+                } else {
+                    db(repo.name, 'traffic').push({url: req.originalUrl, traffic: [[moment().format('x'), time]]});
                 }
-                if(!GLOBAL.routes[repo.name][req.originalUrl]) {
-                    GLOBAL.routes[repo.name][req.originalUrl] = [];
-                }
-                GLOBAL.routes[repo.name][req.originalUrl].push([moment().format('x'), time]);
             }
         });
-    }))
+    }));
 
     var isAuthenticated = function(req, res, next) {
         // Opens the door to having a server that is not authentication protected
@@ -95,13 +91,13 @@ module.exports = function() {
                                 throw err;
                             }
                             list.forEach(function(process) {
+                                // TODO: should probably move this to a better location
+                                db(process.name, 'memory').push([moment().format('x'), process.monit.memory]);
+
                                 process.repo = repos.get(process.name);
-                                if(GLOBAL.logs[process.name]) {
-                                    process.logs = GLOBAL.logs[process.name];
-                                }
-                                if(GLOBAL.routes[process.name]) {
-                                    process.routes = GLOBAL.routes[process.name];
-                                }
+                                process.logs = db(process.name, 'logs').value();
+                                process.traffic = db(process.name, 'traffic').value();
+                                process.memory = db(process.name, 'memory').value();
                             });
                             pm2.disconnect();
                             res.send(list);

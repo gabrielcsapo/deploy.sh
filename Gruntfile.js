@@ -24,7 +24,7 @@ module.exports = function(grunt) {
                         type: 'remote',
                         src: "http://admin.dev:1337",
                         dest: "admin.png",
-                        delay: 10000,
+                        delay: 4000,
                         basicAuth: {
                             username: user.username,
                             password: user.password

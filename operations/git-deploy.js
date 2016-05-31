@@ -1,11 +1,12 @@
 var Git = require('nodegit');
 var path = require('path');
-var rmdir = require('rimraf');
+var rimraf = require('rimraf');
 var Promise = require('bluebird');
 var kue = require('kue');
 var spawn = require('cross-spawn-async');
 var startApplication = require('./startup-application');
 var log = require('./lib/log');
+var db = require('./lib/db');
 var pm2 = require('pm2');
 
 var queue = kue.createQueue({
@@ -32,7 +33,7 @@ queue.process('install', 1, function(job, done) {
             job.log('queue:deploying the app:', name);
             job.progress(1, steps);
             return new Promise(function(resolve, reject) {
-                rmdir(directory, function(err) {
+                rimraf(directory, function(err) {
                     if (err) {
                         reject(err);
                     }
@@ -50,17 +51,17 @@ queue.process('install', 1, function(job, done) {
             return new Promise(function(resolve, reject) {
                 log.info('queue: running npm install :', name);
                 job.log('queue: running npm install :', name);
-                GLOBAL.logs[name] = [];
+
                 var cmd = path.resolve(require.resolve('npm'), '..', '..', 'bin', 'npm-cli.js');
                 var args = ['install', '--ignore-scripts', '--production'];
                 var npm = spawn(cmd, args, {
                     cwd: directory
                 });
                 npm.stdout.on('data', function(data) {
-                    GLOBAL.logs[name].push(data.toString());
+                    db(name, 'logs').push(data.toString());
                 });
                 npm.stderr.on('data', function(data) {
-                    GLOBAL.logs[name].push(data.toString())
+                    db(name, 'logs').push(data.toString());
                 });
                 npm.on('close', function(code) {
                     if (code === 0) {
@@ -90,11 +91,11 @@ module.exports = function(location, name) {
     log.info('deploy:stop process', name);
     pm2.connect(true, function(err) {
         if (err) {
-            throw err;
+            log.error(err);
         }
         pm2.stop(name, function(err) {
             if (err) {
-                throw err;
+                log.error(err);
             }
             queue.create('install', {
                     location: location,

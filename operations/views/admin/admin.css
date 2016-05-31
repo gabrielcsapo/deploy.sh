@@ -5,10 +5,13 @@ html, body {
 .process-container {
     height: auto;
     margin: 60px;
+    padding-bottom: 50px;
 }
 .process-logs {
+    background-color: #000000;
+    color: white;
     text-align: left;
-    height:150px;
+    height:400px;
     overflow: scroll;
     padding:10px;
 }
