@@ -1,19 +1,18 @@
-language: node_js
 addons:
   apt:
+    packages:
+      - "gcc-4.9 - g++-4.9"
     sources:
-        - ubuntu-toolchain-r-test
-            packages:
-                - gcc-4.9
-                - g++-4.9
+      - ubuntu-toolchain-r-test
 before_install:
-  - export CC="gcc-4.9"
-  - export CXX="g++-4.9"
-  - npm install npm@3 -g
-  - BUILD_ONLY=true npm install
+  - "export CC=\"gcc-4.9\""
+  - "export CXX=\"g++-4.9\""
+  - "npm install npm@3 -g"
+  - "BUILD_ONLY=true npm install"
 cache:
-    directories:
-        - node_modules
+  directories:
+    - node_modules
+language: node_js
 node_js:
   - "4"
 services:
