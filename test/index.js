@@ -14,10 +14,10 @@ describe('node-distribute', function() {
     before(function(done) {
         try {
             fs.unlinkSync(path.resolve(__dirname, '..', 'db.json'));
-        } catch(ex) {}
-        rimraf(path.resolve(__dirname, '..', 'repos'), function() { });
-        rimraf(path.resolve(__dirname, '..', 'app'), function() { });
-        setTimeout(function(){
+        } catch (ex) {}
+        rimraf(path.resolve(__dirname, '..', 'repos'), function() {});
+        rimraf(path.resolve(__dirname, '..', 'app'), function() {});
+        setTimeout(function() {
             done();
         }, 2000)
     });
@@ -35,7 +35,7 @@ describe('node-distribute', function() {
         distribute.stdout.on('data', function(data) {
             logs.push(data.toString('utf8'));
             console.log(data.toString('utf8'));
-            if(data.toString('utf8').indexOf('[PM2][WORKER] Started with refreshing interval: 30000') > -1) {
+            if (data.toString('utf8').indexOf('Server listening on  7000') > -1) {
                 done();
             }
         });
@@ -43,13 +43,14 @@ describe('node-distribute', function() {
         distribute.stderr.on('data', function(data) {
             logs.push(data.toString('utf8'));
             console.log(data.toString('utf8'));
+        });
     });
 
     it('should get a 404 on unknown route', function(done) {
         request('http://localhost:1337')
             .get('/')
             .set('Host', 'what.example.com')
-            .expect(404, function(err){
+            .expect(404, function(err) {
                 done();
             });
     });
@@ -59,7 +60,7 @@ describe('node-distribute', function() {
             request('http://localhost:1337')
                 .get('/process/json')
                 .set('Host', 'admin.example.com')
-                .expect(200, function(err, res){
+                .expect(200, function(err, res) {
                     assert.isArray(res.body);
                     assert.isNull(err);
                     done();
@@ -73,9 +74,9 @@ describe('node-distribute', function() {
         });
 
         git.on('close', function() {
-          setTimeout(function() {
-              done();
-          }, 1000);
+            setTimeout(function() {
+                done();
+            }, 1000);
         });
     });
 
@@ -87,9 +88,9 @@ describe('node-distribute', function() {
         });
 
         git.on('close', function() {
-          setTimeout(function() {
-              done();
-          }, 1000);
+            setTimeout(function() {
+                done();
+            }, 1000);
         });
     });
 
@@ -99,28 +100,28 @@ describe('node-distribute', function() {
         });
 
         git.on('close', function() {
-          setTimeout(function() {
-              done();
-          }, 25000);
+            setTimeout(function() {
+                done();
+            }, 25000);
         });
     });
 
-    for(var i = 0; i < 10; i++) {
+    for (var i = 0; i < 10; i++) {
         it('should be able to reach new app url', function(done) {
             request('http://localhost:1337')
                 .get('/distribute')
                 .set('Host', 'test.example.com')
-                .expect(200, function(err){
+                .expect(200, function(err) {
                     assert.isNull(err);
                     request('http://localhost:1337')
                         .get('/hello')
                         .set('Host', 'test.example.com')
-                        .expect(200, function(err){
+                        .expect(200, function(err) {
                             assert.isNull(err);
                             request('http://localhost:1337')
                                 .get('/world')
                                 .set('Host', 'test.example.com')
-                                .expect(200, function(err){
+                                .expect(200, function(err) {
                                     assert.isNull(err);
                                     done();
                                 });

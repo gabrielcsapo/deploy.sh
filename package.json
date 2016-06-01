@@ -4,7 +4,7 @@
   "description": "continuous deployment of node services",
   "main": "index.js",
   "scripts": {
-    "test": "./node_modules/.bin/eslint .;cd test/repo;git config --global user.email 'test@gmail.com';git config --global user.name 'test user';git init;git add -A;git commit -m 'initial commit';cd ../..;mocha;rm -rf test/repo/.git;killall node;",
+    "test": "./node_modules/.bin/eslint .;cd test/repo;git config --local user.email 'test@gmail.com';git config --local user.name 'test user';git init;git add -A;git commit -m 'initial commit';cd ../..;mocha;rm -rf test/repo/.git;killall node;",
     "start": "node index.js | ./node_modules/.bin/bunyan -o short",
     "clean": "redis-cli flushall;"
   },
@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "chai": "^3.5.0",
-    "eslint": "^2.11.0",
+    "eslint": "^2.11.1",
     "grunt": "^1.0.1",
     "grunt-screenshot": "^0.2.0",
     "mocha": "^2.5.3",
