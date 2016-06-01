@@ -1,14 +1,13 @@
 addons:
   apt:
-    packages:
-      - "gcc-4.9 - g++-4.9"
     sources:
       - ubuntu-toolchain-r-test
+    packages:
+      - libstdc++-4.9-dev
 before_install:
-  - "export CC=\"gcc-4.9\""
-  - "export CXX=\"g++-4.9\""
+  - git config --global user.name travis
+  - git config --global user.email travis@locahost
   - "npm install npm@3 -g"
-  - "BUILD_ONLY=true npm install"
 cache:
   directories:
     - node_modules
@@ -17,3 +16,6 @@ node_js:
   - "4"
 services:
   - redis-server
+os:
+  - linux
+sudo: false
