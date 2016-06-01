@@ -4,7 +4,7 @@
   "description": "continuous deployment of node services",
   "main": "index.js",
   "scripts": {
-    "test": "./node_modules/.bin/eslint .;",
+    "test": "./node_modules/.bin/eslint .;cd test/repo;git init;git add -A;git commit -m 'initial commit';cd ../..;mocha;rm -rf test/repo/.git;killall node;",
     "start": "node index.js | ./node_modules/.bin/bunyan -o short",
     "clean": "redis-cli flushall;"
   },
@@ -23,25 +23,29 @@
     "bluebird": "^3.4.0",
     "bunyan": "^1.8.1",
     "chartist": "^0.9.7",
-    "cross-spawn-async": "^2.2.4",
+    "cross-spawn": "^4.0.0",
     "express": "^4.13.4",
     "git-server": "^0.2.0",
     "http-proxy": "^1.13.3",
     "kue": "^0.11.0",
+    "lowdb": "^0.12.5",
     "moment": "^2.13.0",
     "nodegit": "^0.13.0",
     "npm": "^3.9.3",
     "pm2": "^1.1.3",
     "portfinder": "^1.0.3",
-    "psychic-ui": "^0.1.0",
+    "psychic-ui": "^0.1.1",
     "pug": "^2.0.0-alpha8",
     "response-time": "^2.3.1",
     "rimraf": "^2.5.2",
     "underscore": "^1.8.3"
   },
   "devDependencies": {
-    "eslint": "^2.11.0",
+    "chai": "^3.5.0",
+    "eslint": "^2.11.1",
     "grunt": "^1.0.1",
-    "grunt-screenshot": "^0.2.0"
+    "grunt-screenshot": "^0.2.0",
+    "mocha": "^2.5.3",
+    "supertest": "^1.2.0"
   }
 }
