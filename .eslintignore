@@ -2,4 +2,4 @@ node_modules/**
 config/**
 app/**
 repos/**
-test/repo/node_modules/**
+test/**

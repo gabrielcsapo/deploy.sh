@@ -2,7 +2,6 @@ var request = require('supertest');
 var path = require('path');
 var assert = require('chai').assert;
 var spawn = require('child_process').spawn;
-var path = require('path');
 var fs = require('fs');
 var rimraf = require('rimraf');
 
@@ -13,9 +12,11 @@ describe('node-distribute', function() {
     var logs = [];
 
     before(function(done) {
-        fs.unlinkSync(path.resolve(__dirname, '..', 'db.json'));
-        rimraf(path.resolve(__dirname, '..', 'repos'), function(err) { });
-        rimraf(path.resolve(__dirname, '..', 'app'), function(err) { });
+        try {
+            fs.unlinkSync(path.resolve(__dirname, '..', 'db.json'));
+        } catch(ex) {}
+        rimraf(path.resolve(__dirname, '..', 'repos'), function() { });
+        rimraf(path.resolve(__dirname, '..', 'app'), function() { });
         setTimeout(function(){
             done();
         }, 2000)
@@ -33,7 +34,7 @@ describe('node-distribute', function() {
 
         distribute.stdout.on('data', function(data) {
             logs.push(data.toString('utf8'));
-            console.log(data.toString('utf8')); // eslint-disable-line no-console
+            console.log(data.toString('utf8'));
             if(data.toString('utf8').indexOf('[PM2][WORKER] Started with refreshing interval: 30000') > -1) {
                 done();
             }
@@ -42,15 +43,13 @@ describe('node-distribute', function() {
         distribute.stderr.on('data', function(data) {
             logs.push(data.toString('utf8'));
             console.log(data.toString('utf8'));
-        });
     });
 
     it('should get a 404 on unknown route', function(done) {
         request('http://localhost:1337')
             .get('/')
             .set('Host', 'what.example.com')
-            .expect(404, function(err, res){
-                console.dir(err);
+            .expect(404, function(err){
                 done();
             });
     });
