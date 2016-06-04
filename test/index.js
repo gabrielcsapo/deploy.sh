@@ -114,7 +114,7 @@ describe('node-distribute', function() {
                 .expect(200, function(err) {
                     assert.isNull(err);
                     request('http://localhost:1337')
-                        .get('/hello')
+                        .get('/testing')
                         .set('Host', 'test.example.com')
                         .expect(200, function(err) {
                             assert.isNull(err);
