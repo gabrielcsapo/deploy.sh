@@ -7,11 +7,11 @@ app.use('*', function(req, res) {
 
     var timeout = Math.floor((Math.random() * 100) + (url.length * Math.floor((Math.random() * 100) + 500)));
     setTimeout(function() {
-        console.log(url, timeout);
+        console.log(url, timeout); // eslint-disable-line no-console
         res.send('I am alive');
     }, timeout);
 });
 
 app.listen(port, function() {
-    console.log('test application listening at http://localhost:' + port);
+    console.log('test application listening at http://localhost:' + port); // eslint-disable-line no-console
 });

@@ -14,7 +14,7 @@ describe('node-distribute', function() {
     before(function(done) {
         try {
             fs.unlinkSync(path.resolve(__dirname, '..', 'db.json'));
-        } catch (ex) {}
+        } catch (ex) {} // eslint-disable-line no-empty
         rimraf(path.resolve(__dirname, '..', 'repos'), function() {});
         rimraf(path.resolve(__dirname, '..', 'app'), function() {});
         setTimeout(function() {
@@ -34,7 +34,7 @@ describe('node-distribute', function() {
 
         distribute.stdout.on('data', function(data) {
             logs.push(data.toString('utf8'));
-            console.log(data.toString('utf8'));
+            console.log(data.toString('utf8')); // eslint-disable-line no-console
             if (data.toString('utf8').indexOf('Server listening on  7000') > -1) {
                 done();
             }
@@ -42,7 +42,7 @@ describe('node-distribute', function() {
 
         distribute.stderr.on('data', function(data) {
             logs.push(data.toString('utf8'));
-            console.log(data.toString('utf8'));
+            console.log(data.toString('utf8')); // eslint-disable-line no-console
         });
     });
 
@@ -51,6 +51,7 @@ describe('node-distribute', function() {
             .get('/')
             .set('Host', 'what.example.com')
             .expect(404, function(err) {
+                assert.isNull(err);
                 done();
             });
     });

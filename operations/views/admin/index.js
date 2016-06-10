@@ -52,9 +52,9 @@ var getProcesses = function() {
                         '</tr>' +
                         '</thead>' +
                         '<tbody>';
-                    for (var key in countries[process.name]) {
+                    for (var country in countries[process.name]) {
                         trafficCountryData += '<tr>' +
-                            '<th>' + key + '</th>' +
+                            '<th>' + country + '</th>' +
                             '<th>' + countries[process.name][key] + '</th>' +
                         '</tr>';
                     }

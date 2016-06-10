@@ -1,4 +1,5 @@
 node_modules/**
+test/repo/node_modules/**
 config/**
 app/**
 repos/**
