@@ -3,6 +3,7 @@ var charts = {};
 var logs = {};
 var repo = {};
 var table = {};
+var countries = {};
 
 // TODO: add the ability to turn off sync? (could be interesting to stop it and be able to turn it on when needed)
 // TODO: 🤕
@@ -14,6 +15,7 @@ var getProcesses = function() {
             var response = JSON.parse(xhr.responseText);
             response.forEach(function(process) {
                 if (charts[process.name]) {
+                    countries[process.name] = {};
                     repo[process.name].innerHTML = JSON.stringify(process.repo, null, 4);
                     var series = [];
                     var routes = {};
@@ -32,17 +34,37 @@ var getProcesses = function() {
                                 x: r[0],
                                 y: r[1]
                             });
+                            if (r[2]) {
+                                if(!countries[process.name][r[2].country]) { countries[process.name][r[2].country] = 0; }
+                                countries[process.name][r[2].country] += 1;
+                            }
                         });
                         series.push({
                             name: key,
                             data: data
                         });
-                    })
+                    });
+                    var trafficCountryData = '<table class="table responsive">' +
+                        '<thead>' +
+                        '<tr>' +
+                        '<th> Country </th>' +
+                        '<th> Count </th>' +
+                        '</tr>' +
+                        '</thead>' +
+                        '<tbody>';
+                    for (var key in countries[process.name]) {
+                        trafficCountryData += '<tr>' +
+                            '<th>' + key + '</th>' +
+                            '<th>' + countries[process.name][key] + '</th>' +
+                        '</tr>';
+                    }
+                    trafficCountryData += '</tbody></table>';
+                    table[process.name]['traffic-country'].innerHTML = trafficCountryData;
                     charts[process.name]['traffic'].update({
                         series: series
                     });
                     // TODO: 🤕
-                    var trafficData = '<table class="table responsive border-black">' +
+                    var trafficData = '<table class="table responsive">' +
                         '<thead>' +
                         '<tr>' +
                         '<th> Route </th>' +
@@ -85,6 +107,7 @@ var getProcesses = function() {
                         '<div class="col-12-12"><h5>repo info</h5><pre style="text-align:left;" id="' + process.name + '-repo"></pre></div>' +
                         '<div class="col-6-12"><h5>memory-consumption</h5><div id="' + process.name + '-chart-memory" style="margin-top:60px;"></div></div>' +
                         '<div class="col-6-12"><h5>traffic</h5><div class="nav-tab" style="height:200px;"><ul><li> <input type="radio" name="nav-tab-label" checked="checked" id="label-graph"><label for="label-graph">Graph</label><div><div id="' + process.name + '-chart-traffic"></div></div></li><li><input type="radio" name="nav-tab-label" id="label-data"><label for="label-data">Data</label><div id="' + process.name + '-table-traffic"></div></li></ul></div></div>' +
+                        '<div class="col-12-12" style="margin-bottom:40px;"><h5>country traffic</h5><div id="' + process.name + '-table-country-traffic"></div></div>' +
                         '<div class="col-12-12"><div><pre class="process-logs" id="' + process.name + '-logs"></pre><small id="' + process.name + '-logs-count"></small></div></div>' +
                         '</div>' +
                         '</div>';
@@ -133,6 +156,9 @@ var getProcesses = function() {
                     });
                     table[process.name] = {};
                     table[process.name]['traffic'] = document.getElementById(process.name + '-table-traffic');
+                    table[process.name]['traffic-country'] = document.getElementById(process.name + '-table-country-traffic');
+
+                    countries[process.name] = {};
 
                     charts[process.name] = {};
                     charts[process.name]['memory'] = memory;

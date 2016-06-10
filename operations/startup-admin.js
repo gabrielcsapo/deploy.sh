@@ -7,6 +7,7 @@ var moment = require('moment');
 var httpProxy = require('http-proxy');
 var proxy = httpProxy.createProxyServer({});
 var pm2 = require('pm2');
+var geoip = require('geoip-lite');
 
 var log = require('./lib/log');
 var db = require('./lib/db');
@@ -31,14 +32,21 @@ module.exports = function() {
     kue.app.set('title', 'node-distribute');
 
     app.use(responseTime(function (req, res, time) {
+        var ip = req.query.ip ||
+                 req.headers['x-forwarded-for'] ||
+                 req.headers["X-Forwarded-For"] ||
+                 req.connection.remoteAddress ||
+                 req.socket.remoteAddress ||
+                 req.connection.socket.remoteAddress;
+        var geo = geoip.lookup(ip);
         var hostname = req.headers.host.split(":")[0];
         hostname = hostname.substring(0, hostname.indexOf('.'));
         repos.get().forEach(function(repo) {
             if(repo.subdomain == hostname) {
                 if(db(repo.name, 'traffic').find({ url: req.originalUrl})) {
-                    db(repo.name, 'traffic').find({ url: req.originalUrl}).traffic.push([moment().format('x'), time])
+                    db(repo.name, 'traffic').find({ url: req.originalUrl}).traffic.push([moment().format('x'), time, geo])
                 } else {
-                    db(repo.name, 'traffic').push({url: req.originalUrl, traffic: [[moment().format('x'), time]]});
+                    db(repo.name, 'traffic').push({url: req.originalUrl, traffic: [[moment().format('x'), time, geo]]});
                 }
             }
         });
@@ -108,7 +116,7 @@ module.exports = function() {
                     res.render('admin');
                     break;
                 default:
-                    next();
+                    res.render('admin');
                     break;
             }
         } else {
