@@ -8,6 +8,7 @@ var httpProxy = require('http-proxy');
 var proxy = httpProxy.createProxyServer({});
 var pm2 = require('pm2');
 var geoip = require('geoip-lite');
+var startApplication = require('./startup-application');
 
 var log = require('./lib/log');
 var db = require('./lib/db');
@@ -88,36 +89,43 @@ module.exports = function() {
         // TODO: admin portal should record statics from all apps being run (geo, users, etc)
         // TODO: admin portal should show all of that data
         if (hostname == 'admin') {
-            switch (req.url) {
-                case '/process/json':
-                    pm2.connect(true, function(err) {
-                        if (err) {
-                            throw err;
-                        }
-                        pm2.list(function(err, list) {
+            if(req.url.indexOf('redeploy') > -1) {
+                var name = req.url.replace('/redeploy/', '');
+                startApplication(name, path.resolve(__dirname, '..', 'app', name), repos.get(), function() {
+                    log.info('app:restarted:', name);
+                });
+            } else {
+                switch (req.url) {
+                    case '/process/json':
+                        pm2.connect(true, function(err) {
                             if (err) {
                                 throw err;
                             }
-                            list.forEach(function(process) {
-                                // TODO: should probably move this to a better location
-                                db(process.name, 'memory').push([moment().format('x'), process.monit.memory]);
+                            pm2.list(function(err, list) {
+                                if (err) {
+                                    throw err;
+                                }
+                                list.forEach(function(process) {
+                                    // TODO: should probably move this to a better location
+                                    db(process.name, 'memory').push([moment().format('x'), process.monit.memory]);
 
-                                process.repo = repos.get(process.name);
-                                process.logs = db(process.name, 'logs').value();
-                                process.traffic = db(process.name, 'traffic').value();
-                                process.memory = db(process.name, 'memory').value();
+                                    process.repo = repos.get(process.name);
+                                    process.logs = db(process.name, 'logs').value();
+                                    process.traffic = db(process.name, 'traffic').value();
+                                    process.memory = db(process.name, 'memory').value();
+                                });
+                                pm2.disconnect();
+                                res.send(list);
                             });
-                            pm2.disconnect();
-                            res.send(list);
                         });
-                    });
-                    break;
-                case '/':
-                    res.render('admin');
-                    break;
-                default:
-                    res.render('admin');
-                    break;
+                        break;
+                    case '/':
+                        res.render('admin');
+                        break;
+                    default:
+                        res.render('admin');
+                        break;
+                }
             }
         } else {
             if (GLOBAL.wildcards[hostname]) {
