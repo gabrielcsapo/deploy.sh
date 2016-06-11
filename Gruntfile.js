@@ -10,7 +10,7 @@ module.exports = function(grunt) {
                     path: './screenshots/404',
                     files: [{
                         type: 'remote',
-                        src: "http://what.dev:1337",
+                        src: "http://what.localhost:1337",
                         dest: "404.png",
                         delay: 1000
                     }],
@@ -22,7 +22,7 @@ module.exports = function(grunt) {
                     path: './screenshots/admin',
                     files: [{
                         type: 'remote',
-                        src: "http://admin.dev:1337",
+                        src: "http://admin.localhost:1337",
                         dest: "admin.png",
                         delay: 4000,
                         basicAuth: {
@@ -35,5 +35,5 @@ module.exports = function(grunt) {
             }
         }
     });
-
+    grunt.registerTask('default', ['screenshot']);
 };

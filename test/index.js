@@ -4,6 +4,7 @@ var assert = require('chai').assert;
 var spawn = require('child_process').spawn;
 var fs = require('fs');
 var rimraf = require('rimraf');
+var chance = require('chance')();
 
 describe('node-distribute', function() {
     this.timeout(30000);
@@ -112,16 +113,19 @@ describe('node-distribute', function() {
             request('http://localhost:1337')
                 .get('/distribute')
                 .set('Host', 'test.example.com')
+                .set('x-forwarded-for', chance.ip())
                 .expect(200, function(err) {
                     assert.isNull(err);
                     request('http://localhost:1337')
                         .get('/testing')
                         .set('Host', 'test.example.com')
+                        .set('x-forwarded-for', chance.ip())
                         .expect(200, function(err) {
                             assert.isNull(err);
                             request('http://localhost:1337')
                                 .get('/world')
                                 .set('Host', 'test.example.com')
+                                .set('x-forwarded-for', chance.ip())
                                 .expect(200, function(err) {
                                     assert.isNull(err);
                                     done();

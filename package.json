@@ -46,6 +46,7 @@
   },
   "devDependencies": {
     "chai": "^3.5.0",
+    "chance": "^1.0.3",
     "eslint": "^2.11.1",
     "grunt": "^1.0.1",
     "grunt-screenshot": "^0.2.0",

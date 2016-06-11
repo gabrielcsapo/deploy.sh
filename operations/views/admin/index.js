@@ -55,7 +55,7 @@ var getProcesses = function() {
                     for (var country in countries[process.name]) {
                         trafficCountryData += '<tr>' +
                             '<th>' + country + '</th>' +
-                            '<th>' + countries[process.name][key] + '</th>' +
+                            '<th>' + countries[process.name][country] + '</th>' +
                         '</tr>';
                     }
                     trafficCountryData += '</tbody></table>';

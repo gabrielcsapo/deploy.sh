@@ -9,6 +9,7 @@ var proxy = httpProxy.createProxyServer({});
 var pm2 = require('pm2');
 var geoip = require('geoip-lite');
 var startApplication = require('./startup-application');
+var path = require('path');
 
 var log = require('./lib/log');
 var db = require('./lib/db');
@@ -142,6 +143,7 @@ module.exports = function() {
     });
 
     app.use(function(req, res) {
+        res.status(404);
         res.render('404');
     });
 
