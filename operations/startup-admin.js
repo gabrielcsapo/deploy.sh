@@ -86,8 +86,6 @@ module.exports = function() {
         // TODO: admin portal should be able to restart itself?
         // TODO: admin portal should be able to add repos
         // TODO: admin portal should be able to add users
-        // TODO: admin portal should record statics from all apps being run (geo, users, etc)
-        // TODO: admin portal should show all of that data
         if (hostname == 'admin') {
             if(req.url.indexOf('redeploy') > -1) {
                 var name = req.url.replace('/redeploy/', '');
