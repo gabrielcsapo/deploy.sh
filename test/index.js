@@ -114,18 +114,21 @@ describe('node-distribute', function() {
                 .get('/distribute')
                 .set('Host', 'test.example.com')
                 .set('x-forwarded-for', chance.ip())
+                .set('referrer', chance.domain())
                 .expect(200, function(err) {
                     assert.isNull(err);
                     request('http://localhost:1337')
                         .get('/testing')
                         .set('Host', 'test.example.com')
                         .set('x-forwarded-for', chance.ip())
+                        .set('referrer', chance.domain())
                         .expect(200, function(err) {
                             assert.isNull(err);
                             request('http://localhost:1337')
                                 .get('/world')
                                 .set('Host', 'test.example.com')
                                 .set('x-forwarded-for', chance.ip())
+                                .set('referrer', chance.domain())
                                 .expect(200, function(err) {
                                     assert.isNull(err);
                                     done();
