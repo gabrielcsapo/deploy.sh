@@ -4,6 +4,7 @@ var logs = {};
 var repo = {};
 var table = {};
 var countries = {};
+var referrer = {}
 
 // TODO: add the ability to turn off sync? (could be interesting to stop it and be able to turn it on when needed)
 // TODO: 🤕
@@ -16,6 +17,7 @@ var getProcesses = function() {
             response.forEach(function(process) {
                 if (charts[process.name]) {
                     countries[process.name] = {};
+                    referrer[process.name] = {};
                     repo[process.name].innerHTML = JSON.stringify(process.repo, null, 4);
                     var series = [];
                     var routes = {};
@@ -34,9 +36,15 @@ var getProcesses = function() {
                                 x: r[0],
                                 y: r[1]
                             });
+                            // country data
                             if (r[2]) {
                                 if(!countries[process.name][r[2].country]) { countries[process.name][r[2].country] = 0; }
                                 countries[process.name][r[2].country] += 1;
+                            }
+                            // referrer data
+                            if(r[3]) {
+                                if(!referrer[process.name][r[3]]) { referrer[process.name][r[3]] = 0; }
+                                referrer[process.name][r[3]] += 1;
                             }
                         });
                         series.push({
@@ -44,6 +52,23 @@ var getProcesses = function() {
                             data: data
                         });
                     });
+                    var trafficReferrerData = '<table class="table responsive">' +
+                        '<thead>' +
+                        '<tr>' +
+                        '<th> Country </th>' +
+                        '<th> Count </th>' +
+                        '</tr>' +
+                        '</thead>' +
+                        '<tbody>';
+                    for (var url in referrer[process.name]) {
+                        trafficReferrerData += '<tr>' +
+                            '<th>' + url + '</th>' +
+                            '<th>' + referrer[process.name][url] + '</th>' +
+                        '</tr>';
+                    }
+                    trafficReferrerData += '</tbody></table><br><small> unique: ' + Object.keys(referrer[process.name]).length + '</small>';
+                    table[process.name]['traffic-referrer'].innerHTML = trafficReferrerData;
+
                     var trafficCountryData = '<table class="table responsive">' +
                         '<thead>' +
                         '<tr>' +
@@ -58,7 +83,7 @@ var getProcesses = function() {
                             '<th>' + countries[process.name][country] + '</th>' +
                         '</tr>';
                     }
-                    trafficCountryData += '</tbody></table>';
+                    trafficCountryData += '</tbody></table><br><small> unique: ' + Object.keys(countries[process.name]).length + '</small>';
                     table[process.name]['traffic-country'].innerHTML = trafficCountryData;
                     charts[process.name]['traffic'].update({
                         series: series
@@ -80,7 +105,7 @@ var getProcesses = function() {
                             '<th>' + (routes[key].response / routes[key].count).toFixed(2) + 'ms</th>' +
                             '</tr>';
                     }
-                    trafficData += '</tbody></table>';
+                    trafficData += '</tbody></table><br><small> unique: ' + Object.keys(routes).length + '</small>';
                     table[process.name]['traffic'].innerHTML = trafficData;
                     logs[process.name]['count'].innerHTML = 'logs: ' + process.logs.length;
                     logs[process.name]['log'].innerHTML = process.logs.join('\n');
@@ -104,10 +129,11 @@ var getProcesses = function() {
                     div.innerHTML = '<div class="process-container" id="' + process.name + '">' +
                         '<div class="grid">' +
                         '<div class="col-12-12"><h2 style="float:left;">' + process.name + '</h2><button id="' + process.name + '-redeploy" style="float:right;" class="btn btn-warning"> Redeploy </button></div>' +
-                        '<div class="col-12-12"><h5>repo info</h5><pre style="text-align:left;" id="' + process.name + '-repo"></pre></div>' +
-                        '<div class="col-6-12"><h5>memory-consumption</h5><div id="' + process.name + '-chart-memory" style="margin-top:60px;"></div></div>' +
-                        '<div class="col-6-12"><h5>traffic</h5><div class="nav-tab" style="height:200px;"><ul><li> <input type="radio" name="nav-tab-label" checked="checked" id="label-graph"><label for="label-graph">Graph</label><div><div id="' + process.name + '-chart-traffic"></div></div></li><li><input type="radio" name="nav-tab-label" id="label-data"><label for="label-data">Data</label><div id="' + process.name + '-table-traffic"></div></li></ul></div></div>' +
-                        '<div class="col-12-12" style="margin-bottom:40px;"><h5>country traffic</h5><div id="' + process.name + '-table-country-traffic"></div></div>' +
+                        '<div class="col-12-12"><h3>repo info</h3><pre style="text-align:left;" id="' + process.name + '-repo"></pre></div>' +
+                        '<div class="col-6-12"><h3>memory-consumption</h3><div id="' + process.name + '-chart-memory" style="margin-top:60px;"></div></div>' +
+                        '<div class="col-6-12"><h3>traffic</h3><div class="nav-tab" style="height:200px;"><ul><li> <input type="radio" name="nav-tab-label" checked="checked" id="label-graph"><label for="label-graph">Graph</label><div><div id="' + process.name + '-chart-traffic"></div></div></li><li><input type="radio" name="nav-tab-label" id="label-data"><label for="label-data">Data</label><div id="' + process.name + '-table-traffic"></div></li></ul></div></div>' +
+                        '<div class="col-12-12" style="margin-bottom:40px;"><h3>country traffic</h3><div id="' + process.name + '-table-country-traffic"></div></div>' +
+                        '<div class="col-12-12" style="margin-bottom:40px;"><h3>referrer traffic</h3><div id="' + process.name + '-table-referrer-traffic"></div></div>' +
                         '<div class="col-12-12"><div><pre class="process-logs" id="' + process.name + '-logs"></pre><small id="' + process.name + '-logs-count"></small></div></div>' +
                         '</div>' +
                         '</div>';
@@ -162,7 +188,9 @@ var getProcesses = function() {
                     table[process.name] = {};
                     table[process.name]['traffic'] = document.getElementById(process.name + '-table-traffic');
                     table[process.name]['traffic-country'] = document.getElementById(process.name + '-table-country-traffic');
+                    table[process.name]['traffic-referrer'] = document.getElementById(process.name + '-table-referrer-traffic');
 
+                    referrer[process.name] = {};
                     countries[process.name] = {};
 
                     charts[process.name] = {};

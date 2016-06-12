@@ -41,14 +41,15 @@ module.exports = function() {
                  req.socket.remoteAddress ||
                  req.connection.socket.remoteAddress;
         var geo = geoip.lookup(ip);
+        var referrer = req.get('Referrer');
         var hostname = req.headers.host.split(":")[0];
         hostname = hostname.substring(0, hostname.indexOf('.'));
         repos.get().forEach(function(repo) {
             if(repo.subdomain == hostname) {
                 if(db(repo.name, 'traffic').find({ url: req.originalUrl})) {
-                    db(repo.name, 'traffic').find({ url: req.originalUrl}).traffic.push([moment().format('x'), time, geo])
+                    db(repo.name, 'traffic').find({ url: req.originalUrl}).traffic.push([moment().format('x'), time, geo, referrer])
                 } else {
-                    db(repo.name, 'traffic').push({url: req.originalUrl, traffic: [[moment().format('x'), time, geo]]});
+                    db(repo.name, 'traffic').push({url: req.originalUrl, traffic: [[moment().format('x'), time, geo, referrer]]});
                 }
             }
         });
