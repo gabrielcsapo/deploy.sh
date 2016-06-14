@@ -8,7 +8,59 @@
 [![npm](https://img.shields.io/npm/dt/node-distribute.svg)]()
 [![npm](https://img.shields.io/npm/dm/node-distribute.svg)]()
 
-## Setup
+## setup
+
+- `npm install node-distribute -g`
+- `node-distribute start` // server will now be running
+
+## Configuration
+
+> how to configure node-distribute
+> two services are started with node-distribute a git server and a http server to host the admin page
+(admin:1337) and (git server:7000)
+
+- run `node-distribute configure`
+    - this will log two files, repos and user
+
+### repos.json
+
+```
+[
+    {
+        "subdomain": "test", // test.location:1337
+        "name": "test", // the name of the repository
+        "anonRead": false, // allow anonymous access
+        "users": [ // array of users that are allowed to push to this repository
+            {
+                "user": {
+                    "username": "root",
+                    "password": "aaa6c4b09f5650ed2780e6210d785ff2c5223954"
+                },
+                "permissions": [
+                    "R",
+                    "W"
+                ]
+            }
+        ]
+    }
+]
+```
+
+> to push to this repository simply run
+
+`git push http://root:aaa6c4b09f5650ed2780e6210d785ff2c5223954@localhost:7000/test.git master`
+
+### user.json
+> admin account
+
+```
+{
+    "username": "root",
+    "password": "aaa6c4b09f5650ed2780e6210d785ff2c5223954"
+}
+```
+
+## additional information
 
 > setting a wildcard domain up on localhost
 
