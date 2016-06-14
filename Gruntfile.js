@@ -9,6 +9,8 @@ module.exports = function(grunt) {
                 options: {
                     path: './screenshots/404',
                     files: [{
+                        parallel: true,
+                        compress: true,
                         type: 'remote',
                         src: "http://what.localhost:1337",
                         dest: "404.png",
@@ -21,6 +23,8 @@ module.exports = function(grunt) {
                 options: {
                     path: './screenshots/admin',
                     files: [{
+                        parallel: true,
+                        compress: true,
                         type: 'remote',
                         src: "http://admin.localhost:1337",
                         dest: "admin.png",
