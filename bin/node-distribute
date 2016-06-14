@@ -1,4 +1,18 @@
 #!/usr/bin/env node
-GLOBAL.wildcards = {};
 
-require('../operations/startup.js');
+var program = require('commander');
+program
+  .version(require('../package.json').version)
+  .option('-s, --start', 'start node distribute')
+  .option('-c, --configure', 'logs the location of the configuration file')
+  .parse(process.argv);
+
+if (program.start) {
+    GLOBAL.wildcards = {};
+    require('../operations/startup.js');
+}
+if (program.configure) {
+    var path = require('path');
+    console.log('repo configuration: ' + path.resolve(__dirname, '..', 'config', 'repos.json'))
+    console.log('user configuration: ' + path.resolve(__dirname, '..', 'config', 'user.json'))
+}
