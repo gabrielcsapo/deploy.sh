@@ -24,7 +24,7 @@
 
 ### repos.json
 
-```
+```javascript
 [
     {
         "subdomain": "test", // test.location:1337
@@ -53,7 +53,7 @@
 ### user.json
 > admin account
 
-```
+```javascript
 {
     "username": "root",
     "password": "aaa6c4b09f5650ed2780e6210d785ff2c5223954"
