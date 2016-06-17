@@ -128,7 +128,7 @@ var getProcesses = function() {
                     // TODO: 🤕
                     div.innerHTML = '<div class="process-container" id="' + process.name + '">' +
                         '<div class="grid">' +
-                        '<div class="col-12-12"><h2 style="float:left;">' + process.name + '</h2><button id="' + process.name + '-redeploy" style="float:right;" class="btn btn-warning"> Redeploy </button></div>' +
+                        '<div class="col-12-12"><h2 style="float:left;">' + process.name + '</h2><button id="' + process.name + '-redeploy" style="float:right;" class="btn border-warning"> Redeploy </button></div>' +
                         '<div class="col-12-12"><h3>repo info</h3><pre style="text-align:left;" id="' + process.name + '-repo"></pre></div>' +
                         '<div class="col-6-12"><h3>memory-consumption</h3><div id="' + process.name + '-chart-memory" style="margin-top:60px;"></div></div>' +
                         '<div class="col-6-12"><h3>traffic</h3><div class="nav-tab" style="height:200px;"><ul><li> <input type="radio" name="nav-tab-label" checked="checked" id="label-graph"><label for="label-graph">Graph</label><div><div id="' + process.name + '-chart-traffic"></div></div></li><li><input type="radio" name="nav-tab-label" id="label-data"><label for="label-data">Data</label><div id="' + process.name + '-table-traffic"></div></li></ul></div></div>' +

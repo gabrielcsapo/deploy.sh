@@ -1,4 +1,4 @@
-// TODO: use lowdb, because eventually we want to be able to write to these files
+// TODO: use node-flat-db, because eventually we want to be able to write to these files
 // TODO: or abstract this out to be able to save the json files whenever you change the underlying object?
 // TODO: add checks to make sure the data is not malformed
 var path = require('path');

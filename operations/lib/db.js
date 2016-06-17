@@ -1,5 +1,5 @@
-var low = require('lowdb');
-var db = low('db.json', { storage: require('lowdb/file-sync') });
+var flat = require('node-flat-db');
+var db = flat('db.json', { storage: require('node-flat-db/file-sync') });
 
 /**
     ('{app}')(logs),
