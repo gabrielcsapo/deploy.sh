@@ -10,8 +10,8 @@ before_install:
   - "npm install npm@3 -g"
 language: node_js
 node_js:
-  - "10"
-  - "12"
+  - "0.10"
+  - "0.12"
   - "4"
   - "5"
   - "6"
