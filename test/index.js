@@ -25,6 +25,25 @@ describe('node-distribute', function() {
         distribute.kill();
     });
 
+    it('should spawn node-distribute', function(done) {
+        distribute = spawn('npm', ['start'], {
+            cwd: path.resolve(__dirname)
+        });
+
+        distribute.stdout.on('data', function(data) {
+            logs.push(data.toString('utf8'));
+            console.log(data.toString('utf8')); // eslint-disable-line no-console
+            if (data.toString('utf8').indexOf('Server listening on  7000') > -1) {
+                done();
+            }
+        });
+
+        distribute.stderr.on('data', function(data) {
+            logs.push(data.toString('utf8'));
+            console.log(data.toString('utf8')); // eslint-disable-line no-console
+        });
+    });
+
     it('should write the correct test config to config/repos.json', function(done) {
         var config = [
             {
@@ -67,25 +86,6 @@ describe('node-distribute', function() {
         fs.writeFile(path.resolve(__dirname, '..', 'config/repos.json'), JSON.stringify(config), function (err) {
           if (err) return console.log(err); // eslint-disable-line no-console
           done();
-        });
-    });
-
-    it('should spawn node-distribute', function(done) {
-        distribute = spawn('npm', ['start'], {
-            cwd: path.resolve(__dirname)
-        });
-
-        distribute.stdout.on('data', function(data) {
-            logs.push(data.toString('utf8'));
-            console.log(data.toString('utf8')); // eslint-disable-line no-console
-            if (data.toString('utf8').indexOf('Server listening on  7000') > -1) {
-                done();
-            }
-        });
-
-        distribute.stderr.on('data', function(data) {
-            logs.push(data.toString('utf8'));
-            console.log(data.toString('utf8')); // eslint-disable-line no-console
         });
     });
 
