@@ -1,7 +1,6 @@
 var GitServer = require('git-server');
 var gitDeploy = require('./git-deploy');
 var path = require('path');
-var fs = require('fs');
 var log = require('./lib/log');
 
 module.exports = function() {
@@ -12,12 +11,7 @@ module.exports = function() {
         repo.users[0].user = user;
     });
 
-    console.log(repos);
-    var directory = path.resolve(__dirname, '..', 'repos');
-    if (!fs.existsSync(directory)){
-        fs.mkdirSync(directory);
-    }
-    var server = new GitServer(repos, true, directory, 7000);
+    var server = new GitServer(repos, true, path.resolve(__dirname, '..', 'repos'), 7000);
 
     server.on('pre-receive', function(update, repo) {
         log.info('git:pre-receive', repo.name);

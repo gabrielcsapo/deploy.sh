@@ -2,7 +2,6 @@ var path = require('path');
 var spawn = require('child_process').spawn;
 var fs = require('fs');
 var rimraf = require('rimraf');
-var terminate = require('terminate');
 
 describe('node-distribute', function() {
     this.timeout(30000);
@@ -27,22 +26,22 @@ describe('node-distribute', function() {
         distribute.kill();
     });
 
-    it('should spawn node-distribute', function(done) {
-        distribute = spawn('npm', ['start'], {
-            cwd: path.resolve(__dirname)
-        });
+    it('should make the user config directory', function(done) {
+        var directory = path.resolve(__dirname, '..', 'config')
+         if (!fs.existsSync(directory)){
+             fs.mkdirSync(directory);
+         }
+         done();
+    });
 
-        distribute.stdout.on('data', function(data) {
-            logs.push(data.toString('utf8'));
-            console.log(data.toString('utf8')); // eslint-disable-line no-console
-            if (data.toString('utf8').indexOf('Server listening on  7000') > -1) {
-                done();
-            }
-        });
-
-        distribute.stderr.on('data', function(data) {
-            logs.push(data.toString('utf8'));
-            console.log(data.toString('utf8')); // eslint-disable-line no-console
+    it('should write the user config', function(done) {
+        var config = {
+            "username": "root",
+            "password": "ac2eb48019c3fdc0f8d0d86d2319254ca1785045"
+        };
+        fs.writeFile(path.resolve(__dirname, '..', 'config/user.json'), JSON.stringify(config), function (err) {
+          if (err) return console.log(err); // eslint-disable-line no-console
+          done();
         });
     });
 
@@ -91,25 +90,22 @@ describe('node-distribute', function() {
         });
     });
 
-    it('should restart the child process', function(done) {
-        // Waiting for the socket to be open to start the app again
-        terminate(distribute.pid, function() {
-            distribute = spawn('npm', ['start'], {
-                cwd: path.resolve(__dirname)
-            });
+    it('should spawn node-distribute', function(done) {
+        distribute = spawn('npm', ['start'], {
+            cwd: path.resolve(__dirname)
+        });
 
-            distribute.stdout.on('data', function(data) {
-                logs.push(data.toString('utf8'));
-                console.log(data.toString('utf8')); // eslint-disable-line no-console
-                if (data.toString('utf8').indexOf('Server listening on  7000') > -1) {
-                    done();
-                }
-            });
+        distribute.stdout.on('data', function(data) {
+            logs.push(data.toString('utf8'));
+            console.log(data.toString('utf8')); // eslint-disable-line no-console
+            if (data.toString('utf8').indexOf('Server listening on  7000') > -1) {
+                done();
+            }
+        });
 
-            distribute.stderr.on('data', function(data) {
-                logs.push(data.toString('utf8'));
-                console.log(data.toString('utf8')); // eslint-disable-line no-console
-            });
+        distribute.stderr.on('data', function(data) {
+            logs.push(data.toString('utf8'));
+            console.log(data.toString('utf8')); // eslint-disable-line no-console
         });
     });
 
