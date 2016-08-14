@@ -11,7 +11,11 @@ module.exports = function() {
         repo.users[0].user = user;
     });
 
-    var server = new GitServer(repos, true, path.resolve(__dirname, '..', 'repos'), 7000);
+    try {
+        var server = new GitServer(repos, true, path.resolve(__dirname, '..', 'repos'), 7000);
+    } catch(ex) {
+        throw new Error(ex);
+    }
 
     server.on('pre-receive', function(update, repo) {
         log.info('git:pre-receive', repo.name);
