@@ -7,7 +7,6 @@ module.exports = function(repo, directory, repos, callback) {
     fs.exists(directory, function(exists) {
         if (exists) {
             portfinder.getPort(function(err, port) {
-                console.log(port);
                 if (err) {
                     log.error('port:finder', err.toString());
                     process.exit(2);
@@ -55,12 +54,10 @@ module.exports = function(repo, directory, repos, callback) {
                             if (err) {
                                 log.error('queue:pm2:start', err);
                             }
-                            console.log(repo);
                             // Go through repos and check for subdomin and register it with wildcard routes
                             repos.forEach(function(_repo) {
                                 if (_repo.name == repo.name) {
                                     if (repo.subdomain) {
-                                        console.log(repo.subdomain);
                                         GLOBAL.wildcards[repo.subdomain] = port;
                                     }
                                 }

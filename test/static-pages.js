@@ -38,8 +38,7 @@ describe('static-pages', function() {
                 .set('Host', 'static.example.com')
                 .set('x-forwarded-for', chance.ip())
                 .set('referrer', chance.domain())
-                .expect(200, function(err, res) {
-                    console.log(res.body);
+                .expect(200, function(err) {
                     assert.isNull(err);
                     done();
                 });
