@@ -8,6 +8,7 @@ var startApplication = require('./startup-application');
 var log = require('./lib/log');
 var db = require('./lib/db');
 var pm2 = require('pm2');
+var _ = require('underscore');
 
 var queue = kue.createQueue({
     redis: {
@@ -27,6 +28,7 @@ queue.process('install', 1, function(job, done) {
     var location = job.data.location;
     var directory = job.data.directory;
     var name = job.data.name;
+    var repo = job.data.repo;
     return Promise.resolve()
         .then(function() {
             log.info('queue:deploying the app:', name);
@@ -49,34 +51,38 @@ queue.process('install', 1, function(job, done) {
         })
         .then(function() {
             return new Promise(function(resolve, reject) {
-                log.info('queue: running npm install :', name);
-                job.log('queue: running npm install :', name);
+                if(repo.type == "NODE") {
+                    log.info('queue: running npm install :', name);
+                    job.log('queue: running npm install :', name);
 
-                var cmd = path.resolve(require.resolve('npm'), '..', '..', 'bin', 'npm-cli.js');
-                var args = ['install', '--ignore-scripts', '--production'];
-                var npm = spawn(cmd, args, {
-                    cwd: directory
-                });
-                npm.stdout.on('data', function(data) {
-                    db(name, 'logs').push(data.toString());
-                });
-                npm.stderr.on('data', function(data) {
-                    db(name, 'logs').push(data.toString());
-                });
-                npm.on('close', function(code) {
-                    if (code === 0) {
-                        resolve();
-                    } else {
-                        reject();
-                    }
-                });
+                    var cmd = path.resolve(require.resolve('npm'), '..', '..', 'bin', 'npm-cli.js');
+                    var args = ['install', '--ignore-scripts', '--production'];
+                    var npm = spawn(cmd, args, {
+                        cwd: directory
+                    });
+                    npm.stdout.on('data', function(data) {
+                        db(name, 'logs').push(data.toString());
+                    });
+                    npm.stderr.on('data', function(data) {
+                        db(name, 'logs').push(data.toString());
+                    });
+                    npm.on('close', function(code) {
+                        if (code === 0) {
+                            resolve();
+                        } else {
+                            reject();
+                        }
+                    });
+                } else {
+                    resolve();
+                }
             });
         })
         .then(function() {
             job.progress(3, steps);
             log.info('queue:restarting the services:', name);
             job.log('queue:restarting the services:', name);
-            startApplication(name, directory, repos.get(), function() {
+            startApplication(repo, directory, repos.get(), function() {
                 job.remove(function(err) {
                     if (err) {
                         log.error(err);
@@ -87,23 +93,28 @@ queue.process('install', 1, function(job, done) {
         });
 });
 
-module.exports = function(location, name) {
-    log.info('deploy:stop process', name);
+module.exports = function(location, repo) {
+    log.info('deploy:stop process', repo.name);
     pm2.connect(true, function(err) {
         if (err) {
             log.error(err);
         }
-        pm2.stop(name, function(err) {
+        pm2.stop(repo.name, function(err) {
             if (err) {
                 log.error(err);
             }
             queue.create('install', {
                     location: location,
-                    name: name,
-                    directory: path.resolve(__dirname, '..', 'app', name)
+                    name: repo.name,
+                    repo: _.omit(repo, 'git_events'),
+                    directory: path.resolve(__dirname, '..', 'app', repo.name)
                 })
                 .searchKeys(['title', 'hash'])
-                .save();
+                .save(function(err){
+                   if(err) {
+                       log.error(err);
+                   }
+                });
         });
     });
 }

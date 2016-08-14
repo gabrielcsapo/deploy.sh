@@ -66,7 +66,7 @@ module.exports = function() {
         log.info('git:post-update', repo.name, repo.last_commit.branch);
         // TODO: this should be configurable...
         if(repo.last_commit.branch == 'master') {
-            gitDeploy(repo.path, repo.name);
+            gitDeploy(repo.path, repo);
         }
         update.accept();
     });

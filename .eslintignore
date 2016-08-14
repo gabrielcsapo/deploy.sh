@@ -1,5 +1,5 @@
 node_modules/**
-test/repo/node_modules/**
+test/fixtures/**
 config/**
 app/**
 repos/**
