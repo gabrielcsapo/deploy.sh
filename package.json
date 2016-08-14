@@ -1,10 +1,10 @@
 {
   "name": "node-distribute",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "continuous deployment of node services",
   "main": "index.js",
   "scripts": {
-    "test": "./node_modules/.bin/eslint .;cd test/repo;git init;git add -A;git commit -m 'initial commit';cd ../..;mocha;rm -rf test/repo/.git;killall node;",
+    "test": "./node_modules/.bin/eslint .;npm run clean;cd test/fixtures/node-app;git init;git add -A;git commit -m 'initial commit';cd ../../../;cd test/fixtures/static-pages;git init;git add -A;git commit -m 'initial commit';cd ../../../;mocha test/index.js;rm -rf test/fixtures/node-app/.git;rm -rf test/fixtures/static-pages/.git;killall node;",
     "start": "node index.js | ./node_modules/.bin/bunyan -o short",
     "clean": "redis-cli flushall;"
   },
@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/gabrielcsapo/node-distribute#readme",
   "dependencies": {
+    "async": "^2.0.1",
     "basic-auth-connect": "^1.0.0",
     "bluebird": "^3.4.0",
     "bunyan": "^1.8.1",

@@ -5,7 +5,7 @@ var port = process.env.PORT || 3000;
 app.use('*', function(req, res) {
     var url = req.originalUrl;
 
-    var timeout = Math.floor((Math.random() * 100) + (url.length * Math.floor((Math.random() * 100) + 500)));
+    var timeout = Math.floor((Math.random() * 10) + (url.length * Math.floor((Math.random() * 10) + 250)));
     setTimeout(function() {
         console.log(url, timeout); // eslint-disable-line no-console
         res.send('I am alive');

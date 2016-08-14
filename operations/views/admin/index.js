@@ -55,7 +55,7 @@ var getProcesses = function() {
                     var trafficReferrerData = '<table class="table responsive">' +
                         '<thead>' +
                         '<tr>' +
-                        '<th> Country </th>' +
+                        '<th> Referrer </th>' +
                         '<th> Count </th>' +
                         '</tr>' +
                         '</thead>' +

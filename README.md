@@ -29,6 +29,7 @@
     {
         "subdomain": "test", // test.location:1337
         "name": "test", // the name of the repository
+        "type": String (NODE, STATIC) // the type of application 
         "anonRead": false, // allow anonymous access
         "users": [ // array of users that are allowed to push to this repository
             {
