@@ -2,6 +2,7 @@ var log = require('./lib/log');
 var portfinder = require('portfinder');
 var pm2 = require('pm2');
 var fs = require('fs');
+var path = require('path');
 
 module.exports = function(repo, directory, repos, callback) {
     fs.exists(directory, function(exists) {
@@ -18,28 +19,30 @@ module.exports = function(repo, directory, repos, callback) {
                     }
                     // TODO: need to be able customized scripts
                     if(repo.type == 'NODE') {
-                        pm2.start({
-                            name: repo.name,
-                            cwd: directory,
-                            script: 'index.js',
-                            env: {
-                                PORT: port
-                            }
-                        }, function(err) {
-                            pm2.disconnect();
-                            if (err) {
-                                log.error('queue:pm2:start', err);
-                            }
-                            // Go through repos and check for subdomin and register it with wildcard routes
-                            repos.forEach(function(_repo) {
-                                if (_repo.name == repo.name) {
-                                    if (repo.subdomain) {
-                                        GLOBAL.wildcards[repo.subdomain] = port;
-                                    }
+                        if (fs.existsSync(path.resolve(directory, 'package.json'))) {
+                            pm2.start({
+                                name: repo.name,
+                                cwd: directory,
+                                script: 'index.js',
+                                env: {
+                                    PORT: port
                                 }
+                            }, function(err) {
+                                pm2.disconnect();
+                                if (err) {
+                                    log.error('queue:pm2:start', err);
+                                }
+                                // Go through repos and check for subdomin and register it with wildcard routes
+                                repos.forEach(function(_repo) {
+                                    if (_repo.name == repo.name) {
+                                        if (repo.subdomain) {
+                                            GLOBAL.wildcards[repo.subdomain] = port;
+                                        }
+                                    }
+                                });
+                                callback();
                             });
-                            callback();
-                        });
+                        }
                     } else {
                         pm2.start({
                             name: repo.name,
