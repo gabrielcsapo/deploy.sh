@@ -4,7 +4,8 @@
   "description": "continuous deployment of node services",
   "main": "index.js",
   "scripts": {
-    "test": "./node_modules/.bin/eslint .;npm run clean;cd test/fixtures/node-app;git init;git add -A;git commit -m 'initial commit';cd ../../../;cd test/fixtures/static-pages;git init;git add -A;git commit -m 'initial commit';cd ../../../;mocha test/index.js;rm -rf test/fixtures/node-app/.git;rm -rf test/fixtures/static-pages/.git;killall node;",
+    "test": "npm run lint;./node_modules/.bin/eslint .;npm run clean;cd test/fixtures/node-app;git init;git add -A;git commit -m 'initial commit';cd ../../../;cd test/fixtures/static-pages;git init;git add -A;git commit -m 'initial commit';cd ../../../;mocha test/index.js;rm -rf test/fixtures/node-app/.git;rm -rf test/fixtures/static-pages/.git;killall node;",
+    "lint": "eslint .",
     "start": "node index.js | ./node_modules/.bin/bunyan -o short",
     "clean": "redis-cli flushall;"
   },
