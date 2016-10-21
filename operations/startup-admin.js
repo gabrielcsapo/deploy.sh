@@ -128,6 +128,8 @@ module.exports = function() {
                 }
             }
         } else {
+            // We are looking for the main app, which we use * to denote no hostname
+            hostname = hostname === '' ? '*' : hostname;
             if (GLOBAL.wildcards[hostname]) {
                 proxy.web(req, res, {
                     target: 'http://127.0.0.1:' + GLOBAL.wildcards[hostname]
