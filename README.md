@@ -10,6 +10,8 @@
 
 ## setup
 
+> requires redis-cli to be installed locally
+
 - `npm install node-distribute -g`
 - `node-distribute start` // server will now be running
 
@@ -29,7 +31,7 @@
     {
         "subdomain": "test", // test.location:1337
         "name": "test", // the name of the repository
-        "type": String (NODE, STATIC) // the type of application 
+        "type": String (NODE, STATIC) // the type of application
         "anonRead": false, // allow anonymous access
         "users": [ // array of users that are allowed to push to this repository
             {
@@ -47,9 +49,22 @@
 ]
 ```
 
+#### How do I get an app to deploy with no subdomain?
+
+> to deploy an app to the root level just simply use the `*` character in the subdomain field
+
+```javascript
+[
+    {
+        "subdomain": "*", // location:1337
+        ...
+    }
+]
+```
+
 > to push to this repository simply run
 
-`git push http://root:aaa6c4b09f5650ed2780e6210d785ff2c5223954@localhost:7000/test.git master`
+`git push http://{user}:{password}@localhost:7000/test.git master`
 
 ### user.json
 > admin account
@@ -63,6 +78,12 @@
 
 ## additional information
 
-> setting a wildcard domain up on localhost
+> setting a wildcard domain up on localhost (mac)
 
 http://asciithoughts.com/posts/2014/02/23/setting-up-a-wildcard-dns-domain-on-mac-os-x/
+
+## updating docs
+
+If you update the docs, please also copy changes to `/test/fixtures/main-app`
+
+Thank you!

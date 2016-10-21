@@ -82,6 +82,24 @@ describe('node-distribute', function() {
                         ]
                     }
                 ]
+            },
+            {
+                "subdomain": "*",
+                "name": "main-app",
+                "type": "STATIC",
+                "anonRead": false,
+                "users": [
+                    {
+                        "user": {
+                            "username": "root",
+                            "password": require('../config/user.json').password
+                        },
+                        "permissions": [
+                            "R",
+                            "W"
+                        ]
+                    }
+                ]
             }
         ]
         fs.writeFile(path.resolve(__dirname, '..', 'config/repos.json'), JSON.stringify(config), function (err) {
@@ -111,5 +129,6 @@ describe('node-distribute', function() {
 
     require('./node-app');
     require('./static-pages');
+    require('./main-app');
 
 });
