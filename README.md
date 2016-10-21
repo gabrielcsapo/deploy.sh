@@ -10,7 +10,7 @@
 
 ## setup
 
-> requires redis-cli to be installed locally
+> requires `redis-cli` to be installed locally
 
 - `npm install node-distribute -g`
 - `node-distribute start` // server will now be running
