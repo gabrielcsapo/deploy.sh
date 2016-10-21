@@ -1,6 +1,6 @@
 {
   "name": "node-distribute",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "continuous deployment of node services",
   "main": "index.js",
   "scripts": {
