@@ -19,14 +19,32 @@ module.exports = function(grunt) {
                     viewport: ['1920x1080', '1024x768', '640x960', '320x480']
                 }
             },
-            admin: {
+            'application-list': {
                 options: {
-                    path: './screenshots/admin',
+                    path: './screenshots/application-list',
                     files: [{
                         parallel: true,
                         compress: true,
                         type: 'remote',
-                        src: "http://admin.localhost:1337",
+                        src: "http://admin.localhost:1337/",
+                        dest: "admin.png",
+                        delay: 4000,
+                        basicAuth: {
+                            username: user.username,
+                            password: user.password
+                        }
+                    }],
+                    viewport: ['1920x1080', '1024x768', '640x960', '320x480']
+                }
+            },
+            'application': {
+                options: {
+                    path: './screenshots/application',
+                    files: [{
+                        parallel: true,
+                        compress: true,
+                        type: 'remote',
+                        src: "http://admin.localhost:1337/application/main-app",
                         dest: "admin.png",
                         delay: 4000,
                         basicAuth: {

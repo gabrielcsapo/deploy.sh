@@ -2,6 +2,8 @@ var path = require('path');
 var spawn = require('child_process').spawn;
 var fs = require('fs');
 var rimraf = require('rimraf');
+var request = require('supertest');
+var assert = require('chai').assert;
 
 describe('node-distribute', function() {
     this.timeout(30000);
@@ -116,8 +118,10 @@ describe('node-distribute', function() {
         distribute.stdout.on('data', function(data) {
             logs.push(data.toString('utf8'));
             console.log(data.toString('utf8')); // eslint-disable-line no-console
-            if (data.toString('utf8').indexOf('Server listening on  7000') > -1) {
-                done();
+            if (data.toString('utf8').indexOf('node-distribute listening on http://localhost:1337') > -1) {
+                setTimeout(function() {
+                  done();
+                }, 1000);
             }
         });
 
@@ -125,6 +129,29 @@ describe('node-distribute', function() {
             logs.push(data.toString('utf8'));
             console.log(data.toString('utf8')); // eslint-disable-line no-console
         });
+    });
+
+    it('should get a 404 on unknown route', function(done) {
+        request('http://localhost:1337')
+            .get('/')
+            .set('Host', 'what.example.com')
+            .expect(404, function(err) {
+                assert.isNull(err);
+                done();
+            });
+    });
+
+    it('should be able get process logs', function(done) {
+        setTimeout(function() {
+            request('http://localhost:1337')
+                .get('/process/json')
+                .set('Host', 'admin.example.com')
+                .expect(200, function(err, res) {
+                    assert.isObject(res.body);
+                    assert.isNull(err);
+                    done();
+                });
+        }, 2000);
     });
 
     require('./node-app');

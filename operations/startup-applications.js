@@ -6,7 +6,7 @@ var _ = require('underscore')
 
 var repos = require('./lib/repos').get();
 
-module.exports = function() {
+module.exports = function(callback) {
     async.eachOfLimit(repos, 1, function(repo, key, callback) {
         repo = _.omit(repo, 'git_events', 'last_commit', 'event');
         startApplication(repo, path.resolve(__dirname, '..', 'app', repo.name), repos, function() {
@@ -23,5 +23,6 @@ module.exports = function() {
         } else {
             log.info('all-applications:started');
         }
+        callback();
     });
 }
