@@ -23,6 +23,21 @@ if (!fs.existsSync(path.resolve(__dirname, '..', '..', 'config', 'repos.json')))
 }
 
 module.exports = {
+    /**
+     * update
+     * Updates the configuration file for the repo
+     * @param  {object}   config   the configuration object
+     * @param  {Function} callback function(err) where err is the error from writeFile
+     */
+    update: function(config, callback) {
+        fs.writeFile(path.resolve(__dirname, '..', '..', 'config', 'repos.json'), JSON.stringify(config), function (err) {
+            if (err) {
+                callback(err);
+            } else {
+                callback(undefined)
+            }
+        });
+    },
     get: function(name) {
         if (name) {
             var found = {};

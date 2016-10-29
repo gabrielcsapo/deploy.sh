@@ -19,15 +19,15 @@ module.exports = function(grunt) {
                     viewport: ['1920x1080', '1024x768', '640x960', '320x480']
                 }
             },
-            'application-list': {
+            'admin-application-list': {
                 options: {
-                    path: './screenshots/application-list',
+                    path: './screenshots/admin/application-list',
                     files: [{
                         parallel: true,
                         compress: true,
                         type: 'remote',
                         src: "http://admin.localhost:1337/",
-                        dest: "admin.png",
+                        dest: "application-list.png",
                         delay: 4000,
                         basicAuth: {
                             username: user.username,
@@ -37,15 +37,33 @@ module.exports = function(grunt) {
                     viewport: ['1920x1080', '1024x768', '640x960', '320x480']
                 }
             },
-            'application': {
+            'admin-application': {
                 options: {
-                    path: './screenshots/application',
+                    path: './screenshots/admin/application',
                     files: [{
                         parallel: true,
                         compress: true,
                         type: 'remote',
                         src: "http://admin.localhost:1337/application/main-app",
-                        dest: "admin.png",
+                        dest: "application.png",
+                        delay: 5000,
+                        basicAuth: {
+                            username: user.username,
+                            password: user.password
+                        }
+                    }],
+                    viewport: ['1920x1080', '1024x768', '640x960', '320x480']
+                }
+            },
+            'admin-settings': {
+                options: {
+                    path: './screenshots/admin/settings',
+                    files: [{
+                        parallel: true,
+                        compress: true,
+                        type: 'remote',
+                        src: "http://admin.localhost:1337/settings",
+                        dest: "settings.png",
                         delay: 4000,
                         basicAuth: {
                             username: user.username,
