@@ -1,7 +1,5 @@
 /*global ace */
 
-var panel = document.querySelector('.panel-default');
-
 var content = document.getElementById("content");
 content.style.height = '400px';
 
