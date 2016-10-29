@@ -16,9 +16,8 @@ var _ = require('underscore');
 var log = require('./lib/log');
 var db = require('./lib/db');
 
-// TODO: cleanup 🖕
+// TODO: cleanup
 // TODO: admin portal should be able to restart itself?
-// TODO: admin portal should be able to add repos
 // TODO: admin portal should be able to add users
 module.exports = function() {
     var user = require('./lib/user');
