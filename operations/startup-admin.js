@@ -1,4 +1,5 @@
 var express = require('express');
+var bodyParser = require('body-parser');
 var app = express();
 var basicAuth = require('basic-auth-connect');
 var kue = require('kue');
@@ -10,13 +11,13 @@ var pm2 = require('pm2');
 var geoip = require('geoip-lite');
 var startApplication = require('./startup-application');
 var path = require('path');
+var _ = require('underscore');
 
 var log = require('./lib/log');
 var db = require('./lib/db');
 
-// TODO: cleanup 🖕
+// TODO: cleanup
 // TODO: admin portal should be able to restart itself?
-// TODO: admin portal should be able to add repos
 // TODO: admin portal should be able to add users
 module.exports = function() {
     var user = require('./lib/user');
@@ -60,6 +61,7 @@ module.exports = function() {
       if (hostname == 'admin') {
         next();
       } else {
+        res.status(404)
         res.render('404');
       }
     }
@@ -67,11 +69,11 @@ module.exports = function() {
     var isAuthenticated = function(req, res, next) {
         // Opens the door to having a server that is not authentication protected
         // This helps with local debugging
-        if (user.username && user.password) {
+        if (user.get().username && user.get().password) {
             var hostname = req.headers.host.split(":")[0];
             hostname = hostname.substring(0, hostname.indexOf('.'));
             if (hostname == 'admin') {
-                return basicAuth(user.username, user.password)(req, res, next);
+                return basicAuth(user.get().username, user.get().password)(req, res, next);
             } else {
                 next();
             }
@@ -90,6 +92,8 @@ module.exports = function() {
 
     app.set('views', './operations/views')
     app.set('view engine', 'pug');
+    app.use(bodyParser.urlencoded({ extended: false }));
+    app.use(bodyParser.json());
     app.use(responseTime(function(req, res, time) {
         var ip = req.query.ip ||
             req.headers['x-forwarded-for'] ||
@@ -120,10 +124,12 @@ module.exports = function() {
             }
         });
     }));
-    app.get('*', isAuthenticated, function(req, res, next) {
-        // We are looking for the main app, which we use * to denote no hostname
+    app.get('*', function(req, res, next) {
         var hostname = req.headers.host.split(":")[0];
         hostname = hostname.substring(0, hostname.indexOf('.'));
+
+        // We are looking for the main app, which we use * to denote no hostname
+        hostname = hostname === '' ? '*' : hostname;
         if (GLOBAL.wildcards[hostname]) {
             proxy.web(req, res, {
                 target: 'http://127.0.0.1:' + GLOBAL.wildcards[hostname]
@@ -168,11 +174,35 @@ module.exports = function() {
     app.use('/process/json', isAdminHost, isAuthenticated, function(req, res) {
         res.send(processes);
     });
-    app.use('/', isAdminHost, isAuthenticated, function(req, res) {
-      res.render('admin/application-list', {
-          processes: processes,
-          prettysize: require('prettysize')
-      });
+    app.use('/', isAdminHost, isAuthenticated, function(req, res, next) {
+      if(req.originalUrl.indexOf('settings') > -1) {
+          next();
+      } else {
+          res.render('admin/application-list', {
+              processes: processes,
+              prettysize: require('prettysize')
+          });
+      }
+    });
+    app.get('/settings', isAdminHost, isAuthenticated, function(req, res) {
+        var config = repos.get();
+        config = config.map(function(c) {
+            return _.omit(c, 'git_events', 'event', 'path', 'last_commit');
+        });
+        res.render('admin/admin-view', {
+            config: config
+        });
+    });
+    app.post('/settings', isAdminHost, isAuthenticated, function(req, res) {
+        repos.update(req.body, function(err) {
+            if(err) {
+                res.status(500);
+                res.send(err);
+            } else {
+                res.status(200);
+                res.send();
+            }
+        });
     });
     app.use('/application/:name/redeploy', isAdminHost, isAuthenticated, function(req, res) {
       var name = req.params.name;

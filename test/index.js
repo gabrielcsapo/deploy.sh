@@ -134,7 +134,7 @@ describe('node-distribute', function() {
     it('should get a 404 on unknown route', function(done) {
         request('http://localhost:1337')
             .get('/')
-            .set('Host', 'what.example.com')
+            .set('Host', 'example.com')
             .expect(404, function(err) {
                 assert.isNull(err);
                 done();
@@ -142,9 +142,11 @@ describe('node-distribute', function() {
     });
 
     it('should be able get process logs', function(done) {
+        var user = require('../config/user.json');
         setTimeout(function() {
             request('http://localhost:1337')
                 .get('/process/json')
+                .auth(user.username, user.password)
                 .set('Host', 'admin.example.com')
                 .expect(200, function(err, res) {
                     assert.isObject(res.body);

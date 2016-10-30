@@ -9,6 +9,10 @@ html
             include ../../../node_modules/psychic-ui/dist/psychic-perisian-min.css
         style
             include ../../../node_modules/chartist/dist/chartist.min.css
+        script
+            include ../../../node_modules/ace-builds/src-noconflict/ace.js
+        script
+            include ../../../node_modules/ace-builds/src-noconflict/mode-json.js
 
     body
         div(class="navbar navbar-center")
@@ -20,12 +24,17 @@ html
                         a(class="text-black" href="/queue") Queue
                         a(class="text-black" href="/settings") Settings
 
-        div(style="width:100%;")
-          div(id="content")
+        div(style="width:100%;height:90%;position: relative;")
+            div.grid(style="margin-top:50px;")
+              div.col-2-12
+              div.col-8-12
+                div.text-center.panel.panel-default
+                    div.panel-header Config
+                    div.panel-body
+                        div(id="content")=JSON.stringify(config, null, 4)
+                    div.panel-footer.text-right
+                        button(class="btn btn-primary" id="btn-update") Update
+              div.col-2-12
 
         script
-            include ../../../node_modules/chartist/dist/chartist.js
-        script
-            include ../../../node_modules/moment/moment.js
-        script
-            include ./application-view.js
+            include ./admin-view.js

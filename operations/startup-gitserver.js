@@ -1,17 +1,25 @@
 var GitServer = require('git-server');
-var gitDeploy = require('./git-deploy');
 var path = require('path');
+
+var gitDeploy = require('./git-deploy');
 var log = require('./lib/log');
 
 module.exports = function() {
     var user = require('./lib/user').get();
     var repos = require('./lib/repos').get();
+    var reposDirectory = path.resolve(__dirname, '..', 'repos') + '/';
 
     repos.forEach(function(repo) {
         repo.users[0].user = user;
     });
 
-    var server = new GitServer(repos, true, path.resolve(__dirname, '..', 'repos'), 7000);
+    var server = new GitServer({
+        repos: repos,
+        repoLocation: reposDirectory,
+        logging: true,
+        port: 7000,
+        httpApi: true
+    });
 
     server.on('pre-receive', function(update, repo) {
         log.info('git:pre-receive', repo.name);
@@ -65,7 +73,7 @@ module.exports = function() {
     server.on('post-update', function(update, repo) {
         log.info('git:post-update', repo.name, repo.last_commit.branch);
         // TODO: this should be configurable...
-        if(repo.last_commit.branch == 'master') {
+        if (repo.last_commit.branch == 'master') {
             gitDeploy(repo.path, repo);
         }
         update.accept();
