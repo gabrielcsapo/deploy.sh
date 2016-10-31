@@ -1,4 +1,3 @@
-var Git = require('nodegit');
 var path = require('path');
 var fs = require('fs');
 var rimraf = require('rimraf');
@@ -40,13 +39,16 @@ queue.process('install', 1, function(job, done) {
                     if (err) {
                         reject(err);
                     }
-                    Git.Clone(location, directory)
-                        .then(function() {
-                            resolve()
-                        })
-                        .catch(function(err) {
-                            reject(err);
-                        });
+
+                    var clone = spawn('git', ['clone', location, directory]);
+
+                    clone.on('close', function(code) {
+                      if(code == 0) {
+                          resolve();
+                      } else {
+                          reject();
+                      }
+                    });
                 });
             });
         })
