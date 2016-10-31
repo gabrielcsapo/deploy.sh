@@ -41,7 +41,6 @@
     "npm": "^3.10.6",
     "pm2": "^1.1.3",
     "portfinder": "^1.0.6",
-    "prettysize": "0.0.3",
     "psychic-ui": "^0.4.0",
     "pug": "^2.0.0-alpha8",
     "response-time": "^2.3.1",

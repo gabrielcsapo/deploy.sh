@@ -56,14 +56,14 @@ module.exports = function() {
     }
 
     var isAdminHost = function(req, res, next) {
-      var hostname = req.headers.host.split(":")[0];
-      hostname = hostname.substring(0, hostname.indexOf('.'));
-      if (hostname == 'admin') {
-        next();
-      } else {
-        res.status(404)
-        res.render('404');
-      }
+        var hostname = req.headers.host.split(":")[0];
+        hostname = hostname.substring(0, hostname.indexOf('.'));
+        if (hostname == 'admin') {
+            next();
+        } else {
+            res.status(404)
+            res.render('404');
+        }
     }
 
     var isAuthenticated = function(req, res, next) {
@@ -92,7 +92,9 @@ module.exports = function() {
 
     app.set('views', './operations/views')
     app.set('view engine', 'pug');
-    app.use(bodyParser.urlencoded({ extended: false }));
+    app.use(bodyParser.urlencoded({
+        extended: false
+    }));
     app.use(bodyParser.json());
     app.use(responseTime(function(req, res, time) {
         var ip = req.query.ip ||
@@ -140,7 +142,7 @@ module.exports = function() {
                 }
             });
         } else {
-          next();
+            next();
         }
     });
     app.use('/queue', isAdminHost, isAuthenticated, function(req, res, next) {
@@ -153,36 +155,41 @@ module.exports = function() {
         }
     });
     app.use('/application/:name', isAdminHost, isAuthenticated, function(req, res, next) {
-      var hostname = req.headers.host.split(":")[0];
-      hostname = hostname.substring(0, hostname.indexOf('.'));
-      if (hostname == 'admin') {
-          res.render('admin/application-view');
-      } else {
-          next();
-      }
+        var hostname = req.headers.host.split(":")[0];
+        hostname = hostname.substring(0, hostname.indexOf('.'));
+        if (hostname == 'admin') {
+            res.render('admin/application-view');
+        } else {
+            next();
+        }
     });
-    app.use('/process/:name/json', isAdminHost, isAuthenticated, function(req, res, next){
-      var name = req.params.name;
-      if(processes[name]) {
-        var process = processes[name];
-        process.name = name;
-        res.send(process);
-      } else {
-        next();
-      }
+    app.use('/process/:name/json', isAdminHost, isAuthenticated, function(req, res, next) {
+        var name = req.params.name;
+        if (processes[name]) {
+            var process = processes[name];
+            process.name = name;
+            res.send(process);
+        } else {
+            next();
+        }
     });
     app.use('/process/json', isAdminHost, isAuthenticated, function(req, res) {
         res.send(processes);
     });
     app.use('/', isAdminHost, isAuthenticated, function(req, res, next) {
-      if(req.originalUrl.indexOf('settings') > -1) {
-          next();
-      } else {
-          res.render('admin/application-list', {
-              processes: processes,
-              prettysize: require('prettysize')
-          });
-      }
+        if (req.originalUrl.indexOf('settings') > -1) {
+            next();
+        } else {
+            res.render('admin/application-list', {
+                processes: processes,
+                formatSize: function(bytes) {
+                    if (bytes == 0) return '0 B';
+                    var sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+                    var i = Math.floor(Math.log(bytes) / Math.log(1000));
+                    return parseFloat((bytes / Math.pow(1000, i)).toFixed(3)) + ' ' + sizes[i];
+                }
+            });
+        }
     });
     app.get('/settings', isAdminHost, isAuthenticated, function(req, res) {
         var config = repos.get();
@@ -195,7 +202,7 @@ module.exports = function() {
     });
     app.post('/settings', isAdminHost, isAuthenticated, function(req, res) {
         repos.update(req.body, function(err) {
-            if(err) {
+            if (err) {
                 res.status(500);
                 res.send(err);
             } else {
@@ -205,11 +212,11 @@ module.exports = function() {
         });
     });
     app.use('/application/:name/redeploy', isAdminHost, isAuthenticated, function(req, res) {
-      var name = req.params.name;
-      startApplication(name, path.resolve(__dirname, '..', 'app', name), repos.get(), function() {
-          log.info('app:restarted:', name);
-          res.status(200);
-      });
+        var name = req.params.name;
+        startApplication(name, path.resolve(__dirname, '..', 'app', name), repos.get(), function() {
+            log.info('app:restarted:', name);
+            res.status(200);
+        });
     });
 
     app.use(function(req, res) {

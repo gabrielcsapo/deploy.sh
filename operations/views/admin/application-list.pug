@@ -30,5 +30,5 @@ html
                   li.list-item
                     div.list-item-left
                       a(href="/application/" + name)=name
-                    div.list-item-right="mem: " + prettysize(process.memory[0] ? process.memory[0][1] : 0)
+                    div.list-item-right="mem: " + formatSize(process.memory[0] ? process.memory[0][1] : 0)
             div.col-md-2-12
