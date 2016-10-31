@@ -1,7 +1,7 @@
 {
   "name": "node-distribute",
-  "version": "0.5.1",
-  "description": "continuous deployment of node services",
+  "version": "0.6.0",
+  "description": "continuous deployment of node services, make your own vpn ☁️",
   "main": "index.js",
   "scripts": {
     "test": "npm run lint;./node_modules/.bin/eslint .;npm run clean;cd test/fixtures/node-app;git init;git add -A;git commit -m 'initial commit';cd ../../../;cd test/fixtures/static-pages;git init;git add -A;git commit -m 'initial commit';cd ../../../;rm -rf test/fixtures/main-app/.git;cd test/fixtures/main-app;git init;git add -A;git commit -m 'initial commit';cd ../../../;mocha test/index.js;rm -rf test/fixtures/node-app/.git;rm -rf test/fixtures/static-pages/.git;killall node;",
