@@ -40,7 +40,15 @@ describe('static-pages', function() {
                 .set('referrer', chance.domain())
                 .expect(200, function(err) {
                     assert.isNull(err);
-                    done();
+                    request('http://localhost:1337')
+                        .get('/blog.html')
+                        .set('Host', 'static.example.com')
+                        .set('x-forwarded-for', chance.ip())
+                        .set('referrer', chance.domain())
+                        .expect(200, function(err) {
+                            assert.isNull(err);
+                            done();
+                        });
                 });
         });
     }
