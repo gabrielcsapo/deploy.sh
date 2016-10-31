@@ -82,9 +82,14 @@ module.exports = function() {
         }
     }
 
-    pm2.launchBus(function(err, bus) {
-        bus.on('log:out', function(data) {
-            db(data.process.name, 'logs').push(moment().format() + ': ' + data.data)
+    pm2.connect(true, function(err) {
+        if (err) {
+            throw err;
+        }
+        pm2.launchBus(function(err, bus) {
+            bus.on('log:out', function(data) {
+                db(data.process.name, 'logs').push(moment().format() + ': ' + data.data)
+            });
         });
     });
 
