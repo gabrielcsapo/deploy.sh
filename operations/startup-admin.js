@@ -112,6 +112,8 @@ module.exports = function() {
         var referrer = req.get('Referrer');
         var hostname = req.headers.host.split(":")[0];
         hostname = hostname.substring(0, hostname.indexOf('.'));
+        // check for main application
+        hostname = (hostname == "" ? "*" : hostname);
         repos.get().forEach(function(repo) {
             if (repo.subdomain == hostname) {
                 if (db(repo.name, 'traffic').find({
