@@ -10,7 +10,16 @@ module.exports = function() {
     var reposDirectory = path.resolve(__dirname, '..', 'repos') + '/';
 
     repos.forEach(function(repo) {
-        repo.users[0].user = user;
+        // If there is no user object use the default user
+        if(!repo.users) {
+            repo.users = [{
+                "user": user,
+                "permissions": [
+                    "R",
+                    "W"
+                ]
+            }];
+        }
     });
 
     var server = new GitServer({

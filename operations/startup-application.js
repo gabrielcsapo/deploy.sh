@@ -44,9 +44,12 @@ module.exports = function(repo, directory, repos, callback) {
                             });
                         }
                     } else {
+                        // Static application should start in a cluster
                         pm2.start({
                             name: repo.name,
                             cwd: __dirname,
+                            exec_mode: 'cluster',
+                            instances : 4,
                             script: 'startup-application-static.js',
                             env: {
                                 DIRECTORY: directory,

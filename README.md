@@ -21,8 +21,10 @@
 > two services are started with node-distribute a git server and a http server to host the admin page
 (admin:1337) and (git server:7000)
 
-- run `node-distribute configure`
-    - this will log two files, repos and user
+- run `node-distribute --configure` or `node-distribute -c`.
+    - this will log two files, repos and user.
+
+- run `node-distribute --start` or `node-distribute -s` to start the server.
 
 ### repos.json
 
@@ -34,6 +36,7 @@
         "type": String (NODE, STATIC) // the type of application
         "anonRead": false, // allow anonymous access
         "users": [ // array of users that are allowed to push to this repository
+            // The default user will be whatever is in user.json with read and write permissions
             {
                 "user": {
                     "username": "root",
@@ -67,7 +70,8 @@
 `git push http://{user}:{password}@localhost:7000/test.git master`
 
 ### user.json
-> admin account
+
+> admin account / default repo user
 
 ```javascript
 {
