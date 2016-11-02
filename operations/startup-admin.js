@@ -25,7 +25,7 @@ module.exports = function() {
     var port = process.env.PORT || 1337;
     var processes = {};
 
-    var getProcessData = function() {
+    var getProcessData = function(callback) {
         pm2.connect(true, function(err) {
             if (err) {
                 throw err;
@@ -51,6 +51,9 @@ module.exports = function() {
                     processes[process.name].memory = db(process.name, 'memory').value();
                 });
                 pm2.disconnect();
+                if(typeof callback === 'function') {
+                    callback();
+                }
             });
         });
     }
@@ -112,6 +115,8 @@ module.exports = function() {
         var referrer = req.get('Referrer');
         var hostname = req.headers.host.split(":")[0];
         hostname = hostname.substring(0, hostname.indexOf('.'));
+        // check for main application
+        hostname = (hostname == "" ? "*" : hostname);
         repos.get().forEach(function(repo) {
             if (repo.subdomain == hostname) {
                 if (db(repo.name, 'traffic').find({
@@ -178,21 +183,23 @@ module.exports = function() {
             next();
         }
     });
-    app.use('/process/json', isAdminHost, isAuthenticated, function(req, res) {
+    app.get('/process/json', isAdminHost, isAuthenticated, function(req, res) {
         res.send(processes);
     });
     app.use('/', isAdminHost, isAuthenticated, function(req, res, next) {
         if (req.originalUrl.indexOf('settings') > -1) {
             next();
         } else {
-            res.render('admin/application-list', {
-                processes: processes,
-                formatSize: function(bytes) {
-                    if (bytes == 0) return '0 B';
-                    var sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-                    var i = Math.floor(Math.log(bytes) / Math.log(1000));
-                    return parseFloat((bytes / Math.pow(1000, i)).toFixed(3)) + ' ' + sizes[i];
-                }
+            getProcessData(function(){
+                res.render('admin/application-list', {
+                    processes: processes,
+                    formatSize: function(bytes) {
+                        if (bytes == 0) return '0 B';
+                        var sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+                        var i = Math.floor(Math.log(bytes) / Math.log(1000));
+                        return parseFloat((bytes / Math.pow(1000, i)).toFixed(3)) + ' ' + sizes[i];
+                    }
+                });
             });
         }
     });
