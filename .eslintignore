@@ -3,3 +3,4 @@ test/fixtures/**
 config/**
 app/**
 repos/**
+operations/views/admin/dist/**

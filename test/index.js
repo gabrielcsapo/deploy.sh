@@ -69,7 +69,7 @@ describe('node-distribute', function() {
             },
             {
                 "subdomain": "static",
-                "name": "static-pages",
+                "name": "static-app",
                 "type": "STATIC",
                 "anonRead": false,
                 "users": [
@@ -157,7 +157,6 @@ describe('node-distribute', function() {
     });
 
     require('./node-app');
-    require('./static-pages');
+    require('./static-app');
     require('./main-app');
-
 });
