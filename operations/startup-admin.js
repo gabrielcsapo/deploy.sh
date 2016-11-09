@@ -25,6 +25,8 @@ module.exports = function() {
     var port = process.env.PORT || 1337;
     var processes = {};
 
+    process.env.VUE_ENV = 'server';
+
     var getProcessData = function(callback) {
         pm2.connect(true, function(err) {
             if (err) {
@@ -40,10 +42,12 @@ module.exports = function() {
                             memory: [],
                             repo: [],
                             logs: [],
-                            traffic: []
+                            traffic: [],
+                            cpu: []
                         };
                     }
 
+                    processes[process.name].cpu.push([moment().format('x'), process.monit.cpu]);
                     processes[process.name].memory.push([moment().format('x'), process.monit.memory]);
                     processes[process.name].repo = repos.get(process.name);
                     processes[process.name].logs = db(process.name, 'logs').value();
@@ -164,15 +168,6 @@ module.exports = function() {
             next();
         }
     });
-    app.use('/application/:name', isAdminHost, isAuthenticated, function(req, res, next) {
-        var hostname = req.headers.host.split(":")[0];
-        hostname = hostname.substring(0, hostname.indexOf('.'));
-        if (hostname == 'admin') {
-            res.render('admin/application-view');
-        } else {
-            next();
-        }
-    });
     app.use('/process/:name/json', isAdminHost, isAuthenticated, function(req, res, next) {
         var name = req.params.name;
         if (processes[name]) {
@@ -183,25 +178,33 @@ module.exports = function() {
             next();
         }
     });
+    app.get('/config/json', isAdminHost, isAuthenticated, function(req, res) {
+        var config = repos.get();
+        config = config.map(function(c) {
+            return _.omit(c, 'git_events', 'event', 'path', 'last_commit');
+        });
+        res.send(config);
+    });
     app.get('/process/json', isAdminHost, isAuthenticated, function(req, res) {
         res.send(processes);
     });
-    app.use('/', isAdminHost, isAuthenticated, function(req, res, next) {
-        if (req.originalUrl.indexOf('settings') > -1) {
-            next();
-        } else {
-            getProcessData(function(){
-                res.render('admin/application-list', {
-                    processes: processes,
-                    formatSize: function(bytes) {
-                        if (bytes == 0) return '0 B';
-                        var sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-                        var i = Math.floor(Math.log(bytes) / Math.log(1000));
-                        return parseFloat((bytes / Math.pow(1000, i)).toFixed(3)) + ' ' + sizes[i];
-                    }
-                });
-            });
-        }
+    app.use('/process/:name/redeploy', isAdminHost, isAuthenticated, function(req, res) {
+        var name = req.params.name;
+        startApplication({ name: name }, path.resolve(__dirname, '..', 'app', name), repos.get(), function() {
+            log.info('app:restarted:', name);
+            res.status(200);
+            res.send({success: 'true'});
+        });
+    });
+
+    app.get('/assets/app.js', isAdminHost, isAuthenticated, function(req, res) {
+        res.sendFile(path.resolve(__dirname, 'views', 'admin', 'dist', 'bundle.js'));
+    });
+    app.get('/assets/admin.css', isAdminHost, isAuthenticated, function(req, res) {
+        res.sendFile(path.resolve(__dirname, 'views', 'admin', 'dist', 'admin.css'));
+    });
+    app.use('/', isAdminHost, isAuthenticated, function(req, res) {
+        res.sendFile(path.resolve(__dirname, 'views', 'admin', 'index.html'));
     });
     app.get('/settings', isAdminHost, isAuthenticated, function(req, res) {
         var config = repos.get();
@@ -221,13 +224,6 @@ module.exports = function() {
                 res.status(200);
                 res.send();
             }
-        });
-    });
-    app.use('/application/:name/redeploy', isAdminHost, isAuthenticated, function(req, res) {
-        var name = req.params.name;
-        startApplication(name, path.resolve(__dirname, '..', 'app', name), repos.get(), function() {
-            log.info('app:restarted:', name);
-            res.status(200);
         });
     });
 

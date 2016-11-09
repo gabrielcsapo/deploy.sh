@@ -10,30 +10,19 @@ html
                 height: 100%;
                 width: 100%;
             }
+            .vertical-center {
+              margin: auto;
+              position: absolute;
+              top: 0;
+              left: 0;
+              bottom: 0;
+              right: 0;
+            }
 
     body
         div(style="margin-top:15%")
-            h3(class="text-center") This page does not exist
-            pre(style="width:425px;margin:0 auto;" class="background-black text-white")
-                |I dont this
-                |is the page
-                |you are looking
-                |for
-                |               \  .-.
-                |                 /_ _\
-                |                 |o^o|
-                |                 \ _ /
-                |                .-'-'-.              BLEEP BOOP BLOOP
-                |              /`)  .  (`\            (THIS MEANS YES)
-                |             / /|.-'-.|\ \         /
-                |             \ \| (_) |/ /  .-""-.
-                |              \_\'-.-'/_/  /[] _ _\
-                |              /_/ \_/ \_\ _|_o_LII|_
-                |                |'._.'|  / | ==== | \
-                |                |  |  |  |_| ==== |_|
-                |                 \_|_/    ||" ||  ||
-                |                 |-|-|    ||LI  o ||
-                |             jgs |_|_|    ||'----'||
-                |                /_/ \_\  /__|    |__\
-            h3(class="text-center")
-                a(href="/") Go to someplace safe
+            pre(style="width:425px;height:300px;" class="vertical-center text-center background-black text-white")
+                div(style="height:150px;" class="vertical-center")
+                  h3 This page does not exist
+                  h1 404
+                  a(href="/" class="text-white" style="display:block;") Go back to somewhere safe

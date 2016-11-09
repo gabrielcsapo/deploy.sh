@@ -31,7 +31,7 @@ describe('node-app', function() {
         });
     });
 
-    for (var i = 0; i < 10; i++) {
+    for (var i = 0; i < 25; i++) {
         it('should be able to reach new app url', function(done) {
             request('http://localhost:1337')
                 .get('/distribute')
