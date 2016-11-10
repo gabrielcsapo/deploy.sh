@@ -12,6 +12,7 @@ var geoip = require('geoip-lite');
 var startApplication = require('./startup-application');
 var path = require('path');
 var _ = require('underscore');
+var child_process = require('child_process');
 
 var log = require('./lib/log');
 var db = require('./lib/db');
@@ -89,15 +90,12 @@ module.exports = function() {
         }
     }
 
-    pm2.connect(true, function(err) {
-        if (err) {
-            throw err;
-        }
-        pm2.launchBus(function(err, bus) {
-            bus.on('log:out', function(data) {
-                db(data.process.name, 'logs').push(moment().format() + ': ' + data.data)
-            });
-        });
+    var logs = child_process.fork(`${__dirname}/process-listen.js`);
+    logs.on('message', function(m) {
+      var name = m.name;
+      var type = m.type;
+      var data = m.data;
+      db(name, 'logs').push(type + ' ' + moment().format() + ': ' + data);
     });
 
     kue.app.set('title', 'node-distribute');
@@ -140,6 +138,7 @@ module.exports = function() {
             }
         });
     }));
+
     app.get('*', function(req, res, next) {
         var hostname = req.headers.host.split(":")[0];
         hostname = hostname.substring(0, hostname.indexOf('.'));
@@ -197,15 +196,12 @@ module.exports = function() {
         });
     });
 
-    app.get('/assets/app.js', isAdminHost, isAuthenticated, function(req, res) {
-        res.sendFile(path.resolve(__dirname, 'views', 'admin', 'dist', 'bundle.js'));
-    });
-    app.get('/assets/admin.css', isAdminHost, isAuthenticated, function(req, res) {
-        res.sendFile(path.resolve(__dirname, 'views', 'admin', 'dist', 'admin.css'));
-    });
+    app.use('/assets/', isAdminHost, isAuthenticated, express.static(path.resolve(__dirname, 'views', 'admin', 'dist')));
+
     app.use('/', isAdminHost, isAuthenticated, function(req, res) {
         res.sendFile(path.resolve(__dirname, 'views', 'admin', 'index.html'));
     });
+
     app.get('/settings', isAdminHost, isAuthenticated, function(req, res) {
         var config = repos.get();
         config = config.map(function(c) {
@@ -215,6 +211,7 @@ module.exports = function() {
             config: config
         });
     });
+
     app.post('/settings', isAdminHost, isAuthenticated, function(req, res) {
         repos.update(req.body, function(err) {
             if (err) {
@@ -234,7 +231,7 @@ module.exports = function() {
 
     app.listen(port, function() {
         log.info('node-distribute listening on http://localhost:' + port)
-            // Polls PM2 for info every 60 seconds
+        // Polls PM2 for info every 60 seconds
         setInterval(function() {
             getProcessData();
         }, 60000);
