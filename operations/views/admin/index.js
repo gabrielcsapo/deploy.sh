@@ -461,7 +461,7 @@
                             self.memory = response.memory;
                             self.traffic = response.traffic;
 
-                            self.url = window.location.protocol + '//' + window.location.host.replace('admin', self.config.subdomain);
+                            self.url = window.location.protocol + '//' + (self.config.subdomain === '*' ? window.location.host.replace('admin.', '') : window.location.host.replace('admin', self.config.subdomain));
 
                             self.createCharts();
                         });
