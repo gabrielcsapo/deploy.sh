@@ -49,7 +49,9 @@ module.exports = {
             });
             return _.omit(found, 'git_events', 'event');
         } else {
-            return repos
+          return repos.map(function(repo) {
+            return _.omit(repo, 'git_events', 'event');
+          });
         }
     }
 };
