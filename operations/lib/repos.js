@@ -30,7 +30,7 @@ module.exports = {
      * @param  {Function} callback function(err) where err is the error from writeFile
      */
     update: function(config, callback) {
-        fs.writeFile(path.resolve(__dirname, '..', '..', 'config', 'repos.json'), JSON.stringify(config), function (err) {
+        fs.writeFile(path.resolve(__dirname, '..', '..', 'config', 'repos.json'), JSON.stringify(config), function(err) {
             if (err) {
                 callback(err);
             } else {
@@ -43,15 +43,21 @@ module.exports = {
             var found = {};
             repos = require('../../config/repos.json');
             repos.forEach(function(repo) {
-                if(repo.name == name) {
+                if (repo.name == name) {
                     found = repo;
+                    if (!found.user) {
+                        found.user = user.get();
+                    }
                 }
             });
             return _.omit(found, 'git_events', 'event');
         } else {
-          return repos.map(function(repo) {
-            return _.omit(repo, 'git_events', 'event');
-          });
+            return repos.map(function(repo) {
+                if (!repo.user) {
+                    repo.user = user.get();
+                }
+                return _.omit(repo, 'git_events', 'event');
+            });
         }
     }
 };

@@ -15,6 +15,10 @@
 - `npm install node-distribute -g`
 - `node-distribute start` // server will now be running
 
+> if you want to run this on port 80 use iptables to do the routing
+
+- `sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 1337`
+
 ## Configuration
 
 > how to configure node-distribute
@@ -31,16 +35,16 @@
 ```javascript
 [
     {
-        "subdomain": "test", // test.location:1337
-        "name": "test", // the name of the repository
+        "subdomain": "...", // test.location:1337
+        "name": "...", // the name of the repository
         "type": String (NODE, STATIC) // the type of application
         "anonRead": false, // allow anonymous access
         "users": [ // array of users that are allowed to push to this repository
             // The default user will be whatever is in user.json with read and write permissions
             {
                 "user": {
-                    "username": "root",
-                    "password": "aaa6c4b09f5650ed2780e6210d785ff2c5223954"
+                    "username": "...",
+                    "password": "..."
                 },
                 "permissions": [
                     "R",
@@ -75,8 +79,8 @@
 
 ```javascript
 {
-    "username": "root",
-    "password": "aaa6c4b09f5650ed2780e6210d785ff2c5223954"
+    "username": "...",
+    "password": "..."
 }
 ```
 
