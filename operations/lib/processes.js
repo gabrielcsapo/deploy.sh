@@ -19,9 +19,6 @@ module.exports = {
             process.traffic = db(name, 'traffic').value();
             process.logs = db(name, 'logs').value();
             process.repo = repos.get(name);
-            if(process.repo && !process.repo.user) {
-                process.repo.user = user.get();
-            }
             return process;
         } else {
             return repos.get().map(function(repo) {
@@ -31,9 +28,6 @@ module.exports = {
                 process.traffic = db(repo.name, 'traffic').value();
                 process.logs = db(repo.name, 'logs').value();
                 process.repo = repo;
-                if(process.repo && !process.repo.user) {
-                    process.repo.user = user.get();
-                }
                 return process;
             });
         }
