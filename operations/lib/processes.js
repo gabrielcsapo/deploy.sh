@@ -1,5 +1,4 @@
 var repos = require('./repos');
-var user = require('./user');
 var db = require('./db');
 
 var Process = function(name) {
