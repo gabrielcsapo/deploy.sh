@@ -7,61 +7,26 @@ var responseTime = require('response-time');
 var moment = require('moment');
 var httpProxy = require('http-proxy');
 var proxy = httpProxy.createProxyServer({});
-var pm2 = require('pm2');
 var geoip = require('geoip-lite');
 var startApplication = require('./startup-application');
 var path = require('path');
 var _ = require('underscore');
 var child_process = require('child_process');
+var server = require('http').Server(app);
+var io = require('socket.io')(server);
 
 var log = require('./lib/log');
 var db = require('./lib/db');
+var processes = require('./lib/processes');
 
-// TODO: cleanup
 // TODO: admin portal should be able to restart itself?
 // TODO: admin portal should be able to add users
 module.exports = function() {
     var user = require('./lib/user');
     var repos = require('./lib/repos');
     var port = process.env.PORT || 1337;
-    var processes = {};
 
     process.env.VUE_ENV = 'server';
-
-    var getProcessData = function(callback) {
-        pm2.connect(true, function(err) {
-            if (err) {
-                throw err;
-            }
-            pm2.list(function(err, list) {
-                if (err) {
-                    throw err;
-                }
-                list.forEach(function(process) {
-                    if (!processes[process.name]) {
-                        processes[process.name] = {
-                            memory: [],
-                            repo: [],
-                            logs: [],
-                            traffic: [],
-                            cpu: []
-                        };
-                    }
-
-                    processes[process.name].cpu.push([moment().format('x'), process.monit.cpu]);
-                    processes[process.name].memory.push([moment().format('x'), process.monit.memory]);
-                    processes[process.name].repo = repos.get(process.name);
-                    processes[process.name].logs = db(process.name, 'logs').value();
-                    processes[process.name].traffic = db(process.name, 'traffic').value();
-                    processes[process.name].memory = db(process.name, 'memory').value();
-                });
-                pm2.disconnect();
-                if(typeof callback === 'function') {
-                    callback();
-                }
-            });
-        });
-    }
 
     var isAdminHost = function(req, res, next) {
         var hostname = req.headers.host.split(":")[0];
@@ -95,7 +60,25 @@ module.exports = function() {
       var name = m.name;
       var type = m.type;
       var data = m.data;
-      db(name, 'logs').push(type + ' ' + moment().format() + ': ' + data);
+      var log = type + ' ' + moment().format() + ': ' + data;
+      io.sockets.emit(name + '-logs', log);
+      db(name, 'logs').push(log);
+    });
+
+    var usage = child_process.fork(`${__dirname}/process-usage.js`);
+    usage.on('message', function(m) {
+      if(m.monit) {
+        var cpu = [moment().format('x'), m.monit.cpu];
+        var memory = [moment().format('x'), m.monit.memory];
+
+        io.sockets.emit(m.name + '-memory', {
+          cpu: cpu,
+          memory: memory
+        });
+
+        db(m.name, 'cpu').push(cpu);
+        db(m.name, 'memory').push(memory);
+      }
     });
 
     kue.app.set('title', 'node-distribute');
@@ -135,6 +118,12 @@ module.exports = function() {
                         ]
                     });
                 }
+                io.sockets.emit(repo.name + '-traffic', {
+                    url: req.originalUrl,
+                    traffic: [
+                        [moment().format('x'), time, geo, referrer]
+                    ]
+                });
             }
         });
     }));
@@ -158,61 +147,8 @@ module.exports = function() {
             next();
         }
     });
-    app.use('/queue', isAdminHost, isAuthenticated, function(req, res, next) {
-        var hostname = req.headers.host.split(":")[0];
-        hostname = hostname.substring(0, hostname.indexOf('.'));
-        if (hostname == 'admin') {
-            kue.app(req, res, next);
-        } else {
-            next();
-        }
-    });
-    app.use('/process/:name/json', isAdminHost, isAuthenticated, function(req, res, next) {
-        var name = req.params.name;
-        if (processes[name]) {
-            var process = processes[name];
-            process.name = name;
-            res.send(process);
-        } else {
-            next();
-        }
-    });
-    app.get('/config/json', isAdminHost, isAuthenticated, function(req, res) {
-        var config = repos.get();
-        config = config.map(function(c) {
-            return _.omit(c, 'git_events', 'event', 'path', 'last_commit');
-        });
-        res.send(config);
-    });
-    app.get('/process/json', isAdminHost, isAuthenticated, function(req, res) {
-        res.send(processes);
-    });
-    app.use('/process/:name/redeploy', isAdminHost, isAuthenticated, function(req, res) {
-        var name = req.params.name;
-        startApplication({ name: name }, path.resolve(__dirname, '..', 'app', name), repos.get(), function() {
-            log.info('app:restarted:', name);
-            res.status(200);
-            res.send({success: 'true'});
-        });
-    });
 
-    app.use('/assets/', isAdminHost, isAuthenticated, express.static(path.resolve(__dirname, 'views', 'admin', 'dist')));
-
-    app.use('/', isAdminHost, isAuthenticated, function(req, res) {
-        res.sendFile(path.resolve(__dirname, 'views', 'admin', 'index.html'));
-    });
-
-    app.get('/settings', isAdminHost, isAuthenticated, function(req, res) {
-        var config = repos.get();
-        config = config.map(function(c) {
-            return _.omit(c, 'git_events', 'event', 'path', 'last_commit');
-        });
-        res.render('admin/admin-view', {
-            config: config
-        });
-    });
-
-    app.post('/settings', isAdminHost, isAuthenticated, function(req, res) {
+    app.post('/api/settings', isAdminHost, isAuthenticated, function(req, res) {
         repos.update(req.body, function(err) {
             if (err) {
                 res.status(500);
@@ -224,17 +160,46 @@ module.exports = function() {
         });
     });
 
+    app.get('/api/process/:name/json', isAdminHost, isAuthenticated, function(req, res) {
+        var name = req.params.name;
+        var process = processes.get(name);
+        if (process.repo) {
+            res.send(process);
+        } else {
+            res.status(500);
+            res.send();
+        }
+    });
+    app.get('/api/config/json', isAdminHost, isAuthenticated, function(req, res) {
+        var config = repos.get();
+        config = config.map(function(c) {
+            return _.omit(c, 'git_events', 'event', 'path', 'last_commit');
+        });
+        res.send(config);
+    });
+    app.get('/api/process/json', isAdminHost, isAuthenticated, function(req, res) {
+        res.send(processes.get());
+    });
+    app.use('/api/process/:name/redeploy', isAdminHost, isAuthenticated, function(req, res) {
+        var name = req.params.name;
+        startApplication({ name: name }, path.resolve(__dirname, '..', 'app', name), repos.get(), function() {
+            log.info('app:restarted:', name);
+            res.status(200);
+            res.send({success: 'true'});
+        });
+    });
+    app.use('/queue', isAdminHost, isAuthenticated, kue.app);
+    app.use('/assets/', isAdminHost, isAuthenticated, express.static(path.resolve(__dirname, 'views', 'admin', 'dist')));
+    app.use('/', isAdminHost, isAuthenticated, function(req, res) {
+        res.sendFile(path.resolve(__dirname, 'views', 'admin', 'index.html'));
+    });
+
     app.use(function(req, res) {
         res.status(404);
         res.render('404');
     });
 
-    app.listen(port, function() {
+    server.listen(port, function() {
         log.info('node-distribute listening on http://localhost:' + port)
-        // Polls PM2 for info every 60 seconds
-        setInterval(function() {
-            getProcessData();
-        }, 60000);
-        getProcessData();
     });
 }
