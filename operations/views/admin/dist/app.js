@@ -179,6 +179,12 @@
 	                        </div>
 
 	                        <div class="col-12-12">
+	                            <h3>repo instructions</h3>
+	                            <p> To push to the remote repo please copy the following upstream </p>
+	                            <pre> git remote add upstream {{ remoteUpstream }} </pre>
+	                        </div>
+
+	                        <div class="col-12-12">
 	                            <h3>memory <small>~ {{ formatSize(currentMemory) }}</small></h3>
 	                            <canvas id="chart-memory"></canvas>
 	                        </div>
@@ -214,6 +220,7 @@
 	                    countries: {},
 	                    name: '',
 	                    url: '',
+	                    remoteUpstream: '',
 	                    deployed: true,
 	                    config: {},
 	                    charts: {
@@ -508,6 +515,7 @@
 	                            self.traffic = response.traffic;
 
 	                            self.url = window.location.protocol + '//' + (self.config.subdomain === '*' ? window.location.host.replace('admin.', '') : window.location.host.replace('admin', self.config.subdomain));
+	                            self.remoteUpstream = window.location.protocol + '//' + self.config.user.username + ':' + self.config.user.password + '@' + window.location.hostname.replace('admin.', '') + ':7000/' + self.config.name + '.git';
 
 	                            self.createCharts();
 	                        });

@@ -159,7 +159,13 @@ module.exports = function() {
             }
         });
     });
-
+    app.get('/api/config/json', isAdminHost, isAuthenticated, function(req, res) {
+        var config = repos.get();
+        config = config.map(function(c) {
+            return _.omit(c, 'git_events', 'event', 'path', 'last_commit');
+        });
+        res.send(config);
+    });
     app.get('/api/process/:name/json', isAdminHost, isAuthenticated, function(req, res) {
         var name = req.params.name;
         var process = processes.get(name);
@@ -169,13 +175,6 @@ module.exports = function() {
             res.status(500);
             res.send();
         }
-    });
-    app.get('/api/config/json', isAdminHost, isAuthenticated, function(req, res) {
-        var config = repos.get();
-        config = config.map(function(c) {
-            return _.omit(c, 'git_events', 'event', 'path', 'last_commit');
-        });
-        res.send(config);
     });
     app.get('/api/process/json', isAdminHost, isAuthenticated, function(req, res) {
         res.send(processes.get());

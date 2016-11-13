@@ -15,6 +15,10 @@
 - `npm install node-distribute -g`
 - `node-distribute start` // server will now be running
 
+> if you want to run this on port 80 use iptables to do the routing
+
+- `sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 1337`
+
 ## Configuration
 
 > how to configure node-distribute
