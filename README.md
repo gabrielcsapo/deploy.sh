@@ -35,16 +35,16 @@
 ```javascript
 [
     {
-        "subdomain": "test", // test.location:1337
-        "name": "test", // the name of the repository
+        "subdomain": "...", // test.location:1337
+        "name": "...", // the name of the repository
         "type": String (NODE, STATIC) // the type of application
         "anonRead": false, // allow anonymous access
         "users": [ // array of users that are allowed to push to this repository
             // The default user will be whatever is in user.json with read and write permissions
             {
                 "user": {
-                    "username": "root",
-                    "password": "aaa6c4b09f5650ed2780e6210d785ff2c5223954"
+                    "username": "...",
+                    "password": "..."
                 },
                 "permissions": [
                     "R",
@@ -79,8 +79,8 @@
 
 ```javascript
 {
-    "username": "root",
-    "password": "aaa6c4b09f5650ed2780e6210d785ff2c5223954"
+    "username": "...",
+    "password": "..."
 }
 ```
 
