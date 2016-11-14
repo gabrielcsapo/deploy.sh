@@ -1,6 +1,6 @@
 {
   "name": "node-distribute",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "continuous deployment of node services, make your own vpn ☁️",
   "main": "index.js",
   "scripts": {
