@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "./node_modules/.bin/lessc ./operations/views/admin/admin.less ./operations/views/admin/dist/admin.css; webpack;",
-    "test": "npm run lint;./node_modules/.bin/eslint .;npm run clean;cd test/fixtures/node-app;git init;git add -A;git commit -m 'initial commit';cd ../../../;cd test/fixtures/static-app;git init;git add -A;git commit -m 'initial commit';cd ../../../;rm -rf test/fixtures/main-app/.git;cd test/fixtures/main-app;git init;git add -A;git commit -m 'initial commit';cd ../../../;mocha test/index.js;rm -rf test/fixtures/node-app/.git;rm -rf test/fixtures/static-app/.git;killall node;",
+    "test": "npm run lint;npm run clean;./scripts/test.sh",
     "lint": "eslint .",
     "start": "node index.js | ./node_modules/.bin/bunyan -o short",
     "clean": "redis-cli flushall;"

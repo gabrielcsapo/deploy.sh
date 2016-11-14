@@ -45,6 +45,9 @@ module.exports = function(repo, directory, repos, callback) {
                         }
                     } else {
                         // Static application should start in a cluster
+                        if(repo.options && repo.options.directory) {
+                            directory = path.resolve(directory, repo.options.directory);
+                        }
                         pm2.start({
                             name: repo.name,
                             cwd: __dirname,

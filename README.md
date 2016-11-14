@@ -39,6 +39,9 @@
         "name": "...", // the name of the repository
         "type": String (NODE, STATIC) // the type of application
         "anonRead": false, // allow anonymous access
+        "options": { // optional
+            "directory": "..." // used for static applications
+        },
         "users": [ // array of users that are allowed to push to this repository
             // The default user will be whatever is in user.json with read and write permissions
             {
