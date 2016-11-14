@@ -86,6 +86,27 @@ describe('node-distribute', function() {
                 ]
             },
             {
+                "subdomain": "static-different",
+                "name": "static-app-different-directory",
+                "type": "STATIC",
+                "options": {
+                    "directory": "dist"
+                },
+                "anonRead": false,
+                "users": [
+                    {
+                        "user": {
+                            "username": "root",
+                            "password": require('../config/user.json').password
+                        },
+                        "permissions": [
+                            "R",
+                            "W"
+                        ]
+                    }
+                ]
+            },
+            {
                 "subdomain": "*",
                 "name": "main-app",
                 "type": "STATIC",
@@ -157,6 +178,7 @@ describe('node-distribute', function() {
     });
 
     require('./node-app');
-    require('./static-app');
     require('./main-app');
+    require('./static-app');
+    require('./static-app-different-directory');
 });
