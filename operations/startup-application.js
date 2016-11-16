@@ -14,17 +14,52 @@ module.exports = function(repo, directory, repos, callback) {
                 }
                 pm2.connect(true, function(err) {
                     if (err) {
-                        log.error('queue:restart', err.toString());
-                        process.exit(2);
+                        log.error('pm2:error', err.toString());
+                        callback(err);
                     }
-                    // TODO: need to be able customized scripts
-                    if(repo.type == 'NODE') {
-                        if (fs.existsSync(path.resolve(directory, 'package.json'))) {
+                    pm2.stop(repo.name, function(err) {
+                        if (err) {
+                            log.error('application:stop', err.toString());
+                        }
+                        // TODO: need to be able customized scripts
+                        if (repo.type == 'NODE') {
+                            if (fs.existsSync(path.resolve(directory, 'package.json'))) {
+                                pm2.start({
+                                    name: repo.name,
+                                    cwd: directory,
+                                    script: 'index.js',
+                                    env: {
+                                        PORT: port
+                                    }
+                                }, function(err) {
+                                    pm2.disconnect();
+                                    if (err) {
+                                        log.error('queue:pm2:start', err);
+                                    }
+                                    // Go through repos and check for subdomin and register it with wildcard routes
+                                    repos.forEach(function(_repo) {
+                                        if (_repo.name == repo.name) {
+                                            if (repo.subdomain) {
+                                                GLOBAL.wildcards[repo.subdomain] = port;
+                                            }
+                                        }
+                                    });
+                                    callback();
+                                });
+                            }
+                        } else {
+                            // Static application should start in a cluster
+                            if (repo.options && repo.options.directory) {
+                                directory = path.resolve(directory, repo.options.directory);
+                            }
                             pm2.start({
                                 name: repo.name,
-                                cwd: directory,
-                                script: 'index.js',
+                                cwd: __dirname,
+                                exec_mode: 'cluster',
+                                instances: 4,
+                                script: 'startup-application-static.js',
                                 env: {
+                                    DIRECTORY: directory,
                                     PORT: port
                                 }
                             }, function(err) {
@@ -43,37 +78,7 @@ module.exports = function(repo, directory, repos, callback) {
                                 callback();
                             });
                         }
-                    } else {
-                        // Static application should start in a cluster
-                        if(repo.options && repo.options.directory) {
-                            directory = path.resolve(directory, repo.options.directory);
-                        }
-                        pm2.start({
-                            name: repo.name,
-                            cwd: __dirname,
-                            exec_mode: 'cluster',
-                            instances : 4,
-                            script: 'startup-application-static.js',
-                            env: {
-                                DIRECTORY: directory,
-                                PORT: port
-                            }
-                        }, function(err) {
-                            pm2.disconnect();
-                            if (err) {
-                                log.error('queue:pm2:start', err);
-                            }
-                            // Go through repos and check for subdomin and register it with wildcard routes
-                            repos.forEach(function(_repo) {
-                                if (_repo.name == repo.name) {
-                                    if (repo.subdomain) {
-                                        GLOBAL.wildcards[repo.subdomain] = port;
-                                    }
-                                }
-                            });
-                            callback();
-                        });
-                    }
+                    });
                 });
             });
         } else {
