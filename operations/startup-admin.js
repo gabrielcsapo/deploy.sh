@@ -10,7 +10,6 @@ var proxy = httpProxy.createProxyServer({});
 var geoip = require('geoip-lite');
 var startApplication = require('./startup-application');
 var path = require('path');
-var _ = require('underscore');
 var child_process = require('child_process');
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
@@ -148,23 +147,21 @@ module.exports = function() {
         }
     });
 
-    app.post('/api/settings', isAdminHost, isAuthenticated, function(req, res) {
-        repos.update(req.body, function(err) {
-            if (err) {
+    app.post('/api/process/:name/settings', isAdminHost, isAuthenticated, function(req, res) {
+        var name = req.params.name;
+        repos.update(req.body, function(error) {
+            if (error) {
                 res.status(500);
-                res.send(err);
+                res.send({ "error": error });
             } else {
-                res.status(200);
-                res.send();
+                delete GLOBAL.wildcards[name];
+                startApplication(repos.get(name), path.resolve(__dirname, '..', 'app', name), repos.get(), function() {
+                    log.info('app:restarted:', name);
+                    res.status(200);
+                    res.send({ "success": "app updated and restarted" });
+                });
             }
-        });
-    });
-    app.get('/api/config/json', isAdminHost, isAuthenticated, function(req, res) {
-        var config = repos.get();
-        config = config.map(function(c) {
-            return _.omit(c, 'git_events', 'event', 'path', 'last_commit');
-        });
-        res.send(config);
+        }, name);
     });
     app.get('/api/process/:name/json', isAdminHost, isAuthenticated, function(req, res) {
         var name = req.params.name;
@@ -181,7 +178,7 @@ module.exports = function() {
     });
     app.use('/api/process/:name/redeploy', isAdminHost, isAuthenticated, function(req, res) {
         var name = req.params.name;
-        startApplication({ name: name }, path.resolve(__dirname, '..', 'app', name), repos.get(), function() {
+        startApplication(repos.get(name), path.resolve(__dirname, '..', 'app', name), repos.get(), function() {
             log.info('app:restarted:', name);
             res.status(200);
             res.send({success: 'true'});

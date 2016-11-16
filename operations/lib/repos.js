@@ -28,9 +28,20 @@ module.exports = {
      * Updates the configuration file for the repo
      * @param  {object}   config   the configuration object
      * @param  {Function} callback function(err) where err is the error from writeFile
+     * @param  {string} name this is the name of the specific part of the config that is too be changed
      */
-    update: function(config, callback) {
-        fs.writeFile(path.resolve(__dirname, '..', '..', 'config', 'repos.json'), JSON.stringify(config), function(err) {
+    update: function(config, callback, name) {
+        if(name) {
+            repos.forEach(function(repo, i) {
+                // update the segment that belongs to the specific repo
+                if(repo.name === name) {
+                    repos[i] = config;
+                }
+            });
+        } else {
+            repos = config;
+        }
+        fs.writeFile(path.resolve(__dirname, '..', '..', 'config', 'repos.json'), JSON.stringify(repos), function(err) {
             if (err) {
                 callback(err);
             } else {
@@ -41,20 +52,19 @@ module.exports = {
     get: function(name) {
         if (name) {
             var found = {};
-            repos = require('../../config/repos.json');
             repos.forEach(function(repo) {
                 if (repo.name == name) {
                     found = repo;
-                    if (!found.user) {
-                        found.user = user.get();
+                    if (!found.users && !found.users[0]) {
+                        found.users.user = [user.get()];
                     }
                 }
             });
             return _.omit(found, 'git_events', 'event');
         } else {
             return repos.map(function(repo) {
-                if (!repo.user) {
-                    repo.user = user.get();
+                if (!repo.users && !repo.users[0]) {
+                    repo.users.user = [user.get()];
                 }
                 return _.omit(repo, 'git_events', 'event');
             });
