@@ -88,12 +88,6 @@
 }
 ```
 
-## additional information
-
-> setting a wildcard domain up on localhost (mac)
-
-http://asciithoughts.com/posts/2014/02/23/setting-up-a-wildcard-dns-domain-on-mac-os-x/
-
 ## updating docs
 
 If you update the docs, please also copy changes to `/test/fixtures/main-app`
