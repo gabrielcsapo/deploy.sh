@@ -22,6 +22,24 @@
             }
             xhr.send();
         }
+
+        /**
+         * post
+         * @param  {string}   url      relative url to post to
+         * @param  {object}   body     json object
+         * @param  {Function} callback funtion(status, response)
+         */
+        var post = function(url, body, callback) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", url);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState == 4) {
+                    callback(xhr.status, xhr.responseText)
+                }
+            }
+            xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            xhr.send(JSON.stringify(body));
+        }
     }
 
     var createApp = function(defaultRoute) {
@@ -62,74 +80,51 @@
                     }
                 }
             },
-            '^/settings(?:/(?=$))?$': {
-                template: `<div id="app">
-                    <div class="text-center panel panel-default">
-                        <div class="panel-header"> Config </div>
-                        <div class="panel-body">
-                         <textarea id="config-data">{{ JSON.stringify(config, null, 4) }}</textarea>
-                        </div>
-                        <div class="panel-footer text-right">
-                            <button @click="update" class="btn btn-primary" id="btn-update"> Update </button>
-                        </div>
-                    </div>
-                </div>`,
-                data: {
-                    config: {}
-                },
-                methods: {
-                    update: function() {
-                        try {
-                            var config = JSON.stringify(JSON.parse(document.getElementById('config-data').value));
-                            var xhr = new XMLHttpRequest();
-                            xhr.open("POST", "/settings");
-                            document.getElementById("btn-update").innerHTML = '<div class="spinner spinner-white"></div>';
-                            xhr.onreadystatechange = function() {
-                                if (xhr.readyState == 4 && xhr.status == 200) {
-                                    document.getElementById("btn-update").innerHTML = 'Updated!';
-                                    setTimeout(function() {
-                                        document.getElementById("btn-update").innerHTML = 'Update';
-                                    }, 2000)
-                                }
-                            }
-                            xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-                            xhr.send(config);
-                        } catch (ex) {
-                            document.getElementById("btn-update").classList.remove('btn-primary')
-                            document.getElementById("btn-update").classList.add('btn-warning')
-                            document.getElementById("btn-update").innerHTML = 'Malformed JSON';
-                            setTimeout(function() {
-                                document.getElementById("btn-update").classList.remove('btn-warning')
-                                document.getElementById("btn-update").classList.add('btn-primary')
-                                document.getElementById("btn-update").innerHTML = 'Update';
-                            }, 2000)
-                        }
-                    }
-                },
-                created: function() {
-                    var self = this;
-                    if (typeof window !== 'undefined') {
-                        fetch('/api/config/json', function(data) {
-                            self.config = data;
-                        });
-                    }
-                }
-            },
             '^/application/((?:[^/]+?))(?:/(?=$))?$': {
                 template: `<div id="app">
                     <div class="grid">
-                        <div class="col-1-12">
-                            <a class="btn border-info" href='/'> Back </a>
+                        <div class="col-12-12">
+                            <div v-if="error" class="alert alert-danger" style="border-radius:5px;"> {{ error }} </div>
+                            <div v-if="info" class="alert alert-info" style="border-radius:5px;"> {{ info }} </div>
                         </div>
-                        <div class="col-10-12"> <h2><a :href="url"> {{ name }}</h2> </div>
-                        <div class="col-1-12">
-                            <button v-if="deployed" v-on:click="redeploy" class="btn border-primary">Redeploy</button>
-                            <button v-else class="btn border-primary"> <div class="spinner spinner-primary"></div> </button>
+
+                        <div class="col-3-12 text-left">
+                            <a class="btn border-info" href='/' style="margin-left:0;"> Back </a>
+                        </div>
+                        <div class="col-6-12"> <h2><a :href="url"> {{ name }}</h2> </div>
+                        <div class="col-3-12 text-right">
+                            <button v-if="deployed" v-on:click="redeploy" class="btn border-primary" style="margin-right:0;">Redeploy</button>
+                            <button v-else class="btn border-primary"> <div class="spinner spinner-primary" style="margin-right:0;"></div> </button>
                         </div>
 
                         <div class="col-12-12">
                             <h3>repo info</h3>
-                            <pre style="text-align:left;">{{ JSON.stringify(config, null, 4) }}</pre>
+                            <div v-if="editable" class="grid">
+                                <div class="col-1-12 text-left">
+                                    <a class="btn border-warning" @click="editCancel" style="margin-left:0;"> Cancel </a>
+                                </div>
+                                <div class="col-8-12"></div>
+                                <div class="col-3-12 text-right">
+                                    <button v-if="editingLoading" class="btn border-info" style="margin-right:0;"> <div class="spinner spinner-primary"></div> </button>
+                                    <a v-else class="btn border-info" @click="editSave" style="margin-right:0;"> Save </a>
+                                </div>
+                                <textarea class="col-12-12 text-left" style="height:400px;padding:0;" @input="editKeydown"> {{ JSON.stringify(config, null, 4) }} </texarea>
+                            </div>
+                            <div v-else class="grid">
+                                <div class="col-10-12"></div>
+                                <div class="col-2-12 text-right">
+                                    <a class="btn border-primary" @click="editStart" style="margin-right:0;"> Edit </a>
+                                </div>
+                                <div class="col-12-12">
+                                    <pre style="text-align:left;">{{ JSON.stringify(config, null, 4) }}</pre>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12-12">
+                            <h3>repo instructions</h3>
+                            <p> To push to the remote repo please copy the following upstream </p>
+                            <pre> git remote add upstream {{ remoteUpstream }} </pre>
                         </div>
 
                         <div class="col-12-12">
@@ -168,7 +163,12 @@
                     countries: {},
                     name: '',
                     url: '',
+                    remoteUpstream: '',
+                    error: '',
+                    info: '',
                     deployed: true,
+                    editingLoading: false,
+                    editable: false,
                     config: {},
                     charts: {
                         memoryChart: {},
@@ -186,6 +186,41 @@
                                 self.deployed = true;
                             }
                         });
+                    },
+                    editStart: function() {
+                        this.editable = true;
+                    },
+                    editCancel: function() {
+                        this.editable = false;
+                    },
+                    editSave: function() {
+                        var self = this;
+                        self.editingLoading = true;
+                        self.info = 'saving config, restarting app...';
+                        post('/api/process/' + self.name + '/settings', self.config, function(status, response) {
+                            if(status === 200) {
+                                self.url = window.location.protocol + '//' + (self.config.subdomain === '*' ? window.location.host.replace('admin.', '') : window.location.host.replace('admin', self.config.subdomain));
+                                self.remoteUpstream = window.location.protocol + '//' + self.config.users[0].user.username + ':' + self.config.users[0].user.password + '@' + window.location.hostname.replace('admin.', '') + ':7000/' + self.config.name + '.git';
+                                self.info = response.success;
+                                setTimeout(function() {
+                                    self.info = '';
+                                }, 1000);
+                            } else {
+                                self.error = response.error;
+                            }
+                            self.editable = false;
+                            self.editingLoading = false;
+                        });
+                    },
+                    editKeydown: function(e) {
+                        var self = this;
+                        try {
+                            var json = JSON.parse(e.target.value);
+                            self.config = json;
+                            self.error = '';
+                        } catch(e) {
+                            self.error = 'error parsing config changes';
+                        }
                     },
                     formatSize: function(bytes) {
                         if (bytes == 0) return '0 B';
@@ -448,9 +483,7 @@
                         socket.on(application + '-memory', function(data) {
                             self.cpu.push(data.cpu);
                             self.memory.push(data.memory);
-
                             self.currentMemory = Array.isArray(self.memory) && self.memory[0] && self.memory[0].length > 0 ? self.memory[self.memory.length - 1][1] || 0 : 0;
-
                             self.updateCharts();
                         });
                         fetch('/api/process/' + application + '/json', function(response) {
@@ -461,7 +494,8 @@
                             self.memory = response.memory;
                             self.traffic = response.traffic;
 
-                            self.url = window.location.protocol + '//' + window.location.host.replace('admin', self.config.subdomain);
+                            self.url = window.location.protocol + '//' + (self.config.subdomain === '*' ? window.location.host.replace('admin.', '') : window.location.host.replace('admin', self.config.subdomain));
+                            self.remoteUpstream = window.location.protocol + '//' + self.config.users[0].user.username + ':' + self.config.users[0].user.password + '@' + window.location.hostname.replace('admin.', '') + ':7000/' + self.config.name + '.git';
 
                             self.createCharts();
                         });
