@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "start": "node index.js | ./node_modules/.bin/bunyan -o short",
     "clean": "redis-cli flushall;",
-    "coverage": "./scripts/unit-test.sh; nyc --reporter=html mocha test/unit/index.js"
+    "coverage": "./scripts/unit-test.sh; nyc --reporter=html mocha test/unit/index.js",
+    "coveralls": "./scripts/unit-test.sh; nyc mocha test/unit/index.js && nyc report --reporter=text-lcov | coveralls"
   },
   "bin": {
     "node-distribute": "bin/node-distribute"
@@ -55,6 +56,7 @@
     "babel-eslint": "^7.1.0",
     "chai": "^3.5.0",
     "chance": "^1.0.4",
+    "coveralls": "^2.11.15",
     "eslint": "^3.9.1",
     "less": "^2.7.1",
     "mocha": "^3.0.2",
