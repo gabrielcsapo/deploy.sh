@@ -4,12 +4,12 @@ var assert = require('chai').assert;
 var spawn = require('child_process').spawn;
 var chance = require('chance')();
 
-describe('node-app', function() {
+describe('static-app-different-directory', function() {
     it('should add the necessary remote', function(done) {
-        var user = require('../config/user.json');
-        var remote = 'http://' + user.username + ':' + user.password + '@localhost:7000/node-app.git';
+        var user = require('../../config/user.json');
+        var remote = 'http://' + user.username + ':' + user.password + '@localhost:7000/static-app-different-directory.git';
         var git = spawn('git', ['remote', 'add', 'origin', remote], {
-            cwd: path.resolve(__dirname, 'fixtures', 'node-app')
+            cwd: path.resolve(__dirname, 'fixtures', 'static-app-different-directory')
         });
 
         git.on('close', function() {
@@ -21,7 +21,7 @@ describe('node-app', function() {
 
     it('should be able to get test repo', function(done) {
         var git = spawn('git', ['push', 'origin', 'master'], {
-            cwd: path.resolve(__dirname, 'fixtures', 'node-app')
+            cwd: path.resolve(__dirname, 'fixtures', 'static-app-different-directory')
         });
 
         git.on('close', function() {
@@ -34,24 +34,27 @@ describe('node-app', function() {
     for (var i = 0; i < 25; i++) {
         it('should be able to reach new app url', function(done) {
             request('http://localhost:1337')
-                .get('/distribute')
-                .set('Host', 'test.example.com')
+                .get('/')
+                .set('Host', 'static-different.example.com')
                 .set('x-forwarded-for', chance.ip())
                 .set('referrer', chance.domain())
+                .expect('Content-Type', 'text/html; charset=UTF-8')
                 .expect(200, function(err) {
                     assert.isNull(err);
                     request('http://localhost:1337')
-                        .get('/testing')
-                        .set('Host', 'test.example.com')
+                        .get('/blog.html')
+                        .set('Host', 'static-different.example.com')
                         .set('x-forwarded-for', chance.ip())
                         .set('referrer', chance.domain())
+                        .expect('Content-Type', 'text/html; charset=UTF-8')
                         .expect(200, function(err) {
                             assert.isNull(err);
                             request('http://localhost:1337')
-                                .get('/world')
-                                .set('Host', 'test.example.com')
+                                .get('/image.jpeg')
+                                .set('Host', 'static-different.example.com')
                                 .set('x-forwarded-for', chance.ip())
                                 .set('referrer', chance.domain())
+                                .expect('Content-Type', 'image/jpeg')
                                 .expect(200, function(err) {
                                     assert.isNull(err);
                                     done();
@@ -60,4 +63,4 @@ describe('node-app', function() {
                 });
         });
     }
-});
+})

@@ -11,7 +11,7 @@ if (!fs.existsSync(path.resolve(__dirname, '..', '..', 'config', 'user.json'))) 
         username: 'root',
         password: crypto.randomBytes(20).toString('hex')
     }
-    fs.writeFileSync(path.resolve(__dirname, '..', '..', 'config', 'user.json'), JSON.stringify(user, null, 4));
+    fs.writeFileSync(path.resolve(__dirname, '..', '..', 'config', 'user.json'), JSON.stringify(user));
 } else {
     user = require('../../config/user.json');
 }
