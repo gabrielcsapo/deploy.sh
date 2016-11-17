@@ -157,7 +157,7 @@
 
                         <div class="col-12-12">
                             <h3>logs <small>{{ logs.length }}</small></h3>
-                            <pre class="process-logs" id="log-view">{{ logs.join('\\n') }}</pre>
+                            <pre class="process-logs" id="log-view">{{ readableLogs }}</pre>
                         </div>
                     </div>
                 </div>`,
@@ -167,6 +167,7 @@
                     currentMemory: 0,
                     cpu: [],
                     logs: [],
+                    readableLogs: '',
                     referrers: {},
                     countries: {},
                     name: '',
@@ -498,6 +499,7 @@
                             self.name = application;
                             self.config = response.repo;
                             self.logs = response.logs;
+                            self.readableLogs = response.logs.join('\n');
                             self.cpu = response.cpu;
                             self.memory = response.memory;
                             self.traffic = response.traffic;
