@@ -11,6 +11,7 @@ if (!fs.existsSync(path.resolve(__dirname, '..', '..', 'config', 'repos.json')))
     repos = [{
         subdomain: 'test',
         name: 'test',
+        type: 'STATIC',
         anonRead: false,
         users: [{
             user: user.get(),
@@ -27,7 +28,7 @@ module.exports = {
      * update
      * Updates the configuration file for the repo
      * @param  {object}   config   the configuration object
-     * @param  {Function} callback function(err) where err is the error from writeFile
+     * @param  {Function} callback function(err, config) where err is the error from writeFile
      * @param  {string} name this is the name of the specific part of the config that is too be changed
      */
     update: function(config, callback, name) {
@@ -43,9 +44,9 @@ module.exports = {
         }
         fs.writeFile(path.resolve(__dirname, '..', '..', 'config', 'repos.json'), JSON.stringify(repos), function(err) {
             if (err) {
-                callback(err);
+                callback(err, undefined);
             } else {
-                callback(undefined)
+                callback(undefined, config)
             }
         });
     },
@@ -55,16 +56,28 @@ module.exports = {
             repos.forEach(function(repo) {
                 if (repo.name == name) {
                     found = repo;
-                    if (!found.users && !found.users[0]) {
-                        found.users.user = [user.get()];
+                    if (!found.users) {
+                      found.users = [{
+                        user: user.get(),
+                        permissions: [
+                            'R',
+                            'W'
+                        ]
+                      }];
                     }
                 }
             });
             return _.omit(found, 'git_events', 'event');
         } else {
             return repos.map(function(repo) {
-                if (!repo.users && !repo.users[0]) {
-                    repo.users.user = [user.get()];
+                if (!repo.users) {
+                    repo.users = [{
+                      user: user.get(),
+                      permissions: [
+                          'R',
+                          'W'
+                      ]
+                    }];
                 }
                 return _.omit(repo, 'git_events', 'event');
             });

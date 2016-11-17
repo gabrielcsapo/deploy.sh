@@ -4,3 +4,4 @@ config/**
 app/**
 repos/**
 operations/views/admin/dist/**
+coverage
