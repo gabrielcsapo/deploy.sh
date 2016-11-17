@@ -99,9 +99,9 @@
 	                            <a :href="'/application/' + process.name"> {{ process.name }} </a>
 	                        </div>
 	                        <div class="list-item-right">
-	                            {{ process.cpu[0] ? process.cpu[0][1] : 0 }}%
+	                            {{ process.cpu[process.cpu - 1] ? process.cpu[process.cpu - 1][1] : 0 }}%
 	                            -
-	                            {{ formatSize(process.memory[0] ? process.memory[0][1] : 0) }}
+	                            {{ formatSize(process.memory[process.memory.length - 1] ? process.memory[process.memory.length - 1][1] : 0) }}
 	                        </div>
 	                      </li>
 	                    </ul>
@@ -112,8 +112,17 @@
 	                created: function() {
 	                    var self = this;
 	                    if (typeof window !== 'undefined') {
+	                        var socket = io.connect('/');
 	                        fetch('/api/process/json', function(processes) {
 	                            self.processes = processes;
+
+	                            self.processes.forEach(function(process, i) {
+	                              socket.on(process.name + '-memory', function(data) {
+	                                console.log(data.cpu);
+	                                self.processes[i].cpu.push(data.cpu);
+	                                self.processes[i].memory.push(data.memory);
+	                              });
+	                            });
 	                        });
 	                    }
 	                },
