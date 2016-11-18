@@ -19,6 +19,7 @@ module.exports = function(repo, directory, repos, callback) {
                     }
                     pm2.stop(repo.name, function(err) {
                         if (err) {
+                            log.application(repo.name, 'application:stop');
                             log.error('application:stop', err.toString());
                         }
                         // TODO: need to be able customized scripts
@@ -36,6 +37,7 @@ module.exports = function(repo, directory, repos, callback) {
                                     if (err) {
                                         log.error('queue:pm2:start', err);
                                     }
+                                    log.application(repo.name, 'application:started');
                                     // Go through repos and check for subdomin and register it with wildcard routes
                                     repos.forEach(function(_repo) {
                                         if (_repo.name == repo.name) {
@@ -67,6 +69,7 @@ module.exports = function(repo, directory, repos, callback) {
                                 if (err) {
                                     log.error('queue:pm2:start', err);
                                 }
+                                log.application(repo.name, 'application:started');
                                 // Go through repos and check for subdomin and register it with wildcard routes
                                 repos.forEach(function(_repo) {
                                     if (_repo.name == repo.name) {

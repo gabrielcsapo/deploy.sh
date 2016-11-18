@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "build": "./node_modules/.bin/lessc ./operations/views/admin/admin.less ./operations/views/admin/dist/admin.css; webpack;",
-    "test": "npm run lint;npm run clean;./scripts/functional-test.sh;npm run coverage;",
+    "test": "npm run test:functional; npm run test:unit",
+    "test:functional": "npm run lint;npm run clean;./scripts/functional-test.sh;",
+    "test:unit": "npm run coverage;",
     "lint": "eslint .",
     "start": "node index.js | ./node_modules/.bin/bunyan -o short",
     "clean": "redis-cli flushall;",
@@ -42,7 +44,7 @@
     "kue": "^0.11.5",
     "moment": "^2.14.1",
     "node-flat-db": "^0.2.1",
-    "npm": "^3.10.6",
+    "npm": "^4.0.2",
     "pm2": "^2.1.4",
     "portfinder": "^1.0.6",
     "psychic-ui": "^0.4.0",
@@ -55,7 +57,7 @@
   },
   "devDependencies": {
     "babel": "^6.5.2",
-    "babel-eslint": "^7.1.0",
+    "babel-eslint": "^7.1.1",
     "babel-preset-es2015": "^6.18.0",
     "chai": "^3.5.0",
     "chance": "^1.0.4",

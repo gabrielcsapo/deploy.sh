@@ -54,7 +54,7 @@ queue.process('install', 1, function(job, done) {
         })
         .then(function() {
             return new Promise(function(resolve, reject) {
-                if(repo.type == "NODE") {
+                if(repo.type == 'NODE') {
                     // Verify that a package.json exists
                     if(fs.existsSync(path.resolve(directory, 'package.json'))) {
                         log.info('queue: running npm install :', name);

@@ -28,7 +28,7 @@ module.exports = function() {
     process.env.VUE_ENV = 'server';
 
     var isAdminHost = function(req, res, next) {
-        var hostname = req.headers.host.split(":")[0];
+        var hostname = req.headers.host.split(':')[0];
         hostname = hostname.substring(0, hostname.indexOf('.'));
         if (hostname == 'admin') {
             next();
@@ -42,7 +42,7 @@ module.exports = function() {
         // Opens the door to having a server that is not authentication protected
         // This helps with local debugging
         if (user.get().username && user.get().password) {
-            var hostname = req.headers.host.split(":")[0];
+            var hostname = req.headers.host.split(':')[0];
             hostname = hostname.substring(0, hostname.indexOf('.'));
             if (hostname == 'admin') {
                 return basicAuth(user.get().username, user.get().password)(req, res, next);
@@ -59,9 +59,7 @@ module.exports = function() {
       var name = m.name;
       var type = m.type;
       var data = m.data;
-      var log = type + ' ' + moment().format() + ': ' + data;
-      io.sockets.emit(name + '-logs', log);
-      db(name, 'logs').push(log);
+      io.sockets.emit(name + '-logs', log.application(name, data, type));
     });
 
     var usage = child_process.fork(`${__dirname}/process-usage.js`);
@@ -91,16 +89,16 @@ module.exports = function() {
     app.use(responseTime(function(req, res, time) {
         var ip = req.query.ip ||
             req.headers['x-forwarded-for'] ||
-            req.headers["X-Forwarded-For"] ||
+            req.headers['X-Forwarded-For'] ||
             req.connection.remoteAddress ||
             req.socket.remoteAddress ||
             req.connection.socket.remoteAddress;
         var geo = geoip.lookup(ip);
         var referrer = req.get('Referrer');
-        var hostname = req.headers.host.split(":")[0];
+        var hostname = req.headers.host.split(':')[0];
         hostname = hostname.substring(0, hostname.indexOf('.'));
         // check for main application
-        hostname = (hostname == "" ? "*" : hostname);
+        hostname = (hostname == '' ? '*' : hostname);
         repos.get().forEach(function(repo) {
             if (repo.subdomain == hostname) {
                 if (db(repo.name, 'traffic').find({
@@ -128,7 +126,7 @@ module.exports = function() {
     }));
 
     app.get('*', function(req, res, next) {
-        var hostname = req.headers.host.split(":")[0];
+        var hostname = req.headers.host.split(':')[0];
         hostname = hostname.substring(0, hostname.indexOf('.'));
 
         // We are looking for the main app, which we use * to denote no hostname
@@ -152,13 +150,13 @@ module.exports = function() {
         repos.update(req.body, function(error) {
             if (error) {
                 res.status(500);
-                res.send({ "error": error });
+                res.send({ 'error': error });
             } else {
                 delete GLOBAL.wildcards[name];
                 startApplication(repos.get(name), path.resolve(__dirname, '..', 'app', name), repos.get(), function() {
                     log.info('app:restarted:', name);
                     res.status(200);
-                    res.send({ "success": "app updated and restarted" });
+                    res.send({ 'success': 'app updated and restarted' });
                 });
             }
         }, name);

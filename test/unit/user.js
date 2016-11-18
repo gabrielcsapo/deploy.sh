@@ -7,8 +7,8 @@ describe('user', function() {
 
   it('should return an already existing user', function() {
       var existingUser = {
-          "username": "root",
-          "password": "2f50f4c17d12c11e9216264725a51bf44f5d34e6"
+          'username': 'root',
+          'password': '2f50f4c17d12c11e9216264725a51bf44f5d34e6'
       };
 
       fs.writeFileSync(path.resolve(__dirname, '../../config/user.json'), JSON.stringify(existingUser));
