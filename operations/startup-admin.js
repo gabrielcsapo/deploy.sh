@@ -73,6 +73,12 @@ module.exports = function() {
           memory: memory
         });
 
+        io.sockets.emit(m.name + '-uptime', {
+          created_at: m.created_at,
+          status: m.status,
+          instances: m.instances
+        });
+
         db(m.name, 'cpu').push(cpu);
         db(m.name, 'memory').push(memory);
       }

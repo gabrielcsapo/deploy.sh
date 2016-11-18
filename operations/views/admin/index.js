@@ -53,9 +53,30 @@
                             <a :href="'/application/' + process.name"> {{ process.name }} </a>
                         </div>
                         <div class="list-item-right">
-                            {{ process.cpu[process.cpu - 1] ? process.cpu[process.cpu - 1][1] : 0 }}%
-                            -
-                            {{ formatSize(process.memory[process.memory.length - 1] ? process.memory[process.memory.length - 1][1] : 0) }}
+                            <div class="badge badge-default popover-container">
+                              {{ process.cpu[process.cpu - 1] ? process.cpu[process.cpu - 1][1] : 0 }}%
+                              <span class="popover top">CPU</span>
+                            </div>
+
+                            <div class="badge badge-default popover-container">
+                              {{ formatSize(process.memory[process.memory.length - 1] ? process.memory[process.memory.length - 1][1] : 0) }}
+                              <span class="popover top">Memory</span>
+                            </div>
+
+                            <div class="badge badge-default popover-container">
+                              {{ process.instances }}
+                              <span class="popover top">Instance Count</span>
+                            </div>
+
+                            <div v-if="process.status === 'online'" class="badge badge-success popover-container">
+                              {{ process.status }}
+                              <span class="popover top">Status</span>
+                            </div>
+                            <div v-else class="badge badge-default popover-container">
+                              {{ process.status }}
+                              <span class="popover top">Status</span>
+                            </div>
+
                         </div>
                       </li>
                     </ul>
@@ -74,6 +95,12 @@
                               socket.on(process.name + '-memory', function(data) {
                                 self.processes[i].cpu.push(data.cpu);
                                 self.processes[i].memory.push(data.memory);
+                              });
+
+                              socket.on(process.name + '-uptime', function(data) {
+                                self.processes[i].created_at = data.created_at;
+                                self.processes[i].status = data.status;
+                                self.processes[i].instances = data.instances;
                               });
                             });
                         });
@@ -136,6 +163,28 @@
                         </div>
 
                         <div class="col-12-12">
+                          <h3>Daemon Information</h3>
+                          <ul class="list text-left">
+                            <li class="list-item">Status
+                              <div v-if="status === 'online'" class="badge badge-success popover-container">
+                                {{ status }}
+                                <span class="popover top">Status</span>
+                              </div>
+                              <div v-else class="badge badge-default popover-container">
+                                {{ status }}
+                                <span class="popover top">Status</span>
+                              </div>
+                            </li>
+                            <li class="list-item">Instance Count
+                              <div class="badge badge-default">{{ instances }}</div>
+                            </li>
+                            <li class="list-item">Uptime
+                              <div class="badge badge-default">{{ uptime }}</div>
+                            </li>
+                          </ul>
+                        </div>
+
+                        <div class="col-12-12">
                             <h3>memory <small>~ {{ formatSize(currentMemory) }}</small></h3>
                             <canvas id="chart-memory"></canvas>
                         </div>
@@ -175,6 +224,9 @@
                     remoteUpstream: '',
                     error: '',
                     info: '',
+                    uptime: '',
+                    status: '',
+                    instances: '',
                     deployed: true,
                     editingLoading: false,
                     editable: false,
@@ -190,9 +242,14 @@
                     redeploy: function() {
                         var self = this;
                         self.deployed = false;
+                        self.info = 'restarting app...';
                         fetch('/api/process/' + this.name + '/redeploy', function(response) {
                             if (response.success) {
                                 self.deployed = true;
+                                self.info = 'app deployed!';
+                                setTimeout(function() {
+                                    self.info = '';
+                                }, 1000);
                             }
                         });
                     },
@@ -473,6 +530,11 @@
                         var socket = io.connect('/');
                         socket.on(application + '-logs', function(data) {
                             self.logs.push(data);
+                        });
+                        socket.on(application + '-uptime', function(data) {
+                          self.uptime = moment(data.created_at).fromNow(true);
+                          self.status = data.status;
+                          self.instances = data.instances;
                         });
                         socket.on(application + '-traffic', function(data) {
                             var found = false;
