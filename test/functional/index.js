@@ -38,8 +38,8 @@ describe('node-distribute', function() {
 
     it('should write the user config', function(done) {
         var config = {
-            "username": "root",
-            "password": "ac2eb48019c3fdc0f8d0d86d2319254ca1785045"
+            'username': 'root',
+            'password': 'ac2eb48019c3fdc0f8d0d86d2319254ca1785045'
         };
         fs.writeFile(path.resolve(__dirname, '..', '..', 'config/user.json'), JSON.stringify(config), function (err) {
           if (err) return console.log(err); // eslint-disable-line no-console
@@ -50,31 +50,31 @@ describe('node-distribute', function() {
     it('should write the correct test config to config/repos.json', function(done) {
         var config = [
             {
-                "subdomain": "test",
-                "name": "node-app",
-                "type": "NODE",
-                "anonRead": false
+                'subdomain': 'test',
+                'name': 'node-app',
+                'type': 'NODE',
+                'anonRead': false
             },
             {
-                "subdomain": "static",
-                "name": "static-app",
-                "type": "STATIC",
-                "anonRead": false
+                'subdomain': 'static',
+                'name': 'static-app',
+                'type': 'STATIC',
+                'anonRead': false
             },
             {
-                "subdomain": "static-different",
-                "name": "static-app-different-directory",
-                "type": "STATIC",
-                "options": {
-                    "directory": "dist"
+                'subdomain': 'static-different',
+                'name': 'static-app-different-directory',
+                'type': 'STATIC',
+                'options': {
+                    'directory': 'dist'
                 },
-                "anonRead": false
+                'anonRead': false
             },
             {
-                "subdomain": "*",
-                "name": "main-app",
-                "type": "STATIC",
-                "anonRead": false
+                'subdomain': '*',
+                'name': 'main-app',
+                'type': 'STATIC',
+                'anonRead': false
             }
         ];
         fs.writeFile(path.resolve(__dirname, '..', '..', 'config/repos.json'), JSON.stringify(config), function (err) {

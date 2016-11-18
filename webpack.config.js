@@ -1,4 +1,4 @@
-var webpack = require("webpack");
+var webpack = require('webpack');
 
 module.exports = {
     entry: './operations/views/admin/index.js',

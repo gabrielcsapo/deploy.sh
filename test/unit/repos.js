@@ -20,31 +20,31 @@ describe('repos', function() {
     it('should return repos that already exist', function() {
       var existingRepos = [
           {
-              "subdomain": "test",
-              "name": "node-app",
-              "type": "NODE",
-              "anonRead": false
+              'subdomain': 'test',
+              'name': 'node-app',
+              'type': 'NODE',
+              'anonRead': false
           },
           {
-              "subdomain": "static",
-              "name": "static-app",
-              "type": "STATIC",
-              "anonRead": false
+              'subdomain': 'static',
+              'name': 'static-app',
+              'type': 'STATIC',
+              'anonRead': false
           },
           {
-              "subdomain": "static-different",
-              "name": "static-app-different-directory",
-              "type": "STATIC",
-              "options": {
-                  "directory": "dist"
+              'subdomain': 'static-different',
+              'name': 'static-app-different-directory',
+              'type': 'STATIC',
+              'options': {
+                  'directory': 'dist'
               },
-              "anonRead": false
+              'anonRead': false
           },
           {
-              "subdomain": "*",
-              "name": "main-app",
-              "type": "STATIC",
-              "anonRead": false
+              'subdomain': '*',
+              'name': 'main-app',
+              'type': 'STATIC',
+              'anonRead': false
           }
       ];
 
@@ -69,10 +69,10 @@ describe('repos', function() {
 
     it('should update the repo object with the name node-app', function(done) {
       var expectedRepo = {
-          "subdomain": "testing",
-          "name": "node-app",
-          "type": "NODE",
-          "anonRead": false
+          'subdomain': 'testing',
+          'name': 'node-app',
+          'type': 'NODE',
+          'anonRead': false
       };
 
       var Repos = require('../../operations/lib/repos');
@@ -91,16 +91,16 @@ describe('repos', function() {
 
     it('should update the entire config', function(done) {
       var expectedRepo = [{
-          "subdomain": "testing",
-          "name": "node-app",
-          "type": "NODE",
-          "anonRead": false
+          'subdomain': 'testing',
+          'name': 'node-app',
+          'type': 'NODE',
+          'anonRead': false
       },
       {
-          "subdomain": "test",
-          "name": "static-app",
-          "type": "STATIC",
-          "anonRead": true
+          'subdomain': 'test',
+          'name': 'static-app',
+          'type': 'STATIC',
+          'anonRead': true
       }];
 
       var Repos = require('../../operations/lib/repos');
