@@ -29,6 +29,10 @@ body {
   padding: 0px;
   height: 400px;
 }
+.list-item {
+  overflow: visible !important;
+  line-height: normal !important;
+}
 canvas {
   width: 100%;
   height: 200px;
