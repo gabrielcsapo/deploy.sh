@@ -50,7 +50,7 @@
 \t                        </div>
 \t
 \t                        <div class="col-12-12">
-\t                            <h3>repo info</h3>
+\t                            <h3>Repo Information</h3>
 \t                            <div v-if="editable" class="grid">
 \t                                <div class="col-1-12 text-left">
 \t                                    <a class="btn border-warning" @click="editCancel" style="margin-left:0;"> Cancel </a>
@@ -74,7 +74,7 @@
 \t                        </div>
 \t
 \t                        <div class="col-12-12">
-\t                            <h3>repo instructions</h3>
+\t                            <h3>Repo Instructions</h3>
 \t                            <p> To push to the remote repo please copy the following upstream </p>
 \t                            <pre> git remote add upstream {{ remoteUpstream }} </pre>
 \t                        </div>
@@ -102,27 +102,27 @@
 \t                        </div>
 \t
 \t                        <div class="col-12-12">
-\t                            <h3>memory <small>~ {{ formatSize(currentMemory) }}</small></h3>
+\t                            <h3>Memory <small>~ {{ formatSize(currentMemory) }}</small></h3>
 \t                            <canvas id="chart-memory"></canvas>
 \t                        </div>
 \t
 \t                        <div class="col-12-12">
-\t                            <h3>traffic <small>{{ traffic.map(function(t) { return t.traffic.length; }).reduce(function(a, b) { return a + b }, 0) }}</small></h3>
+\t                            <h3>Traffic <small>{{ traffic.map(function(t) { return t.traffic.length; }).reduce(function(a, b) { return a + b }, 0) }}</small></h3>
 \t                            <canvas id="chart-traffic"></canvas>
 \t                        </div>
 \t
 \t                        <div class="col-12-12">
-\t                            <h3>countries <small>{{ Object.keys(countries).length }}</small></h3>
+\t                            <h3>Countries <small>{{ Object.keys(countries).length }}</small></h3>
 \t                            <canvas id="chart-countries"></canvas>
 \t                        </div>
 \t
 \t                        <div class="col-12-12">
-\t                            <h3>referrers <small>{{ Object.keys(referrers).length }}</small></h3>
+\t                            <h3>Referrers <small>{{ Object.keys(referrers).length }}</small></h3>
 \t                            <canvas id="chart-referrers"></canvas>
 \t                        </div>
 \t
 \t                        <div class="col-12-12">
-\t                            <h3>logs <small>{{ logs.length }}</small></h3>
+\t                            <h3>Logs <small>{{ logs.length }}</small></h3>
 \t                            <pre class="process-logs" id="log-view">{{ readableLogs }}</pre>
 \t                        </div>
 \t                    </div>

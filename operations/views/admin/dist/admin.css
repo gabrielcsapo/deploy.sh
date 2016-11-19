@@ -33,6 +33,9 @@ body {
   overflow: visible !important;
   line-height: normal !important;
 }
+.badge {
+  border-radius: 0px !important;
+}
 canvas {
   width: 100%;
   height: 200px;

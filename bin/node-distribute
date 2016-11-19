@@ -7,6 +7,10 @@ program
   .option('-c, --configure', 'logs the location of the configuration file')
   .parse(process.argv);
 
+  if (!process.argv.slice(2).length) {
+    program.outputHelp();
+  }
+
 if (program.start) {
     GLOBAL.wildcards = {};
     require('../operations/startup.js');
