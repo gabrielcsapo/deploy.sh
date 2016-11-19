@@ -1,78 +1,200 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8">
-        <title>node-distribute</title>
-        <link href="./normalize.css" rel="stylesheet" type="text/css"/>
-        <link href="./main.css" rel="stylesheet" type="text/css"/>
-    </head>
-    <body>
-        <section class="header">
-            <section class="header-wrapper">
-              <br>
-              <h1> node-distribute </h1>
-              <h3> Welcome to your personal VPN ☁️</h3>
-              <p>
+
+<head>
+    <meta charset="utf-8">
+    <title>node-distribute</title>
+    <link href="./normalize.css" rel="stylesheet" type="text/css" />
+    <link href="./main.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+    <section class="header">
+        <section class="header-wrapper">
+            <br>
+            <h1> node-distribute </h1>
+            <img class="responsive" height="250px;" alt="node-distribute-logo" src="./node-distribute-logo.png" />
+            <h3><i> Welcome to your personal VPN ☁️</i></h3>
+            <p>
                 <a href="https://www.npmjs.com/package/node-distribute"><img src="https://img.shields.io/npm/v/node-distribute.svg" alt="Npm Version" /></a>
                 <a href="https://david-dm.org/gabrielcsapo/node-distribute"><img src="https://david-dm.org/gabrielcsapo/node-distribute.svg" alt="Dependency Status" /></a>
                 <a href="https://david-dm.org/gabrielcsapo/node-distribute#info=devDependencies"><img src="https://david-dm.org/gabrielcsapo/node-distribute/dev-status.svg" alt="devDependency Status" /></a>
                 <a href="https://travis-ci.org/gabrielcsapo/node-distribute"><img src="https://travis-ci.org/gabrielcsapo/node-distribute.svg?branch=master" alt="Build Status" /></a>
                 <a href=""><img src="https://img.shields.io/npm/dt/node-distribute.svg" alt="npm" /></a>
                 <a href=""><img src="https://img.shields.io/npm/dm/node-distribute.svg" alt="npm" /></a>
-              </p>
-              <a href="https://github.com/gabrielcsapo/node-distribute" class="btn"> Source </a> <a href="https://github.com/gabrielcsapo/node-distribute#setup" class="btn"> Setup </a>
-            </section>
+            </p>
+            <a href="https://github.com/gabrielcsapo/node-distribute" class="btn"> Source </a>
         </section>
-        <section class="buzzwords">
-          <section>
+    </section>
+    <section class="buzzwords">
+        <section>
             <h3> What is this? TLDR; </h3>
             <p>
-                node-distribute is an open source SAAS application built with nodejs.
-                It currently supports hosting static and nodejs applications.
+                <small>node-distribute</small> is an open source SAAS application built with nodejs. It currently supports hosting static and nodejs applications.
             </p>
-          </section>
-          <section>
+        </section>
+        <h1> Setup </h1>
+        <section>
+            <h3> System Requirements </h3>
+            <p>
+                <ul>
+                    <li><a href="https://nodejs.org/en/download/"> NodeJS </a></li>
+                    <li><a href="http://redis.io/topics/quickstart"> Redis </a></li>
+                </ul>
+
+                <blockquote>
+                    To run node-distribute on port 80 use iptables to do the routing
+                    <br>
+                    <br>
+                    <code> sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 1337 </code>
+                </blockquote>
+            </p>
+        </section>
+        <section>
+            <h3> Installing </h3>
+            <p>
+                <blockquote>
+                  <code>
+                    npm install node-distribute -g;
+                  </code>
+                </blockquote>
+            </p>
+        </section>
+        <section>
+            <h3> Running </h3>
+            <p>
+                <blockquote>
+                  <code>
+                    node-distribute start;
+                  </code>
+                </blockquote>
+            </p>
+        </section>
+        <section>
+            <h3> Configuration </h3>
+            <p>There are two components to node-distribute, there is a git-server and proxy-server</p>
+            <small> The default ports are; 1337 (proxy-server) and 7000 (git-server) </small>
+            <br>
+            <p> Currently the safest way to edit the configuration files is from the physical box and in order to do this just run; </p>
+            <blockquote>
+              <code>
+                node-distribute --configure
+              </code>
+            </blockquote>
+            <p> This command will log two file locations for <small>repo.json</small> and <small>user.json</small> </p>
+
+            <p>The structure for these files are the following;</p>
+
+            <h4> repo.json </h4>
+            <blockquote>
+                <code>
+<pre style="overflow:scroll;">
+  [
+      {
+          "subdomain": "test", // this will route to test.{domain}:1337
+          "name": "...", // the name of the repository
+          "type": "...", // (NODE, STATIC) // the type of application
+          "anonRead": false, // allow anonymous access
+          "options": { // optional
+              "directory": "..." // used for static applications
+          },
+          "users": [ // array of users that are allowed to push to this repository
+              // The default user will be whatever is in user.json with read and write permissions
+              {
+                  "user": {
+                      "username": "...",
+                      "password": "..."
+                  },
+                  "permissions": [
+                      "R",
+                      "W"
+                  ]
+              }
+          ]
+      }
+  ]
+</pre>
+            </code>
+            </blockquote>
+
+            <h4> user.json </h4>
+            <blockquote>
+            <code>
+<pre style="overflow:scroll;">
+{
+    "username": "...",
+    "password": "..."
+}
+</pre>
+            </code>
+            </blockquote>
+        </section>
+        <section>
+          <h3> Pushing code to node-distribute </h3>
+          <p> Once you have setup your repos and user.json the last step is too push code. Once the server is running you will get a page that looks like the following; <p>
+          <img style="width:100%;height:auto;" src="./screenshots/admin-application-view.png"/>
+          <p> There will be a repo instructions field that shows you the remote address to push your git repo too. </p>
+          <p> Once you <small>git push</small> to that remote branch it will build and the UI will update when the build has deployed.</p>
+        </section>
+        <h1> FAQ </h1>
+        <section>
+          <h3> How do I get an app to deploy with no subdomain? </h3>
+
+          <p>to deploy an app to the root level just simply use the `*` character in the subdomain field </p>
+
+          <blockquote>
+            <code>
+<pre style="overflow:scroll;">
+[
+    {
+        ...
+        "subdomain": "*", // location:1337
+        ...
+    }
+]
+</pre>
+            </code>
+          </blockquote>
+      </section>
+        <section>
             <h3> Why should I use this? </h3>
             <p>
-                Hosting applications has become extremely easy.
-                You open up some free-tier SAAS application, configure your git hooks and it builds on push.
-
-                Long term useability is where it becomes an issue.
-                  <ul>
+                Hosting applications has become extremely easy. You open up some free-tier SAAS application, configure your git hooks and it builds on push. Long term useability is where it becomes an issue.
+                <ul>
                     <li>How many people are using an application?</li>
                     <li>What is the memory usage over time?</li>
                     <li>What are the browsers or devices that are using my application?</li>
-                  </ul>
+                </ul>
 
                 These questions are what node-distribute aims to answer.
             </p>
-          </section>
-          <section>
+        </section>
+        <section>
             <h3> What applications can I deploy? </h3>
             <p>
-                Currently node-distribute can run static web applications or nodejs applications.
-                The open deployment pipeline aims to assist in supporting many more architectures in the future.
+                Currently node-distribute can run static web applications or nodejs applications. The open deployment pipeline aims to assist in supporting many more architectures in the future.
             </p>
-          </section>
-          <section>
+        </section>
+        <section>
             <h3> Built by some guy </h3>
             <p>
                 Hey I am that <a href="http://www.gabrielcsapo.com">guy</a>, want to <a href="#">help?</a>
             </p>
-          </section>
-          <section>
+        </section>
+        <section>
             <h3> Docs </h3>
             <p>
-              Docs are slowly being compiled by someone 🐒
+                Docs are slowly being compiled by someone <a href="http://www.gabrielcsapo.com">🐒</a>
             </p>
-          </section>
         </section>
-        <section class="footer">
-            <section class="footer-wrapper">
-              <br>
-              <h3> Want to join the cause? </h3>
-              <a href="https://github.com/gabrielcsapo/node-distribute" class="btn"> Contribute </a>
-            </section>
+    </section>
+    <section class="footer">
+        <section class="footer-wrapper">
+            <br>
+            <h3> Want to join the cause? </h3>
+            <a href="https://github.com/gabrielcsapo/node-distribute/issues" class="btn"> Contribute </a>
         </section>
-    </body>
+    </section>
+</body>
+
 </html>

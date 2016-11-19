@@ -92,3 +92,16 @@
   outline: rgb(33, 136, 182) none 0px;
   padding: 18px 36px;
 }
+blockquote {
+  padding: 10px 20px;
+  margin: 0 0 20px;
+  font-size: 17.5px;
+  border-left: 5px solid #eee;
+}
+small {
+  padding: 2px 4px;
+  font-size: 90%;
+  color: #c7254e;
+  background-color: #f9f2f4;
+  border-radius: 4px
+}
