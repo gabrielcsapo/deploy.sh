@@ -4,3 +4,4 @@ require('./repos');
 require('./processes');
 require('./db');
 require('./config');
+require('./server');

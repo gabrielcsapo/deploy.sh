@@ -1,6 +1,7 @@
 var GitServer = require('git-server');
 var path = require('path');
 
+var Server = require('./lib/server');
 var gitDeploy = require('./git-deploy');
 var log = require('./lib/log');
 
@@ -12,7 +13,7 @@ module.exports = function() {
         repos: repos,
         repoLocation: reposDirectory,
         logging: true,
-        port: 7000,
+        port: Server.get().git.port,
         httpApi: true
     });
 

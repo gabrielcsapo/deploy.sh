@@ -14,16 +14,15 @@ var child_process = require('child_process');
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
 
-var log = require('./lib/log');
-var db = require('./lib/db');
-var processes = require('./lib/processes');
-
 // TODO: admin portal should be able to restart itself?
 // TODO: admin portal should be able to add users
 module.exports = function() {
     var user = require('./lib/user');
     var repos = require('./lib/repos');
-    var port = process.env.PORT || 1337;
+    var log = require('./lib/log');
+    var db = require('./lib/db');
+    var processes = require('./lib/processes');
+    var Server = require('./lib/server');
 
     process.env.VUE_ENV = 'server';
 
@@ -199,7 +198,7 @@ module.exports = function() {
         res.render('404');
     });
 
-    server.listen(port, function() {
-        log.info('node-distribute listening on http://localhost:' + port)
+    server.listen(Server.get().admin.port, function() {
+        log.info('node-distribute listening on http://localhost:' + Server.get().admin.port)
     });
 }

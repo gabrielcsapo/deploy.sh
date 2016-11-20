@@ -1,4 +1,5 @@
-var repos = require('./repos');
+var Server = require('./server');
+var Repos = require('./repos');
 var db = require('./db');
 
 var Process = function(name) {
@@ -8,6 +9,7 @@ var Process = function(name) {
     this.traffic = [];
     this.logs = [];
     this.repo = {};
+    this.server = {};
 }
 module.exports = {
     get: function(name) {
@@ -17,16 +19,18 @@ module.exports = {
             process.cpu = db(name, 'cpu').value();
             process.traffic = db(name, 'traffic').value();
             process.logs = db(name, 'logs').value();
-            process.repo = repos.get(name);
+            process.repo = Repos.get(name);
+            process.server = Server.get();
             return process;
         } else {
-            return repos.get().map(function(repo) {
+            return Repos.get().map(function(repo) {
                 var process = new Process(repo.name);
                 process.memory = db(repo.name, 'memory').value();
                 process.cpu = db(repo.name, 'cpu').value();
                 process.traffic = db(repo.name, 'traffic').value();
                 process.logs = db(repo.name, 'logs').value();
                 process.repo = repo;
+                process.server = Server.get();
                 return process;
             });
         }

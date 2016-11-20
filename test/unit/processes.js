@@ -12,6 +12,7 @@ describe('processes', function() {
       assert.isArray(process.traffic);
       assert.isArray(process.logs);
       assert.isObject(process.repo);
+      assert.isObject(process.server);
     });
 
     it('should return an array', function() {
