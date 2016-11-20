@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-var spawn = require('child_process').spawn;
+var Config = require('../operations/lib/config');
 var path = require('path');
+var spawn = require('child_process').spawn;
 var program = require('commander');
 
 program
   .version(require('../package.json').version)
   .option('-s, --start', 'start node distribute')
-  .option('-c, --configure [editor]', 'logs the location of the configuration file')
+  .option('-c, --configure [editor]', 'opens up editor to edit configuration file')
+  .option('-r, --regenerate-user', 'regenerates the user in config.json')
   .parse(process.argv);
 
   if (!process.argv.slice(2).length) {
@@ -25,4 +27,9 @@ if (program.configure) {
     var bin = args.shift();
 
     var ps = spawn(bin, args.concat([ file ]), { stdio: 'inherit' });
+}
+
+if(program.regenerateUser) {
+    var config = Config.generate();
+    console.log(config);
 }
