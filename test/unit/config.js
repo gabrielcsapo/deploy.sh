@@ -29,4 +29,10 @@ describe('config', function() {
         });
     });
 
+    it('should regenerate the user in config.json', function() {
+        var config = Config.generate();
+        assert(config.user.username !== 'foo');
+        assert(config.user.password !== 'bar');
+    });
+
 });
