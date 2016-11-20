@@ -6,7 +6,7 @@ var chance = require('chance')();
 
 describe('static-app', function() {
     it('should add the necessary remote', function(done) {
-        var user = require('../../config/user.json');
+        var user = require('../../operations/lib/user.js').get();
         var remote = 'http://' + user.username + ':' + user.password + '@localhost:7000/static-app.git';
         var git = spawn('git', ['remote', 'add', 'origin', remote], {
             cwd: path.resolve(__dirname, 'fixtures', 'static-app')

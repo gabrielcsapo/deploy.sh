@@ -36,48 +36,43 @@ describe('node-distribute', function() {
          done();
     });
 
-    it('should write the user config', function(done) {
+    it('should write the correct test config to config/config.json', function(done) {
         var config = {
-            'username': 'root',
-            'password': 'ac2eb48019c3fdc0f8d0d86d2319254ca1785045'
-        };
-        fs.writeFile(path.resolve(__dirname, '..', '..', 'config/user.json'), JSON.stringify(config), function (err) {
-          if (err) return console.log(err); // eslint-disable-line no-console
-          done();
-        });
-    });
-
-    it('should write the correct test config to config/repos.json', function(done) {
-        var config = [
-            {
-                'subdomain': 'test',
-                'name': 'node-app',
-                'type': 'NODE',
-                'anonRead': false
+            user: {
+                'username': 'root',
+                'password': 'ac2eb48019c3fdc0f8d0d86d2319254ca1785045'
             },
-            {
-                'subdomain': 'static',
-                'name': 'static-app',
-                'type': 'STATIC',
-                'anonRead': false
-            },
-            {
-                'subdomain': 'static-different',
-                'name': 'static-app-different-directory',
-                'type': 'STATIC',
-                'options': {
-                    'directory': 'dist'
+            repos: [
+                {
+                    'subdomain': 'test',
+                    'name': 'node-app',
+                    'type': 'NODE',
+                    'anonRead': false
                 },
-                'anonRead': false
-            },
-            {
-                'subdomain': '*',
-                'name': 'main-app',
-                'type': 'STATIC',
-                'anonRead': false
-            }
-        ];
-        fs.writeFile(path.resolve(__dirname, '..', '..', 'config/repos.json'), JSON.stringify(config), function (err) {
+                {
+                    'subdomain': 'static',
+                    'name': 'static-app',
+                    'type': 'STATIC',
+                    'anonRead': false
+                },
+                {
+                    'subdomain': 'static-different',
+                    'name': 'static-app-different-directory',
+                    'type': 'STATIC',
+                    'options': {
+                        'directory': 'dist'
+                    },
+                    'anonRead': false
+                },
+                {
+                    'subdomain': '*',
+                    'name': 'main-app',
+                    'type': 'STATIC',
+                    'anonRead': false
+                }
+            ]
+        };
+        fs.writeFile(path.resolve(__dirname, '..', '..', 'config/config.json'), JSON.stringify(config), function (err) {
           if (err) return console.log(err); // eslint-disable-line no-console
           done();
         });
@@ -115,7 +110,7 @@ describe('node-distribute', function() {
     });
 
     it('should be able get process logs', function(done) {
-        var user = require('../../config/user.json');
+        var user = require('../../operations/lib/user.js').get();
         setTimeout(function() {
             request('http://localhost:1337')
                 .get('/process/json')

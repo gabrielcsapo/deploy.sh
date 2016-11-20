@@ -10,11 +10,6 @@ describe('repos', function() {
 
       var repos = Repos.get();
       assert.isArray(repos);
-      assert.isString(repos[0].subdomain);
-      assert.isString(repos[0].name);
-      assert.isString(repos[0].type);
-      assert.isBoolean(repos[0].anonRead);
-      assert.isArray(repos[0].users);
     });
 
     it('should return repos that already exist', function() {
@@ -48,12 +43,16 @@ describe('repos', function() {
           }
       ];
 
-      fs.writeFileSync(path.resolve(__dirname, '../../config/repos.json'), JSON.stringify(existingRepos));
+      var config = require('../../config/config.json');
+      config.repos = existingRepos;
+      fs.writeFileSync(path.resolve(__dirname, '../../config/config.json'), JSON.stringify(config));
       delete require.cache[require.resolve('../../operations/lib/repos')];
+      delete require.cache[require.resolve('../../operations/lib/config')];
       var Repos = require('../../operations/lib/repos');
 
       var repos = Repos.get();
       assert.isArray(repos);
+      assert.equal(repos.length, existingRepos.length);
       repos.forEach(function(repo, i) {
         assert.isString(repo.subdomain);
         assert.equal(existingRepos[i].subdomain, repo.subdomain);
@@ -69,9 +68,9 @@ describe('repos', function() {
 
     it('should update the repo object with the name node-app', function(done) {
       var expectedRepo = {
-          'subdomain': 'testing',
+          'subdomain': 'what',
           'name': 'node-app',
-          'type': 'NODE',
+          'type': 'STATIC',
           'anonRead': false
       };
 
