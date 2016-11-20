@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-var Config = require('../operations/lib/config');
 var path = require('path');
 var spawn = require('child_process').spawn;
 var program = require('commander');
@@ -30,6 +29,7 @@ if (program.configure) {
 }
 
 if(program.regenerateUser) {
+    var Config = require('../operations/lib/config');
     var config = Config.generate();
     console.log(config);
 }
