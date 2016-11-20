@@ -216,6 +216,7 @@
                     currentMemory: 0,
                     cpu: [],
                     logs: [],
+                    server: {},
                     readableLogs: '',
                     referrers: {},
                     countries: {},
@@ -266,7 +267,7 @@
                         post('/api/process/' + self.name + '/settings', self.config, function(status, response) {
                             if(status === 200) {
                                 self.url = window.location.protocol + '//' + (self.config.subdomain === '*' ? window.location.host.replace('admin.', '') : window.location.host.replace('admin', self.config.subdomain));
-                                self.remoteUpstream = window.location.protocol + '//' + self.config.users[0].user.username + ':' + self.config.users[0].user.password + '@' + window.location.hostname.replace('admin.', '') + ':7000/' + self.config.name + '.git';
+                                self.remoteUpstream = window.location.protocol + '//' + self.config.users[0].user.username + ':' + self.config.users[0].user.password + '@' + window.location.hostname.replace('admin.', '') + ':' + self.server.git.port + '/' + self.config.name + '.git';
                                 self.info = response.success;
                                 setTimeout(function() {
                                     self.info = '';
@@ -565,9 +566,10 @@
                             self.cpu = response.cpu;
                             self.memory = response.memory;
                             self.traffic = response.traffic;
-
+                            self.server = response.server;
+                            
                             self.url = window.location.protocol + '//' + (self.config.subdomain === '*' ? window.location.host.replace('admin.', '') : window.location.host.replace('admin', self.config.subdomain));
-                            self.remoteUpstream = window.location.protocol + '//' + self.config.users[0].user.username + ':' + self.config.users[0].user.password + '@' + window.location.hostname.replace('admin.', '') + ':7000/' + self.config.name + '.git';
+                            self.remoteUpstream = window.location.protocol + '//' + self.config.users[0].user.username + ':' + self.config.users[0].user.password + '@' + window.location.hostname.replace('admin.', '') + ':' + self.server.git.port + '/' + self.config.name + '.git';
 
                             self.createCharts();
                         });
