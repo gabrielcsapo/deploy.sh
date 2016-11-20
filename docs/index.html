@@ -78,10 +78,16 @@
             <p> Currently the safest way to edit the configuration files is from the physical box and in order to do this just run; </p>
             <blockquote>
               <code>
-                node-distribute --configure
+                node-distribute -c [editor]
+              </code>
+              <br>
+              <code>
+                node-distribute --configure [editor]
               </code>
             </blockquote>
-            <p> This command will log two file locations for <small>config.json</small></p>
+            <p> This command will open the file <small>config.json</small> for editing.</p>
+            <i> This will use the default $EDITOR or $VISUALIZE or fallback to notepad or vim, depending on the platform. <i>
+            <i> To open the file in atom execute <small>node-distribute -c atom</small> or <small>node-distribute -c sublime</small> for Sublime Text<i>
 
             <p>The structure for this file contains <small>repo</small> and a <small>user</small> object</p>
 
