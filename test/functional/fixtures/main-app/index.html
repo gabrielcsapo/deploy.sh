@@ -81,11 +81,11 @@
                 node-distribute --configure
               </code>
             </blockquote>
-            <p> This command will log two file locations for <small>repo.json</small> and <small>user.json</small> </p>
+            <p> This command will log two file locations for <small>config.json</small></p>
 
-            <p>The structure for these files are the following;</p>
+            <p>The structure for this file contains <small>repo</small> and a <small>user</small> object</p>
 
-            <h4> repo.json </h4>
+            <h4> repo </h4>
             <blockquote>
                 <code>
 <pre style="overflow:scroll;">
@@ -117,7 +117,7 @@
             </code>
             </blockquote>
 
-            <h4> user.json </h4>
+            <h4> user </h4>
             <blockquote>
             <code>
 <pre style="overflow:scroll;">
@@ -131,7 +131,11 @@
         </section>
         <section>
           <h3> Pushing code to node-distribute </h3>
-          <p> Once you have setup your repos and user.json the last step is too push code. Once the server is running you will get a page that looks like the following; <p>
+          <p> Once you have setup your <small>config.json</small> the last step is too push code. Once the server is running you will get a page that looks like the following, when navigating to <small>http://admin.{domain}:1337</small> <p>
+              <small> You will be prompted with a basic auth modal, the username and password is the entry for user in the config.json file</small>
+          <br>
+          <br>
+          <br>
           <img style="width:100%;height:auto;" src="./screenshots/admin-application-view.png"/>
           <p> There will be a repo instructions field that shows you the remote address to push your git repo too. </p>
           <p> Once you <small>git push</small> to that remote branch it will build and the UI will update when the build has deployed.</p>

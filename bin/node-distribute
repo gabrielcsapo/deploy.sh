@@ -17,6 +17,5 @@ if (program.start) {
 }
 if (program.configure) {
     var path = require('path');
-    console.log('repo configuration: ' + path.resolve(__dirname, '..', 'config', 'repos.json'))
-    console.log('user configuration: ' + path.resolve(__dirname, '..', 'config', 'user.json'))
+    console.log('configuration file: ' + path.resolve(__dirname, '..', 'config', 'config.json'))
 }
