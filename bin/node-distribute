@@ -1,10 +1,12 @@
 #!/usr/bin/env node
-
+var spawn = require('child_process').spawn;
+var path = require('path');
 var program = require('commander');
+
 program
   .version(require('../package.json').version)
   .option('-s, --start', 'start node distribute')
-  .option('-c, --configure', 'logs the location of the configuration file')
+  .option('-c, --configure [editor]', 'logs the location of the configuration file')
   .parse(process.argv);
 
   if (!process.argv.slice(2).length) {
@@ -15,7 +17,12 @@ if (program.start) {
     GLOBAL.wildcards = {};
     require('../operations/startup.js');
 }
+
 if (program.configure) {
-    var path = require('path');
-    console.log('configuration file: ' + path.resolve(__dirname, '..', 'config', 'config.json'))
+    var file = path.resolve(__dirname, '..', 'config', 'config.json');
+    var editor = program.configure || process.env.VISUAL || process.env.EDITOR || (/^windows/.test(process.platform) ? 'notepad' : 'vim');
+    var args = editor.split(/\s+/);
+    var bin = args.shift();
+
+    var ps = spawn(bin, args.concat([ file ]), { stdio: 'inherit' });
 }

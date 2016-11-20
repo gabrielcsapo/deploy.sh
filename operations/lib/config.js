@@ -30,7 +30,7 @@ module.exports = {
         } else {
             config = data;
         }
-        fs.writeFile(path.resolve(__dirname, '..', '..', 'config', 'config.json'), JSON.stringify(config), function(err) {
+        fs.writeFile(path.resolve(__dirname, '..', '..', 'config', 'config.json'), JSON.stringify(config, null, 4), function(err) {
             if (err) {
                 callback(err);
             } else {

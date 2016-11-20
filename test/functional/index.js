@@ -72,7 +72,7 @@ describe('node-distribute', function() {
                 }
             ]
         };
-        fs.writeFile(path.resolve(__dirname, '..', '..', 'config/config.json'), JSON.stringify(config), function (err) {
+        fs.writeFile(path.resolve(__dirname, '..', '..', 'config/config.json'), JSON.stringify(config, null, 4), function (err) {
           if (err) return console.log(err); // eslint-disable-line no-console
           done();
         });
