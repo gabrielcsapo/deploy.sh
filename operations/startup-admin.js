@@ -5,8 +5,7 @@ var basicAuth = require('basic-auth-connect');
 var kue = require('kue');
 var responseTime = require('response-time');
 var moment = require('moment');
-var httpProxy = require('http-proxy');
-var proxy = httpProxy.createProxyServer({});
+var http = require('http');
 var geoip = require('geoip-lite');
 var startApplication = require('./startup-application');
 var path = require('path');
@@ -133,14 +132,16 @@ module.exports = function() {
     app.get('*', function(req, res, next) {
         var hostname = getHostname(req);
         if (GLOBAL.wildcards[hostname]) {
-            proxy.web(req, res, {
-                target: 'http://127.0.0.1:' + GLOBAL.wildcards[hostname]
-            }, function(e) {
-                log.error('proxy:error', e.toString());
-                if (e) {
-                    next();
-                }
+            var connector = http.request({
+              hostname: 'localhost',
+              port: GLOBAL.wildcards[hostname],
+              path: req.originalUrl,
+              agent: false  // create a new agent just for this one request
+            }, function(response) {
+                res.set(response['headers']);
+                response.pipe(res, { end: true });
             });
+            req.pipe(connector, { end:true });
         } else {
             next();
         }
