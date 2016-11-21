@@ -4,7 +4,7 @@
   "description": "continuous deployment of node services, make your own vpn ☁️",
   "main": "index.js",
   "scripts": {
-    "build": "./node_modules/.bin/lessc ./operations/views/admin/admin.less ./operations/views/admin/dist/admin.css; webpack;",
+    "build": "./node_modules/.bin/lessc ./operations/views/admin/admin.less ./operations/views/admin/dist/admin.css; pug operations/views/404/index.pug; webpack;",
     "test": "npm run test:functional; npm run test:unit",
     "test:functional": "npm run lint;npm run clean;./scripts/functional-test.sh;",
     "test:unit": "npm run coverage;",
@@ -47,7 +47,6 @@
     "pm2": "^2.1.4",
     "portfinder": "^1.0.6",
     "psychic-ui": "^0.4.0",
-    "pug": "^2.0.0-alpha8",
     "response-time": "^2.3.1",
     "rimraf": "^2.5.4",
     "socket.io": "^1.5.1",
@@ -65,6 +64,7 @@
     "less": "^2.7.1",
     "mocha": "^3.0.2",
     "nyc": "^9.0.1",
+    "pug-cli": "^1.0.0-alpha6",
     "supertest": "^2.0.0",
     "uglify-js": "git://github.com/mishoo/UglifyJS2#harmony",
     "webpack": "^1.13.3"
