@@ -39,7 +39,7 @@ module.exports = function() {
             next();
         } else {
             res.status(404)
-            res.render('404');
+            res.sendFile(path.resolve(__dirname, 'views/404/index.html'));
         }
     }
 
@@ -90,8 +90,6 @@ module.exports = function() {
 
     kue.app.set('title', 'node-distribute');
 
-    app.set('views', path.resolve(__dirname, './views'));
-    app.set('view engine', 'pug');
     app.use(bodyParser.urlencoded({
         extended: false
     }));
@@ -193,7 +191,7 @@ module.exports = function() {
 
     app.use(function(req, res) {
         res.status(404);
-        res.render('404');
+        res.sendFile(path.resolve(__dirname, 'views/404/index.html'));
     });
 
     server.listen(Server.get().admin.port, function() {
