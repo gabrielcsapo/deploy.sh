@@ -1,0 +1,9 @@
+docs
+test
+scripts
+coverage
+config
+repos
+app
+.nyc_output
+db.json
