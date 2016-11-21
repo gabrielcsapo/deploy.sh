@@ -26,9 +26,15 @@ module.exports = function() {
 
     process.env.VUE_ENV = 'server';
 
+    var getHostname = function(req) {
+        var hostname = req.headers.host.split(':')[0] ? req.headers.host.split(':')[0].substring(0, req.headers.host.split(':')[0].indexOf('.')) : req.subdomains;
+        // We are looking for the main app, which we use * to denote no hostname
+        hostname = hostname == '' ? '*' : hostname;
+        return hostname;
+    }
+
     var isAdminHost = function(req, res, next) {
-        var hostname = req.headers.host.split(':')[0];
-        hostname = hostname.substring(0, hostname.indexOf('.'));
+        var hostname = getHostname(req);
         if (hostname == 'admin') {
             next();
         } else {
@@ -41,8 +47,7 @@ module.exports = function() {
         // Opens the door to having a server that is not authentication protected
         // This helps with local debugging
         if (user.get().username && user.get().password) {
-            var hostname = req.headers.host.split(':')[0];
-            hostname = hostname.substring(0, hostname.indexOf('.'));
+            var hostname = getHostname(req);
             if (hostname == 'admin') {
                 return basicAuth(user.get().username, user.get().password)(req, res, next);
             } else {
@@ -85,7 +90,7 @@ module.exports = function() {
 
     kue.app.set('title', 'node-distribute');
 
-    app.set('views', './operations/views')
+    app.set('views', path.resolve(__dirname, './views'));
     app.set('view engine', 'pug');
     app.use(bodyParser.urlencoded({
         extended: false
@@ -100,10 +105,7 @@ module.exports = function() {
             req.connection.socket.remoteAddress;
         var geo = geoip.lookup(ip);
         var referrer = req.get('Referrer');
-        var hostname = req.headers.host.split(':')[0];
-        hostname = hostname.substring(0, hostname.indexOf('.'));
-        // check for main application
-        hostname = (hostname == '' ? '*' : hostname);
+        var hostname = getHostname(req);
         repos.get().forEach(function(repo) {
             if (repo.subdomain == hostname) {
                 if (db(repo.name, 'traffic').find({
@@ -131,11 +133,7 @@ module.exports = function() {
     }));
 
     app.get('*', function(req, res, next) {
-        var hostname = req.headers.host.split(':')[0];
-        hostname = hostname.substring(0, hostname.indexOf('.'));
-
-        // We are looking for the main app, which we use * to denote no hostname
-        hostname = hostname === '' ? '*' : hostname;
+        var hostname = getHostname(req);
         if (GLOBAL.wildcards[hostname]) {
             proxy.web(req, res, {
                 target: 'http://127.0.0.1:' + GLOBAL.wildcards[hostname]
