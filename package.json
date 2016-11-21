@@ -36,7 +36,6 @@
     "bunyan": "^1.8.1",
     "chart.js": "^2.3.0",
     "commander": "^2.9.0",
-    "cross-spawn": "^5.0.1",
     "express": "^4.14.0",
     "geoip-lite": "^1.1.8",
     "git-server": "git+https://github.com/stackdot/NodeJS-Git-Server.git",
