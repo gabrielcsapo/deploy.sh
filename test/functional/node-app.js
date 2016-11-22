@@ -62,6 +62,7 @@ describe('node-app', function() {
         });
     }
     it('should be able to POST', function(done) {
+        this.timeout(10000);
         request('http://localhost:1337')
             .post('/post')
             .send({name: 'Bob'})
@@ -104,5 +105,31 @@ describe('node-app', function() {
                 assert.isNull(err);
                 done();
             });
+    });
+    it('should be able to upload a file', function(done){
+      request('http://localhost:1337')
+          .post('/profile')
+          .field('name', 'Joe Schmoe')
+          .attach('avatar', path.resolve(__dirname, './fixtures/images/avatar.png'))
+          .set('Host', 'test.example.com')
+          .set('x-forwarded-for', chance.ip())
+          .set('referrer', chance.domain())
+          .expect(function(res) {
+              assert.isObject(res.body.body);
+              assert.isString(res.body.body.name);
+              assert.equal(res.body.body.name, 'Joe Schmoe');
+              assert.isObject(res.body.file);
+              assert.equal(res.body.file.fieldname, 'avatar');
+              assert.equal(res.body.file.originalname, 'avatar.png');
+              assert.equal(res.body.file.encoding, '7bit');
+              assert.equal(res.body.file.mimetype, 'image/png');
+              assert.isString(res.body.file.filename);
+              assert.isString(res.body.file.path);
+              assert.equal(res.body.file.size, 30735);
+          })
+          .expect(200, function(err) {
+              assert.isNull(err);
+              done();
+          });
     });
 });

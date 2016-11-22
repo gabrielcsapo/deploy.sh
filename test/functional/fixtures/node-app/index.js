@@ -1,5 +1,7 @@
 var bodyParser = require('body-parser');
 var express = require('express');
+var multer  = require('multer');
+var upload = multer({ dest: 'uploads/' });
 var app = express();
 var port = process.env.PORT || 3000;
 
@@ -7,6 +9,13 @@ app.use(bodyParser.urlencoded({
     extended: false
 }));
 app.use(bodyParser.json());
+
+app.post('/profile', upload.single('avatar'), function (req, res) {
+  res.send({
+    body: req.body,
+    file: req.file
+  });
+});
 
 app.post('/post', function(req, res) {
     var name = req.body.name;
@@ -25,7 +34,6 @@ app.delete('/delete/:id', function(req, res) {
 
 app.use('*', function(req, res) {
     var url = req.originalUrl;
-
     var timeout = Math.floor((Math.random() * 10) + (url.length * Math.floor((Math.random() * 10) + 250)));
     setTimeout(function() {
         console.log(url, timeout); // eslint-disable-line no-console
