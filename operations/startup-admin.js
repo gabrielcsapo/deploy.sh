@@ -129,19 +129,29 @@ module.exports = function() {
         });
     }));
 
-    app.get('*', function(req, res, next) {
+    app.all('*', function(req, res, next) {
         var hostname = getHostname(req);
         if (GLOBAL.wildcards[hostname]) {
-            var connector = http.request({
+            var options = {
               hostname: 'localhost',
               port: GLOBAL.wildcards[hostname],
               path: req.originalUrl,
-              agent: false  // create a new agent just for this one request
-            }, function(response) {
+              method: req.method.toUpperCase(),
+              agent: false
+            };
+            if(req.method == 'POST' || req.method == 'PUT') {
+              options.headers = {
+                  'Content-Type': 'application/json',
+              };
+            }
+            var proxy = http.request(options, function(response) {
                 res.set(response['headers']);
                 response.pipe(res, { end: true });
             });
-            req.pipe(connector, { end:true });
+            if(req.method == 'POST' || req.method == 'PUT') {
+              proxy.write(JSON.stringify(req.body));
+            }
+            proxy.end();
         } else {
             next();
         }

@@ -33,6 +33,7 @@ describe('node-app', function() {
 
     for (var i = 0; i < 25; i++) {
         it('should be able to reach new app url', function(done) {
+            this.timeout(10000);
             request('http://localhost:1337')
                 .get('/distribute')
                 .set('Host', 'test.example.com')
@@ -60,4 +61,48 @@ describe('node-app', function() {
                 });
         });
     }
+    it('should be able to POST', function(done) {
+        request('http://localhost:1337')
+            .post('/post')
+            .send({name: 'Bob'})
+            .set('Host', 'test.example.com')
+            .set('x-forwarded-for', chance.ip())
+            .set('referrer', chance.domain())
+            .expect(function(res) {
+                assert.equal(res.text, 'hello Bob');
+            })
+            .expect(200, function(err) {
+                assert.isNull(err);
+                done();
+            });
+    });
+    it('should be able to PUT', function(done) {
+        request('http://localhost:1337')
+            .put('/put/1')
+            .send({name: 'Ned'})
+            .set('Host', 'test.example.com')
+            .set('x-forwarded-for', chance.ip())
+            .set('referrer', chance.domain())
+            .expect(function(res) {
+                assert.equal(res.text, 'updated 1 with {"name":"Ned"}');
+            })
+            .expect(200, function(err) {
+                assert.isNull(err);
+                done();
+            });
+    });
+    it('should be able to DELETE', function(done) {
+        request('http://localhost:1337')
+            .delete('/delete/1')
+            .set('Host', 'test.example.com')
+            .set('x-forwarded-for', chance.ip())
+            .set('referrer', chance.domain())
+            .expect(function(res) {
+                assert.equal(res.text, 'deleted request with id 1');
+            })
+            .expect(200, function(err) {
+                assert.isNull(err);
+                done();
+            });
+    });
 });

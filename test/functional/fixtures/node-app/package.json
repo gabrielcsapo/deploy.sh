@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
-    "express": "^4.13.4"
+    "express": "^4.13.4",
+    "body-parser": "^1.15.2"
   },
   "devDependencies": {},
   "scripts": {
