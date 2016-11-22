@@ -5,10 +5,10 @@ var basicAuth = require('basic-auth-connect');
 var kue = require('kue');
 var responseTime = require('response-time');
 var moment = require('moment');
-var http = require('http');
 var geoip = require('geoip-lite');
 var startApplication = require('./startup-application');
 var path = require('path');
+var request = require('request');
 var child_process = require('child_process');
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
@@ -88,11 +88,6 @@ module.exports = function() {
     });
 
     kue.app.set('title', 'node-distribute');
-
-    app.use(bodyParser.urlencoded({
-        extended: false
-    }));
-    app.use(bodyParser.json());
     app.use(responseTime(function(req, res, time) {
         var ip = req.query.ip ||
             req.headers['x-forwarded-for'] ||
@@ -132,32 +127,14 @@ module.exports = function() {
     app.all('*', function(req, res, next) {
         var hostname = getHostname(req);
         if (GLOBAL.wildcards[hostname]) {
-            var options = {
-              hostname: 'localhost',
-              port: GLOBAL.wildcards[hostname],
-              path: req.originalUrl,
-              method: req.method.toUpperCase(),
-              agent: false
-            };
-            if(req.method == 'POST' || req.method == 'PUT') {
-              options.headers = {
-                  'Content-Type': 'application/json',
-              };
-            }
-            var proxy = http.request(options, function(response) {
-                res.set(response['headers']);
-                response.pipe(res, { end: true });
-            });
-            if(req.method == 'POST' || req.method == 'PUT') {
-              proxy.write(JSON.stringify(req.body));
-            }
-            proxy.end();
+          var url = `http://localhost:${GLOBAL.wildcards[hostname]}${req.originalUrl}`;
+          req.pipe(request(url)).pipe(res);
         } else {
             next();
         }
     });
 
-    app.post('/api/process/:name/settings', isAdminHost, isAuthenticated, function(req, res) {
+    app.post('/api/process/:name/settings', isAdminHost, isAuthenticated, bodyParser.json(), function(req, res) {
         var name = req.params.name;
         repos.update(req.body, function(error) {
             if (error) {

@@ -39,6 +39,9 @@ describe('static-app', function() {
                 .set('x-forwarded-for', chance.ip())
                 .set('referrer', chance.domain())
                 .expect('Content-Type', 'text/html; charset=UTF-8')
+                .expect(function(res) {
+                    assert.equal(res.headers['content-encoding'], 'gzip')
+                })
                 .expect(200, function(err) {
                     assert.isNull(err);
                     request('http://localhost:1337')
@@ -47,6 +50,9 @@ describe('static-app', function() {
                         .set('x-forwarded-for', chance.ip())
                         .set('referrer', chance.domain())
                         .expect('Content-Type', 'text/html; charset=UTF-8')
+                        .expect(function(res) {
+                            assert.equal(res.headers['content-encoding'], 'gzip')
+                        })
                         .expect(200, function(err) {
                             assert.isNull(err);
                             request('http://localhost:1337')
