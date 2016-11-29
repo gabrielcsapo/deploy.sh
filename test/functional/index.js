@@ -15,12 +15,13 @@ describe('node-distribute', function() {
         try {
             fs.unlinkSync(path.resolve(__dirname, '..', '..', 'db.json'));
         } catch (ex) {} // eslint-disable-line no-empty
-        rimraf(path.resolve(__dirname, '..', '..', 'config'), function() {});
-        rimraf(path.resolve(__dirname, '..', '..', 'repos'), function() {});
-        rimraf(path.resolve(__dirname, '..', '..', 'app'), function() {});
-        setTimeout(function() {
-            done();
-        }, 2000)
+        rimraf(path.resolve(__dirname, '..', '..', 'config'), function() {
+            rimraf(path.resolve(__dirname, '..', '..', 'repos'), function() {
+                rimraf(path.resolve(__dirname, '..', '..', 'app'), function() {
+                    done();
+                });
+            });
+        });
     });
 
     after(function() {
@@ -29,11 +30,11 @@ describe('node-distribute', function() {
     });
 
     it('should make the user config directory', function(done) {
-        var directory = path.resolve(__dirname, '..', '..', 'config')
-         if (!fs.existsSync(directory)){
-             fs.mkdirSync(directory);
-         }
-         done();
+        var directory = path.resolve(__dirname, '..', '..', 'config');
+        if (!fs.existsSync(directory)) {
+            fs.mkdirSync(directory);
+        }
+        done();
     });
 
     it('should write the correct test config to config/config.json', function(done) {
@@ -42,39 +43,34 @@ describe('node-distribute', function() {
                 'username': 'root',
                 'password': 'ac2eb48019c3fdc0f8d0d86d2319254ca1785045'
             },
-            repos: [
-                {
-                    'subdomain': 'test',
-                    'name': 'node-app',
-                    'type': 'NODE',
-                    'anonRead': false
+            repos: [{
+                'subdomain': 'test',
+                'name': 'node-app',
+                'type': 'NODE',
+                'anonRead': false
+            }, {
+                'subdomain': 'static',
+                'name': 'static-app',
+                'type': 'STATIC',
+                'anonRead': false
+            }, {
+                'subdomain': 'static-different',
+                'name': 'static-app-different-directory',
+                'type': 'STATIC',
+                'options': {
+                    'directory': 'dist'
                 },
-                {
-                    'subdomain': 'static',
-                    'name': 'static-app',
-                    'type': 'STATIC',
-                    'anonRead': false
-                },
-                {
-                    'subdomain': 'static-different',
-                    'name': 'static-app-different-directory',
-                    'type': 'STATIC',
-                    'options': {
-                        'directory': 'dist'
-                    },
-                    'anonRead': false
-                },
-                {
-                    'subdomain': '*',
-                    'name': 'main-app',
-                    'type': 'STATIC',
-                    'anonRead': false
-                }
-            ]
+                'anonRead': false
+            }, {
+                'subdomain': '*',
+                'name': 'main-app',
+                'type': 'STATIC',
+                'anonRead': false
+            }]
         };
-        fs.writeFile(path.resolve(__dirname, '..', '..', 'config/config.json'), JSON.stringify(config, null, 4), function (err) {
-          if (err) return console.log(err); // eslint-disable-line no-console
-          done();
+        fs.writeFile(path.resolve(__dirname, '..', '..', 'config/config.json'), JSON.stringify(config, null, 4), function(err) {
+            if (err) return console.log(err); // eslint-disable-line no-console
+            done();
         });
     });
 
@@ -88,7 +84,7 @@ describe('node-distribute', function() {
             console.log(data.toString('utf8')); // eslint-disable-line no-console
             if (data.toString('utf8').indexOf('node-distribute listening on http://localhost:1337') > -1) {
                 setTimeout(function() {
-                  done();
+                    done();
                 }, 1000);
             }
         });

@@ -9,12 +9,15 @@
 ![npm](https://img.shields.io/npm/dt/node-distribute.svg)
 ![npm](https://img.shields.io/npm/dm/node-distribute.svg)
 
-![node-distribute](./docs/node-distribute-logo.png)
+![node-distribute](https://github.com/gabrielcsapo/node-distribute/blob/master/docs/node-distribute-logo.png?raw=true)
+
+node-distribute is a standalone SAAS application that deploys NodeJS and static assets.
 
 To learn more visit [http://www.gabrielcsapo.com/node-distribute/](http://www.gabrielcsapo.com/node-distribute/)
 
-## updating docs
+## Contributions
 
-If you update the docs, please also copy changes to `/test/fixtures/main-app`
+- If you update the docs, please also copy changes to `/test/fixtures/main-app`
+- If you update the code in any way that changes the interface, please update the jsdoc and tests that validate functionality
 
 Thank you!

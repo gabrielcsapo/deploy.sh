@@ -40,7 +40,7 @@ describe('static-app-different-directory', function() {
                 .set('referrer', chance.domain())
                 .expect('Content-Type', 'text/html; charset=UTF-8')
                 .expect(function(res) {
-                    assert.equal(res.headers['content-encoding'], 'gzip')
+                    assert.equal(res.headers['content-encoding'], 'gzip');
                 })
                 .expect(200, function(err) {
                     assert.isNull(err);
@@ -51,7 +51,7 @@ describe('static-app-different-directory', function() {
                         .set('referrer', chance.domain())
                         .expect('Content-Type', 'text/html; charset=UTF-8')
                         .expect(function(res) {
-                            assert.equal(res.headers['content-encoding'], 'gzip')
+                            assert.equal(res.headers['content-encoding'], 'gzip');
                         })
                         .expect(200, function(err) {
                             assert.isNull(err);
@@ -69,4 +69,4 @@ describe('static-app-different-directory', function() {
                 });
         });
     }
-})
+});

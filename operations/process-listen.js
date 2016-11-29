@@ -1,3 +1,8 @@
+/**
+ * Starts a pm2 thread and sends any logging information to the main thread
+ * @module process-listen
+ */
+
 var pm2 = require('pm2');
 
 pm2.connect(true, function(err) {

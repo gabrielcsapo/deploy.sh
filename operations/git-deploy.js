@@ -1,3 +1,8 @@
+/**
+ * deploys application (NODE or STATIC)
+ * @module git-deploy
+ */
+
 var path = require('path');
 var fs = require('fs');
 var rimraf = require('rimraf');
@@ -101,6 +106,12 @@ queue.process('install', 1, function(job, done) {
         });
 });
 
+/**
+ * deploys application (NODE or STATIC)
+ * @param  {string} location absolute path to the folder that application will be deployed to
+ * @param  {Repo} repo     a Repo object
+ * @return {Promise}
+ */
 module.exports = function(location, repo) {
     log.info('deploy:stop process', repo.name);
     pm2.connect(true, function(err) {
@@ -125,4 +136,4 @@ module.exports = function(location, repo) {
                 });
         });
     });
-}
+};

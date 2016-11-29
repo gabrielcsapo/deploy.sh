@@ -1,5 +1,11 @@
+/**
+ * Starts a pm2 thread and sends any uage information to the main thread
+ * @module process-uage
+ */
+
 var pm2 = require('pm2');
 
+// TODO: this should be customizable, interval checking
 setInterval(function() {
   pm2.connect(true, function(err) {
       if (err) {

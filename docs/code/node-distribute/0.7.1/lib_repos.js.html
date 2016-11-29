@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>lib/repos.js - Documentation</title>
+
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Config.html">Config</a><ul class='methods'><li data-type='method'><a href="Config.html#.generate">generate</a></li><li data-type='method'><a href="Config.html#.get">get</a></li><li data-type='method'><a href="Config.html#.update">update</a></li></ul></li><li><a href="Process.html">Process</a><ul class='methods'><li data-type='method'><a href="Process.html#.get">get</a></li></ul></li><li><a href="Repo.html">Repo</a><ul class='methods'><li data-type='method'><a href="Repo.html#.get">get</a></li><li data-type='method'><a href="Repo.html#.update">update</a></li></ul></li><li><a href="Server.html">Server</a><ul class='methods'><li data-type='method'><a href="Server.html#.defaults">defaults</a></li><li data-type='method'><a href="Server.html#.get">get</a></li></ul></li><li><a href="User.html">User</a><ul class='methods'><li data-type='method'><a href="User.html#.get">get</a></li></ul></li></ul><h3>Modules</h3><ul><li><a href="module-db.html">db</a></li><li><a href="module-git-deploy.html">git-deploy</a></li><li><a href="module-process-listen.html">process-listen</a></li><li><a href="module-process-uage.html">process-uage</a></li><li><a href="module-startup-admin.html">startup-admin</a></li><li><a href="module-startup-application.html">startup-application</a></li><li><a href="module-startup-application-static.html">startup-application-static</a></li><li><a href="module-startup-applications.html">startup-applications</a></li><li><a href="module-startup-gitserver.html">startup-gitserver</a></li></ul>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">lib/repos.js</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>var _ = require('underscore');
+
+var config = require('./config');
+var user = require('./user');
+
+/**
+ * A repo object
+ * @class Repo
+ * @type {Object}
+ * @property {string} subdomain - the sudomain of this specific repo
+ * @property {string} name - the name of the repo
+ * @property {string} type - the type of application (NODE / STATIC)
+ * @property {string} annonRead - can anyone read the remote git repo
+ * @property {array}  users - an array of allowed users
+ */
+var Repo = function() {
+    this.subdomain = '';
+    this.name = '';
+    this.type = '';
+    this.anonRead = false;
+    this.options = {};
+    this.users = [];
+};
+
+module.exports = {
+    /**
+     * Updates the configuration file for the repo
+     * @memberof Repo
+     * @function update
+     * @param  {object}   config   the configuration object
+     * @param  {Function} callback function(err, config) where err is the error from writeFile
+     * @param  {string=} name this is the name of the specific part of the config that is too be changed
+     */
+    update: function(data, callback, name) {
+        var repos = config.get('repos');
+        if(name) {
+            repos.forEach(function(repo, i) {
+                // update the segment that belongs to the specific repo
+                if(repo.name === name) {
+                    repos[i] = data;
+                }
+            });
+            config.update(repos, function(err) {
+                callback(err, data);
+            }, 'repos');
+        } else {
+            repos = data;
+            config.update(repos, function(err) {
+                callback(err, repos);
+            }, 'repos');
+        }
+    },
+    /**
+     * Gets all or a specified repo
+     * @memberof Repo
+     * @function get
+     * @param  {string=} name the name of the specific repo
+     * @return {Repo}      an array or single object or Process object(s)
+    */
+    get: function(name) {
+        var repos = config.get('repos');
+        if (name) {
+            var found = {};
+            repos.forEach(function(repo) {
+                if (repo.name == name) {
+                    found = repo;
+                    if (!found.users) {
+                      found.users = [{
+                        user: user.get(),
+                        permissions: [
+                            'R',
+                            'W'
+                        ]
+                      }];
+                    }
+                }
+            });
+            return _.omit(found, 'git_events', 'event');
+        } else {
+            return repos.map(function(_repo) {
+                var repo = new Repo();
+                repo.subdomain = _repo.subdomain;
+                repo.name = _repo.name;
+                repo.type = _repo.type;
+                repo.anonRead = _repo.anonRead;
+                repo.options = _repo.options;
+                repo.users = _repo.users;
+                if (!repo.users) {
+                    repo.users = [{
+                      user: user.get(),
+                      permissions: [
+                          'R',
+                          'W'
+                      ]
+                    }];
+                }
+                return _.omit(repo, 'git_events', 'event');
+            });
+        }
+    }
+};
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Tue Nov 29 2016 01:28:09 GMT-0800 (PST) using the Minami theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+</body>
+</html>

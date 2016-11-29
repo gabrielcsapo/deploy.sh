@@ -1,3 +1,8 @@
+/**
+ * Module that starts (NODE / STATIC) applications
+ * @module startup-application
+ */
+
 var log = require('./lib/log');
 var portfinder = require('portfinder');
 var pm2 = require('pm2');
@@ -88,4 +93,4 @@ module.exports = function(repo, directory, repos, callback) {
             callback();
         }
     });
-}
+};

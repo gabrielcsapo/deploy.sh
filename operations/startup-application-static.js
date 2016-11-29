@@ -1,3 +1,8 @@
+/**
+ * Basic static asset server
+ * @module startup-application-static
+ */
+
 var compression = require('compression');
 var express = require('express');
 var path = require('path');

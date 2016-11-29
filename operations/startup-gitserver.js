@@ -1,3 +1,8 @@
+/**
+ * Starts a gitserver running at the appropriate port
+ * @module startup-gitserver
+ */
+
 var GitServer = require('git-server');
 var path = require('path');
 
@@ -78,4 +83,4 @@ module.exports = function() {
         log.info('git:fetch', repo.name, repo.last_commit.branch);
         update.accept();
     });
-}
+};

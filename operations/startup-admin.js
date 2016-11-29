@@ -1,3 +1,8 @@
+/**
+ * Starts the admin portal
+ * @module startup-admin
+ */
+
 var express = require('express');
 var bodyParser = require('body-parser');
 var app = express();
@@ -30,17 +35,17 @@ module.exports = function() {
         // We are looking for the main app, which we use * to denote no hostname
         hostname = hostname == '' ? '*' : hostname;
         return hostname;
-    }
+    };
 
     var isAdminHost = function(req, res, next) {
         var hostname = getHostname(req);
         if (hostname == 'admin') {
             next();
         } else {
-            res.status(404)
+            res.status(404);
             res.sendFile(path.resolve(__dirname, 'views/404/index.html'));
         }
-    }
+    };
 
     var isAuthenticated = function(req, res, next) {
         // Opens the door to having a server that is not authentication protected
@@ -55,7 +60,7 @@ module.exports = function() {
         } else {
             next();
         }
-    }
+    };
 
     var logs = child_process.fork(`${__dirname}/process-listen.js`);
     logs.on('message', function(m) {
@@ -105,7 +110,7 @@ module.exports = function() {
                     })) {
                     db(repo.name, 'traffic').find({
                         url: req.originalUrl
-                    }).traffic.push([moment().format('x'), time, geo, referrer])
+                    }).traffic.push([moment().format('x'), time, geo, referrer]);
                 } else {
                     db(repo.name, 'traffic').push({
                         url: req.originalUrl,
@@ -183,6 +188,6 @@ module.exports = function() {
     });
 
     server.listen(Server.get().admin.port, function() {
-        log.info('node-distribute listening on http://localhost:' + Server.get().admin.port)
+        log.info('node-distribute listening on http://localhost:' + Server.get().admin.port);
     });
-}
+};
