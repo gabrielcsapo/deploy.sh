@@ -7,3 +7,5 @@ repos
 app
 .nyc_output
 db.json
+jsdoc.json
+.travis.yml

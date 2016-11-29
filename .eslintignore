@@ -1,7 +1,8 @@
 node_modules/**
-test/fixtures/**
+test/functional/fixtures/**
 config/**
 app/**
 repos/**
 operations/views/admin/dist/**
 coverage
+docs/**

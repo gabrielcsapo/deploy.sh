@@ -1,13 +1,34 @@
 var _ = require('underscore');
 var config = require('./config');
 
-var Server = {
+/**
+ * Holds the defaults for the server object
+ * @class Server
+ * @type {object}
+ * @property {object} git - git config
+ * @property {number} git.port - git port
+ * @property {object} admin - admin config
+ * @property {number} admin.port - admin port
+ */
+module.exports = {
+    /**
+     * Gets the server configs
+     * @memberof Server
+     * @function get
+     * @return {Server} the server config
+     */
     get: function() {
         // returns the defaults or whatever is saved in the server config
         var response = config.get('server') || {};
-        var defaults = Server.defaults();
+        var defaults = this.defaults();
         return _.defaults(response, defaults);
     },
+    /**
+     * The server defaults
+     * @memberof Server
+     * @function defaults
+     * @return {Server} the server config
+     */
     defaults: function() {
         return {
             git: {
@@ -16,8 +37,6 @@ var Server = {
             admin: {
                 port: 1337
             }
-        }
+        };
     }
 };
-
-module.exports = Server;

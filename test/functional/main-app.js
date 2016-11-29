@@ -44,4 +44,4 @@ describe('main-app', function() {
                 });
         });
     }
-})
+});

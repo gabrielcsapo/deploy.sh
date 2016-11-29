@@ -1,6 +1,7 @@
 /* global io */
 (function() {
-    'use strict'
+    'use strict';
+
     var moment = require('moment');
     var Vue = require('vue');
     if (typeof window !== 'undefined') {
@@ -19,9 +20,9 @@
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     callback(JSON.parse(xhr.responseText));
                 }
-            }
+            };
             xhr.send();
-        }
+        };
 
         /**
          * post
@@ -34,12 +35,12 @@
             xhr.open('POST', url);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4) {
-                    callback(xhr.status, xhr.responseText)
+                    callback(xhr.status, xhr.responseText);
                 }
-            }
+            };
             xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
             xhr.send(JSON.stringify(body));
-        }
+        };
     }
 
     var createApp = function(defaultRoute) {
@@ -317,7 +318,7 @@
                                 if (v[3]) {
                                     self.referrers[v[3]] = !self.referrers[v[3]] ? 1 : self.referrers[v[3]] + 1;
                                 }
-                            })
+                            });
                         });
                     },
                     getMemoryChartData: function() {
@@ -325,7 +326,7 @@
                             return {
                                 x: m[0],
                                 y: m[1]
-                            }
+                            };
                         }, []);
                     },
                     getCPUChartData: function() {
@@ -333,7 +334,7 @@
                             return {
                                 x: m[0],
                                 y: m[1]
-                            }
+                            };
                         }, []);
                     },
                     getTrafficChartData: function() {
@@ -348,9 +349,9 @@
                                     return {
                                         x: t[0],
                                         y: t[1]
-                                    }
+                                    };
                                 })
-                            }
+                            };
                         }, []);
                     },
                     getReffererChartData: function() {
@@ -360,10 +361,10 @@
                             datasets: [{
                                 label: 'Refferer Traffic',
                                 data: Object.keys(self.referrers).map(function(k) {
-                                    return self.referrers[k]
+                                    return self.referrers[k];
                                 })
                             }]
-                        }
+                        };
                     },
                     getCountryChartData: function() {
                         var self = this;
@@ -372,10 +373,10 @@
                             datasets: [{
                                 label: 'Country Traffic',
                                 data: Object.keys(self.countries).map(function(k) {
-                                    return self.countries[k]
+                                    return self.countries[k];
                                 })
                             }]
-                        }
+                        };
                     },
                     createCharts: function() {
                         var self = this;
@@ -408,7 +409,7 @@
                                             }
                                         },
                                         label: function(tooltipItem, data) {
-                                            return moment(data.xLabel).format()
+                                            return moment(data.xLabel).format();
                                         }
                                     }
                                 },
@@ -446,7 +447,7 @@
                                             return data.datasets[tooltipItem[0].datasetIndex].label + '\n' + tooltipItem[0].yLabel + 'ms';
                                         },
                                         label: function(tooltipItem, data) {
-                                            return moment(data.xLabel).format()
+                                            return moment(data.xLabel).format();
                                         }
                                     }
                                 },
@@ -567,7 +568,7 @@
                             self.memory = response.memory;
                             self.traffic = response.traffic;
                             self.server = response.server;
-                            
+
                             self.url = window.location.protocol + '//' + (self.config.subdomain === '*' ? window.location.host.replace('admin.', '') : window.location.host.replace('admin', self.config.subdomain));
                             self.remoteUpstream = window.location.protocol + '//' + self.config.users[0].user.username + ':' + self.config.users[0].user.password + '@' + window.location.hostname.replace('admin.', '') + ':' + self.server.git.port + '/' + self.config.name + '.git';
 
@@ -585,7 +586,8 @@
                     </pre>
                 </div>`
             }
-        }
+        };
+
         var route;
         Object.keys(routes).forEach(function(reg) {
             if (new RegExp(reg, 'i').test(defaultRoute || window.location.pathname)) {
@@ -593,10 +595,11 @@
             }
         });
         return new Vue(routes[route] || routes['404']);
-    }
+    };
+
     if (typeof module !== 'undefined' && module.exports && typeof window === 'undefined') {
         module.exports = createApp;
     } else {
         createApp().$mount('#app');
     }
-}).call(this)
+}).call(this);

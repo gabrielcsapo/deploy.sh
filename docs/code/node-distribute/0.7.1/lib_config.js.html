@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>lib/config.js - Documentation</title>
+
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Config.html">Config</a><ul class='methods'><li data-type='method'><a href="Config.html#.generate">generate</a></li><li data-type='method'><a href="Config.html#.get">get</a></li><li data-type='method'><a href="Config.html#.update">update</a></li></ul></li><li><a href="Process.html">Process</a><ul class='methods'><li data-type='method'><a href="Process.html#.get">get</a></li></ul></li><li><a href="Repo.html">Repo</a><ul class='methods'><li data-type='method'><a href="Repo.html#.get">get</a></li><li data-type='method'><a href="Repo.html#.update">update</a></li></ul></li><li><a href="Server.html">Server</a><ul class='methods'><li data-type='method'><a href="Server.html#.defaults">defaults</a></li><li data-type='method'><a href="Server.html#.get">get</a></li></ul></li><li><a href="User.html">User</a><ul class='methods'><li data-type='method'><a href="User.html#.get">get</a></li></ul></li></ul><h3>Modules</h3><ul><li><a href="module-db.html">db</a></li><li><a href="module-git-deploy.html">git-deploy</a></li><li><a href="module-process-listen.html">process-listen</a></li><li><a href="module-process-uage.html">process-uage</a></li><li><a href="module-startup-admin.html">startup-admin</a></li><li><a href="module-startup-application.html">startup-application</a></li><li><a href="module-startup-application-static.html">startup-application-static</a></li><li><a href="module-startup-applications.html">startup-applications</a></li><li><a href="module-startup-gitserver.html">startup-gitserver</a></li></ul>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">lib/config.js</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>var path = require('path');
+var fs = require('fs');
+var crypto = require('crypto');
+
+/**
+ * Abstracts the responsiblity of working with the config.json file
+ * @class Config
+ * @type {Object}
+ */
+var Config = function() {
+
+    /**
+     * Gets the required value from the config.json
+     * @memberof Config
+     * @function get
+     * @param  {string} name the key for the value wanted in the config.json
+     * @return {object}      this is the entry that corresponds to the key passed in
+     */
+    var get = function(name) {
+        delete require.cache[require.resolve('../../config/config.json')];
+        var config = require('../../config/config.json');
+        if(name) {
+            return config[name];
+        } else {
+            return config;
+        }
+    };
+
+    /**
+     * Updates the config.json file
+     * @memberof Config
+     * @function update
+     * @param  {object}   data     object that contains the new structure of config.json
+     * @param  {function} callback function(error)
+     * @param  {string=}   name    the key of the substructure that is to be updated
+     */
+    var update = function(data, callback, name) {
+        delete require.cache[require.resolve('../../config/config.json')];
+        var config = require('../../config/config.json');
+        if(name) {
+            config[name] = data;
+        } else {
+            config = data;
+        }
+        fs.writeFile(path.resolve(__dirname, '..', '..', 'config', 'config.json'), JSON.stringify(config, null, 4), function(err) {
+            callback(err || undefined);
+        });
+    };
+
+    /**
+     * Generates the config.json file, if it already exists regenerates the user object
+     * @memberof Config
+     * @function generate
+     * @return {object} returns the current state of config.json
+     */
+    var generate = function() {
+        var config;
+        if(!fs.existsSync(path.resolve(__dirname, '..', '..', 'config', 'config.json'))) {
+            config = {
+                "user": {
+                    username: 'root',
+                    password: crypto.randomBytes(20).toString('hex')
+                },
+                "repos": []
+            };
+        } else {
+            config = require('../../config/config.json');
+            // just update the user object
+            config.user = {
+                username: 'root',
+                password: crypto.randomBytes(20).toString('hex')
+            };
+        }
+        fs.writeFileSync(path.resolve(__dirname, '..', '..', 'config', 'config.json'), JSON.stringify(config, null, 4));
+        return config;
+    };
+
+    if(!fs.existsSync(path.resolve(__dirname, '..', '..', 'config', 'config.json'))) {
+        generate();
+    }
+
+    return {
+        get: get,
+        update: update,
+        generate: generate
+    };
+};
+
+module.exports = Config();
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Tue Nov 29 2016 01:28:09 GMT-0800 (PST) using the Minami theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+</body>
+</html>

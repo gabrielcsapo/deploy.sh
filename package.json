@@ -13,7 +13,8 @@
     "clean": "redis-cli flushall;",
     "coverage": "./scripts/unit-test.sh; nyc --reporter=html mocha test/unit/index.js",
     "coveralls": "./scripts/unit-test.sh; nyc mocha test/unit/index.js && nyc report --reporter=text-lcov | coveralls",
-    "postinstall": "rm -rf node_modules/webpack/node_modules/uglify-js"
+    "postinstall": "rm -rf node_modules/webpack/node_modules/uglify-js",
+    "generate-docs": "node_modules/.bin/jsdoc -c jsdoc.json"
   },
   "bin": {
     "node-distribute": "bin/node-distribute"
@@ -62,7 +63,9 @@
     "chart.js": "^2.4.0",
     "coveralls": "^2.11.15",
     "eslint": "^3.9.1",
+    "jsdoc": "^3.4.3",
     "less": "^2.7.1",
+    "minami": "^1.1.1",
     "mocha": "^3.0.2",
     "nyc": "^9.0.1",
     "pug-cli": "^1.0.0-alpha6",

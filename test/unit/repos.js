@@ -85,7 +85,7 @@ describe('repos', function() {
         assert.isBoolean(repo.anonRead);
         assert.equal(expectedRepo.anonRead, repo.anonRead);
         done();
-      }, 'node-app')
+      }, 'node-app');
     });
 
     it('should update the entire config', function(done) {

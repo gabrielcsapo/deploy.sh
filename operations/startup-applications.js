@@ -1,8 +1,13 @@
+/**
+ * Loops through the config.json and starts each application
+ * @module startup-applications
+ */
+
 var startApplication = require('./startup-application');
 var path = require('path');
 var async = require('async');
 var log = require('./lib/log');
-var _ = require('underscore')
+var _ = require('underscore');
 
 var repos = require('./lib/repos').get();
 
@@ -15,7 +20,7 @@ module.exports = function(callback) {
             // Without this any app started after the first one will fail
             setTimeout(function() {
                 callback();
-            }, 1000)
+            }, 1000);
         });
     }, function (err) {
         if(err) {
@@ -25,4 +30,4 @@ module.exports = function(callback) {
         }
         callback();
     });
-}
+};
