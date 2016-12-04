@@ -3,6 +3,7 @@ var path = require('path');
 var assert = require('chai').assert;
 var spawn = require('child_process').spawn;
 var chance = require('chance')();
+var random_ua = require('random-ua');
 
 describe('main-app', function() {
     it('should add the necessary remote', function(done) {
@@ -37,6 +38,7 @@ describe('main-app', function() {
                 .get('/')
                 .set('Host', '')
                 .set('x-forwarded-for', chance.ip())
+                .set('user-agent', random_ua.generate())
                 .set('referrer', chance.domain())
                 .expect(200, function(err) {
                     assert.isNull(err);

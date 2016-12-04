@@ -1,3 +1,5 @@
+rm -rf operations/lib/db.json
+
 cd test/functional/fixtures/node-app;
 git init;
 git add -A;

@@ -11,15 +11,25 @@ var user = require('./user');
  * @property {string} name - the name of the repo
  * @property {string} type - the type of application (NODE / STATIC)
  * @property {string} annonRead - can anyone read the remote git repo
- * @property {array}  users - an array of allowed users
+ * @property {User[]}  users - an array of allowed users
  */
-var Repo = function() {
-    this.subdomain = '';
-    this.name = '';
-    this.type = '';
-    this.anonRead = false;
-    this.options = {};
-    this.users = [];
+var Repo = function(options) {
+    var defaults = {
+      subdomain: '',
+      name: '',
+      type: '',
+      anonRead: false,
+      options: {},
+      users: [{
+        user: user.get(),
+        permissions: [
+            'R',
+            'W'
+        ]
+      }]
+    };
+
+    return _.defaults(options, defaults);
 };
 
 module.exports = {
@@ -63,39 +73,45 @@ module.exports = {
             var found = {};
             repos.forEach(function(repo) {
                 if (repo.name == name) {
-                    found = repo;
-                    if (!found.users) {
-                      found.users = [{
-                        user: user.get(),
-                        permissions: [
-                            'R',
-                            'W'
-                        ]
-                      }];
-                    }
+                    found = new Repo(repo);
                 }
             });
             return _.omit(found, 'git_events', 'event');
         } else {
-            return repos.map(function(_repo) {
-                var repo = new Repo();
-                repo.subdomain = _repo.subdomain;
-                repo.name = _repo.name;
-                repo.type = _repo.type;
-                repo.anonRead = _repo.anonRead;
-                repo.options = _repo.options;
-                repo.users = _repo.users;
-                if (!repo.users) {
-                    repo.users = [{
-                      user: user.get(),
-                      permissions: [
-                          'R',
-                          'W'
-                      ]
-                    }];
-                }
+            var _repos = repos.map(function(_repo) {
+                var repo = new Repo({
+                  subdomain: _repo.subdomain,
+                  name: _repo.name,
+                  type: _repo.type,
+                  anonRead: _repo.anonRead,
+                  options: _repo.options,
+                  users: _repo.users
+                });
                 return _.omit(repo, 'git_events', 'event');
             });
+            _repos.push(this.default());
+            return _repos;
         }
+    },
+    getByHostname: function(hostname) {
+      var repos = config.get('repos');
+      var found = {};
+      repos.forEach(function(repo) {
+          if (repo.subdomain == hostname) {
+              found = new Repo(repo);
+          }
+      });
+      return _.omit(found, 'git_events', 'event');
+    },
+    default: function() {
+        return new Repo({
+            "subdomain": "admin",
+            "name": "admin",
+            "type": "SCRIPT",
+            "options": {
+              "executeDirectory": "./operations",
+              "script": "startup-admin.js"
+            }
+        });
     }
 };

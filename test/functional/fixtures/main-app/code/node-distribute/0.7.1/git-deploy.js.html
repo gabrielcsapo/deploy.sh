@@ -23,7 +23,7 @@
 <label for="nav-trigger" class="overlay"></label>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Config.html">Config</a><ul class='methods'><li data-type='method'><a href="Config.html#.generate">generate</a></li><li data-type='method'><a href="Config.html#.get">get</a></li><li data-type='method'><a href="Config.html#.update">update</a></li></ul></li><li><a href="Process.html">Process</a><ul class='methods'><li data-type='method'><a href="Process.html#.get">get</a></li></ul></li><li><a href="Repo.html">Repo</a><ul class='methods'><li data-type='method'><a href="Repo.html#.get">get</a></li><li data-type='method'><a href="Repo.html#.update">update</a></li></ul></li><li><a href="Server.html">Server</a><ul class='methods'><li data-type='method'><a href="Server.html#.defaults">defaults</a></li><li data-type='method'><a href="Server.html#.get">get</a></li></ul></li><li><a href="User.html">User</a><ul class='methods'><li data-type='method'><a href="User.html#.get">get</a></li></ul></li></ul><h3>Modules</h3><ul><li><a href="module-db.html">db</a></li><li><a href="module-git-deploy.html">git-deploy</a></li><li><a href="module-process-listen.html">process-listen</a></li><li><a href="module-process-uage.html">process-uage</a></li><li><a href="module-startup-admin.html">startup-admin</a></li><li><a href="module-startup-application.html">startup-application</a></li><li><a href="module-startup-application-static.html">startup-application-static</a></li><li><a href="module-startup-applications.html">startup-applications</a></li><li><a href="module-startup-gitserver.html">startup-gitserver</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Config.html">Config</a><ul class='methods'><li data-type='method'><a href="Config.html#.generate">generate</a></li><li data-type='method'><a href="Config.html#.get">get</a></li><li data-type='method'><a href="Config.html#.update">update</a></li></ul></li><li><a href="Process.html">Process</a><ul class='methods'><li data-type='method'><a href="Process.html#.get">get</a></li></ul></li><li><a href="Repo.html">Repo</a><ul class='methods'><li data-type='method'><a href="Repo.html#.get">get</a></li><li data-type='method'><a href="Repo.html#.update">update</a></li></ul></li><li><a href="Server.html">Server</a><ul class='methods'><li data-type='method'><a href="Server.html#.defaults">defaults</a></li><li data-type='method'><a href="Server.html#.get">get</a></li></ul></li><li><a href="User.html">User</a><ul class='methods'><li data-type='method'><a href="User.html#.get">get</a></li></ul></li></ul><h3>Modules</h3><ul><li><a href="module-db.html">db</a></li><li><a href="module-git-deploy.html">git-deploy</a></li><li><a href="module-process-listen.html">process-listen</a></li><li><a href="module-process-uage.html">process-uage</a></li><li><a href="module-startup-admin.html">startup-admin</a></li><li><a href="module-startup-application.html">startup-application</a></li><li><a href="module-startup-application-static.html">startup-application-static</a></li><li><a href="module-startup-applications.html">startup-applications</a></li><li><a href="module-startup-gitserver.html">startup-gitserver</a></li><li><a href="module-startup-proxy.html">startup-proxy</a><ul class='methods'><li data-type='method'><a href="module-startup-proxy.html#~isAuthenticated">isAuthenticated</a></li></ul></li></ul>
 </nav>
 
 <div id="main">
@@ -46,14 +46,17 @@
 var path = require('path');
 var fs = require('fs');
 var rimraf = require('rimraf');
+// TODO: use native promises remove this
 var Promise = require('bluebird');
 var kue = require('kue');
 var spawn = require('child_process').spawn;
 var startApplication = require('./startup-application');
-var log = require('./lib/log');
-var db = require('./lib/db');
 var pm2 = require('pm2');
 var _ = require('underscore');
+
+var log = require('./lib/log');
+var db = require('./lib/db');
+var repos = require('./lib/repos.js');
 
 var queue = kue.createQueue({
     redis: {
@@ -64,8 +67,6 @@ var queue = kue.createQueue({
     },
     disableSearch: false
 });
-
-var repos = require('./lib/repos.js');
 
 var steps = 3;
 queue.process('install', 1, function(job, done) {
@@ -101,6 +102,7 @@ queue.process('install', 1, function(job, done) {
             return new Promise(function(resolve, reject) {
                 if(repo.type == 'NODE') {
                     // Verify that a package.json exists
+                    // TODO: this should timeout if it takes too long
                     if(fs.existsSync(path.resolve(directory, 'package.json'))) {
                         log.info('queue: running npm install :', name);
                         job.log('queue: running npm install :', name);
@@ -135,7 +137,7 @@ queue.process('install', 1, function(job, done) {
             job.progress(3, steps);
             log.info('queue:restarting the services:', name);
             job.log('queue:restarting the services:', name);
-            startApplication(repo, directory, repos.get(), function() {
+            startApplication(repo, function() {
                 job.remove(function(err) {
                     if (err) {
                         log.error(err);
@@ -189,7 +191,7 @@ module.exports = function(location, repo) {
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Tue Nov 29 2016 01:28:09 GMT-0800 (PST) using the Minami theme.
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Sat Dec 03 2016 20:56:16 GMT-0800 (PST) using the Minami theme.
 </footer>
 
 <script>prettyPrint();</script>

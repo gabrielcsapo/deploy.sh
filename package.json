@@ -6,11 +6,10 @@
   "scripts": {
     "build": "./node_modules/.bin/lessc ./operations/views/admin/admin.less ./operations/views/admin/dist/admin.css; pug operations/views/404/index.pug; webpack;",
     "test": "npm run test:functional; npm run test:unit",
-    "test:functional": "npm run lint;npm run clean;./scripts/functional-test.sh;",
+    "test:functional": "npm run lint;redis-cli flushall;./scripts/functional-test.sh;",
     "test:unit": "npm run coverage;",
     "lint": "eslint .",
     "start": "node index.js | ./node_modules/.bin/bunyan -o short",
-    "clean": "redis-cli flushall;",
     "coverage": "./scripts/unit-test.sh; nyc --reporter=html mocha test/unit/index.js",
     "coveralls": "./scripts/unit-test.sh; nyc mocha test/unit/index.js && nyc report --reporter=text-lcov | coveralls",
     "postinstall": "rm -rf node_modules/webpack/node_modules/uglify-js",
@@ -32,7 +31,6 @@
   "dependencies": {
     "async": "^2.1.2",
     "basic-auth-connect": "^1.0.0",
-    "bluebird": "^3.4.1",
     "body-parser": "^1.15.2",
     "bunyan": "^1.8.1",
     "commander": "^2.9.0",
@@ -51,8 +49,9 @@
     "response-time": "^2.3.1",
     "rimraf": "^2.5.4",
     "socket.io": "^1.5.1",
+    "ua-parser-js": "^0.7.12",
     "underscore": "^1.8.3",
-    "vue": "^2.0.5"
+    "vue": "^2.1.4"
   },
   "devDependencies": {
     "babel": "^6.5.2",
@@ -67,8 +66,9 @@
     "less": "^2.7.1",
     "minami": "^1.1.1",
     "mocha": "^3.0.2",
-    "nyc": "^9.0.1",
+    "nyc": "^10.0.0",
     "pug-cli": "^1.0.0-alpha6",
+    "random-ua": "0.0.6",
     "supertest": "^2.0.0",
     "uglify-js": "git://github.com/mishoo/UglifyJS2#harmony",
     "webpack": "^1.13.3"

@@ -133,7 +133,7 @@
                             <button v-else class="btn border-primary"> <div class="spinner spinner-primary" style="margin-right:0;"></div> </button>
                         </div>
 
-                        <div class="col-12-12">
+                        <div v-if="config && config.users" class="col-12-12">
                             <h3>Repo Information</h3>
                             <div v-if="editable" class="grid">
                                 <div class="col-1-12 text-left">
@@ -157,9 +157,11 @@
                             </div>
                         </div>
 
-                        <div class="col-12-12">
+                        <div v-if="config && config.users" class="col-12-12">
                             <h3>Repo Instructions</h3>
-                            <p> To push to the remote repo please copy the following upstream </p>
+                            <p> If you don't already have a repo locally, clone this repo by running </p>
+                            <pre> git clone {{ remoteUpstream }} </pre>
+                            <p> If you already have this repo locally and want to push to the remote repo please copy the following upstream </p>
                             <pre> git remote add upstream {{ remoteUpstream }} </pre>
                         </div>
 
@@ -206,6 +208,11 @@
                         </div>
 
                         <div class="col-12-12">
+                            <h3>Browsers <small>{{ Object.keys(referrers).length }}</small></h3>
+                            <canvas id="chart-browsers"></canvas>
+                        </div>
+
+                        <div class="col-12-12">
                             <h3>Logs <small>{{ logs.length }}</small></h3>
                             <pre class="process-logs" id="log-view">{{ readableLogs }}</pre>
                         </div>
@@ -221,6 +228,7 @@
                     readableLogs: '',
                     referrers: {},
                     countries: {},
+                    browsers: {},
                     name: '',
                     url: '',
                     remoteUpstream: '',
@@ -238,6 +246,7 @@
                         trafficChart: {},
                         countriesChart: {},
                         refferChart: {},
+                        browserChart: {}
                     }
                 },
                 methods: {
@@ -308,15 +317,20 @@
                         var self = this;
                         self.countries = {};
                         self.referrers = {};
+                        self.browsers = {};
                         self.traffic.forEach(function(t) {
                             t.traffic.forEach(function(v) {
                                 // Get the country data
-                                if (v[2]) {
-                                    self.countries[v[2].country] = !self.countries[v[2].country] ? 1 : self.countries[v[2].country] + 1;
+                                if (v.geo) {
+                                    self.countries[v.geo.country] = !self.countries[v.geo.country] ? 1 : self.countries[v.geo.country] + 1;
                                 }
                                 // Get the referrer data
-                                if (v[3]) {
-                                    self.referrers[v[3]] = !self.referrers[v[3]] ? 1 : self.referrers[v[3]] + 1;
+                                if (v.referrer) {
+                                    self.referrers[v.referrer] = !self.referrers[v.referrer] ? 1 : self.referrers[v.referrer] + 1;
+                                }
+
+                                if (v.ua.browser && v.ua.browser.name) {
+                                    self.browsers[v.ua.browser.name] = !self.browsers[v.ua.browser.name] ? 1 : self.browsers[v.ua.browser.name] + 1;
                                 }
                             });
                         });
@@ -347,8 +361,8 @@
                                 backgroundColor: 'transparent',
                                 data: b.traffic.map(function(t) {
                                     return {
-                                        x: t[0],
-                                        y: t[1]
+                                        x: t.date,
+                                        y: t.time
                                     };
                                 })
                             };
@@ -365,6 +379,18 @@
                                 })
                             }]
                         };
+                    },
+                    getBrowserData: function() {
+                      var self = this;
+                      return {
+                          labels: Object.keys(self.browsers),
+                          datasets: [{
+                              label: 'Browser Data',
+                              data: Object.keys(self.browsers).map(function(k) {
+                                  return self.browsers[k];
+                              })
+                          }]
+                      };
                     },
                     getCountryChartData: function() {
                         var self = this;
@@ -501,6 +527,20 @@
                                 }
                             }
                         });
+
+                        self.charts.browserChart = new Chart(document.getElementById('chart-browsers'), {
+                            type: 'bar',
+                            data: self.getBrowserData(),
+                            options: {
+                                scales: {
+                                    yAxes: [{
+                                        ticks: {
+                                            beginAtZero: true
+                                        }
+                                    }]
+                                }
+                            }
+                        });
                     },
                     updateCharts: function() {
                         var self = this;
@@ -510,6 +550,8 @@
                         self.charts.memoryChart.data.datasets[1].data = self.getCPUChartData();
 
                         self.formatCountryandReffererData();
+                        self.charts.browserChart.data.labels = self.getBrowserData().labels;
+                        self.charts.browserChart.data.datasets = self.getBrowserData().datasets;
                         self.charts.countriesChart.data.labels = self.getCountryChartData().labels;
                         self.charts.countriesChart.data.datasets = self.getCountryChartData().datasets;
                         self.charts.refferChart.data.labels = self.getReffererChartData().labels;
@@ -519,6 +561,7 @@
                         self.charts.memoryChart.update(0, true);
                         self.charts.countriesChart.update(0, true);
                         self.charts.refferChart.update(0, true);
+                        self.charts.browserChart.update(0, true);
                     },
                 },
                 updated: function() {
@@ -532,6 +575,7 @@
                         var socket = io.connect('/');
                         socket.on(application + '-logs', function(data) {
                             self.logs.push(data);
+                            self.readableLogs = self.logs.join('\n');
                         });
                         socket.on(application + '-uptime', function(data) {
                           self.uptime = moment(data.created_at).fromNow(true);
@@ -569,8 +613,10 @@
                             self.traffic = response.traffic;
                             self.server = response.server;
 
-                            self.url = window.location.protocol + '//' + (self.config.subdomain === '*' ? window.location.host.replace('admin.', '') : window.location.host.replace('admin', self.config.subdomain));
-                            self.remoteUpstream = window.location.protocol + '//' + self.config.users[0].user.username + ':' + self.config.users[0].user.password + '@' + window.location.hostname.replace('admin.', '') + ':' + self.server.git.port + '/' + self.config.name + '.git';
+                            if(self.config && self.config.users) {
+                              self.url = window.location.protocol + '//' + (self.config.subdomain === '*' ? window.location.host.replace('admin.', '') : window.location.host.replace('admin', self.config.subdomain));
+                              self.remoteUpstream = window.location.protocol + '//' + self.config.users[0].user.username + ':' + self.config.users[0].user.password + '@' + window.location.hostname.replace('admin.', '') + ':' + self.server.git.port + '/' + self.config.name + '.git';
+                            }
 
                             self.createCharts();
                         });

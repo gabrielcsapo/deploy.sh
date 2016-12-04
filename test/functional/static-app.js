@@ -3,6 +3,7 @@ var path = require('path');
 var assert = require('chai').assert;
 var spawn = require('child_process').spawn;
 var chance = require('chance')();
+var random_ua = require('random-ua');
 
 describe('static-app', function() {
     it('should add the necessary remote', function(done) {
@@ -37,6 +38,7 @@ describe('static-app', function() {
                 .get('/')
                 .set('Host', 'static.example.com')
                 .set('x-forwarded-for', chance.ip())
+                .set('user-agent', random_ua.generate())
                 .set('referrer', chance.domain())
                 .expect('Content-Type', 'text/html; charset=UTF-8')
                 .expect(function(res) {
@@ -48,6 +50,7 @@ describe('static-app', function() {
                         .get('/blog.html')
                         .set('Host', 'static.example.com')
                         .set('x-forwarded-for', chance.ip())
+                        .set('user-agent', random_ua.generate())
                         .set('referrer', chance.domain())
                         .expect('Content-Type', 'text/html; charset=UTF-8')
                         .expect(function(res) {
@@ -59,6 +62,7 @@ describe('static-app', function() {
                                 .get('/image.jpeg')
                                 .set('Host', 'static.example.com')
                                 .set('x-forwarded-for', chance.ip())
+                                .set('user-agent', random_ua.generate())
                                 .set('referrer', chance.domain())
                                 .expect('Content-Type', 'image/jpeg')
                                 .expect(200, function(err) {

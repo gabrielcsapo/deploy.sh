@@ -10,7 +10,7 @@ describe('server', function() {
           git: {
               port: 7000
           },
-          admin: {
+          proxy: {
               port: 1337
           }
       });
@@ -22,8 +22,8 @@ describe('server', function() {
         assert.isObject(server.git);
         assert.isNumber(server.git.port);
         assert.isObject(server);
-        assert.isObject(server.admin);
-        assert.isNumber(server.admin.port);
+        assert.isObject(server.proxy);
+        assert.isNumber(server.proxy.port);
     });
 
 });
