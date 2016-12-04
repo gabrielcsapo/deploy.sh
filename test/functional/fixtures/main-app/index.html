@@ -90,51 +90,15 @@
             <i> This will use the default $EDITOR or $VISUALIZE or fallback to notepad or vim, depending on the platform. </i>
             <i> To open the file in atom execute <small>node-distribute -c atom</small> or <small>node-distribute -c sublime</small> for Sublime Text</i>
 
-            <p>The structure for this file contains <small>repo</small> and a <small>user</small> object</p>
-
-            <h4> repo </h4>
-            <blockquote>
-                <code>
-<pre style="overflow:scroll;">
-  [
-      {
-          "subdomain": "test", // this will route to test.{domain}:1337
-          "name": "...", // the name of the repository
-          "type": "...", // (NODE, STATIC) // the type of application
-          "anonRead": false, // allow anonymous access
-          "options": { // optional
-              "directory": "..." // used for static applications
-          },
-          "users": [ // array of users that are allowed to push to this repository
-              // The default user will be whatever is in user.json with read and write permissions
-              {
-                  "user": {
-                      "username": "...",
-                      "password": "..."
-                  },
-                  "permissions": [
-                      "R",
-                      "W"
-                  ]
-              }
-          ]
-      }
-  ]
-</pre>
-            </code>
-            </blockquote>
-
-            <h4> user </h4>
-            <blockquote>
-            <code>
-<pre style="overflow:scroll;">
+            <p>The structure for this file contains <small><a href="./code/node-distribute/0.7.1/Repo.html">repo</a></small> and a <small><a href="./code/node-distribute/0.7.1/User.html">user</a></small> object</p>
+<pre style="overflow:scroll">
+  <code>
 {
-    "username": "...",
-    "password": "..."
+    "user": {},
+    "repos": []
 }
+  </code>
 </pre>
-            </code>
-            </blockquote>
         </section>
         <section>
           <h3> Pushing code to node-distribute </h3>

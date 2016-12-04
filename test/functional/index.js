@@ -82,7 +82,7 @@ describe('node-distribute', function() {
         distribute.stdout.on('data', function(data) {
             logs.push(data.toString('utf8'));
             console.log(data.toString('utf8')); // eslint-disable-line no-console
-            if (data.toString('utf8').indexOf('node-distribute listening on http://localhost:1337') > -1) {
+            if (data.toString('utf8').indexOf('proxy listening on http://localhost:1337') > -1) {
                 setTimeout(function() {
                     done();
                 }, 1000);

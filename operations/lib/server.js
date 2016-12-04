@@ -7,8 +7,8 @@ var config = require('./config');
  * @type {object}
  * @property {object} git - git config
  * @property {number} git.port - git port
- * @property {object} admin - admin config
- * @property {number} admin.port - admin port
+ * @property {object} proxy - proxy config
+ * @property {number} proxy.port - admin port
  */
 module.exports = {
     /**
@@ -34,7 +34,7 @@ module.exports = {
             git: {
                 port: 7000
             },
-            admin: {
+            proxy: {
                 port: 1337
             }
         };

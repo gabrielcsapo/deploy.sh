@@ -17,6 +17,7 @@ module.exports = {
             presets: ['es2015']
         }
     }],
+    devtool: 'eval-source-map',
     plugins: [
         new webpack.optimize.UglifyJsPlugin({
             minimize: true,

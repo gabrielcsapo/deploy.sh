@@ -6,6 +6,6 @@ config
 repos
 app
 .nyc_output
-db.json
 jsdoc.json
 .travis.yml
+operations/lib/db.json

@@ -11,7 +11,9 @@ var gitDeploy = require('./git-deploy');
 var log = require('./lib/log');
 
 module.exports = function() {
-    var repos = require('./lib/repos').get();
+    var repos = require('./lib/repos').get().filter(function(repo) {
+      return repo.type !== 'SCRIPT';
+    });
     var reposDirectory = path.resolve(__dirname, '..', 'repos') + '/';
 
     var server = new GitServer({

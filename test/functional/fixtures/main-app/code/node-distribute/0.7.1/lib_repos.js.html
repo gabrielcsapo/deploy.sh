@@ -23,7 +23,7 @@
 <label for="nav-trigger" class="overlay"></label>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Config.html">Config</a><ul class='methods'><li data-type='method'><a href="Config.html#.generate">generate</a></li><li data-type='method'><a href="Config.html#.get">get</a></li><li data-type='method'><a href="Config.html#.update">update</a></li></ul></li><li><a href="Process.html">Process</a><ul class='methods'><li data-type='method'><a href="Process.html#.get">get</a></li></ul></li><li><a href="Repo.html">Repo</a><ul class='methods'><li data-type='method'><a href="Repo.html#.get">get</a></li><li data-type='method'><a href="Repo.html#.update">update</a></li></ul></li><li><a href="Server.html">Server</a><ul class='methods'><li data-type='method'><a href="Server.html#.defaults">defaults</a></li><li data-type='method'><a href="Server.html#.get">get</a></li></ul></li><li><a href="User.html">User</a><ul class='methods'><li data-type='method'><a href="User.html#.get">get</a></li></ul></li></ul><h3>Modules</h3><ul><li><a href="module-db.html">db</a></li><li><a href="module-git-deploy.html">git-deploy</a></li><li><a href="module-process-listen.html">process-listen</a></li><li><a href="module-process-uage.html">process-uage</a></li><li><a href="module-startup-admin.html">startup-admin</a></li><li><a href="module-startup-application.html">startup-application</a></li><li><a href="module-startup-application-static.html">startup-application-static</a></li><li><a href="module-startup-applications.html">startup-applications</a></li><li><a href="module-startup-gitserver.html">startup-gitserver</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Config.html">Config</a><ul class='methods'><li data-type='method'><a href="Config.html#.generate">generate</a></li><li data-type='method'><a href="Config.html#.get">get</a></li><li data-type='method'><a href="Config.html#.update">update</a></li></ul></li><li><a href="Process.html">Process</a><ul class='methods'><li data-type='method'><a href="Process.html#.get">get</a></li></ul></li><li><a href="Repo.html">Repo</a><ul class='methods'><li data-type='method'><a href="Repo.html#.get">get</a></li><li data-type='method'><a href="Repo.html#.update">update</a></li></ul></li><li><a href="Server.html">Server</a><ul class='methods'><li data-type='method'><a href="Server.html#.defaults">defaults</a></li><li data-type='method'><a href="Server.html#.get">get</a></li></ul></li><li><a href="User.html">User</a><ul class='methods'><li data-type='method'><a href="User.html#.get">get</a></li></ul></li></ul><h3>Modules</h3><ul><li><a href="module-db.html">db</a></li><li><a href="module-git-deploy.html">git-deploy</a></li><li><a href="module-process-listen.html">process-listen</a></li><li><a href="module-process-uage.html">process-uage</a></li><li><a href="module-startup-admin.html">startup-admin</a></li><li><a href="module-startup-application.html">startup-application</a></li><li><a href="module-startup-application-static.html">startup-application-static</a></li><li><a href="module-startup-applications.html">startup-applications</a></li><li><a href="module-startup-gitserver.html">startup-gitserver</a></li><li><a href="module-startup-proxy.html">startup-proxy</a><ul class='methods'><li data-type='method'><a href="module-startup-proxy.html#~isAuthenticated">isAuthenticated</a></li></ul></li></ul>
 </nav>
 
 <div id="main">
@@ -51,15 +51,25 @@ var user = require('./user');
  * @property {string} name - the name of the repo
  * @property {string} type - the type of application (NODE / STATIC)
  * @property {string} annonRead - can anyone read the remote git repo
- * @property {array}  users - an array of allowed users
+ * @property {User[]}  users - an array of allowed users
  */
-var Repo = function() {
-    this.subdomain = '';
-    this.name = '';
-    this.type = '';
-    this.anonRead = false;
-    this.options = {};
-    this.users = [];
+var Repo = function(options) {
+    var defaults = {
+      subdomain: '',
+      name: '',
+      type: '',
+      anonRead: false,
+      options: {},
+      users: [{
+        user: user.get(),
+        permissions: [
+            'R',
+            'W'
+        ]
+      }]
+    };
+
+    return _.defaults(options, defaults);
 };
 
 module.exports = {
@@ -103,40 +113,46 @@ module.exports = {
             var found = {};
             repos.forEach(function(repo) {
                 if (repo.name == name) {
-                    found = repo;
-                    if (!found.users) {
-                      found.users = [{
-                        user: user.get(),
-                        permissions: [
-                            'R',
-                            'W'
-                        ]
-                      }];
-                    }
+                    found = new Repo(repo);
                 }
             });
             return _.omit(found, 'git_events', 'event');
         } else {
-            return repos.map(function(_repo) {
-                var repo = new Repo();
-                repo.subdomain = _repo.subdomain;
-                repo.name = _repo.name;
-                repo.type = _repo.type;
-                repo.anonRead = _repo.anonRead;
-                repo.options = _repo.options;
-                repo.users = _repo.users;
-                if (!repo.users) {
-                    repo.users = [{
-                      user: user.get(),
-                      permissions: [
-                          'R',
-                          'W'
-                      ]
-                    }];
-                }
+            var _repos = repos.map(function(_repo) {
+                var repo = new Repo({
+                  subdomain: _repo.subdomain,
+                  name: _repo.name,
+                  type: _repo.type,
+                  anonRead: _repo.anonRead,
+                  options: _repo.options,
+                  users: _repo.users
+                });
                 return _.omit(repo, 'git_events', 'event');
             });
+            _repos.push(this.default());
+            return _repos;
         }
+    },
+    getByHostname: function(hostname) {
+      var repos = config.get('repos');
+      var found = {};
+      repos.forEach(function(repo) {
+          if (repo.subdomain == hostname) {
+              found = new Repo(repo);
+          }
+      });
+      return _.omit(found, 'git_events', 'event');
+    },
+    default: function() {
+        return new Repo({
+            "subdomain": "admin",
+            "name": "admin",
+            "type": "SCRIPT",
+            "options": {
+              "executeDirectory": "./operations",
+              "script": "startup-admin.js"
+            }
+        });
     }
 };
 </code></pre>
@@ -151,7 +167,7 @@ module.exports = {
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Tue Nov 29 2016 01:28:09 GMT-0800 (PST) using the Minami theme.
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Sat Dec 03 2016 20:56:16 GMT-0800 (PST) using the Minami theme.
 </footer>
 
 <script>prettyPrint();</script>

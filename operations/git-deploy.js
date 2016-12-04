@@ -6,14 +6,13 @@
 var path = require('path');
 var fs = require('fs');
 var rimraf = require('rimraf');
-var Promise = require('bluebird');
 var kue = require('kue');
 var spawn = require('child_process').spawn;
 var startApplication = require('./startup-application');
-var log = require('./lib/log');
-var db = require('./lib/db');
 var pm2 = require('pm2');
 var _ = require('underscore');
+
+var Log = require('./lib/log');
 
 var queue = kue.createQueue({
     redis: {
@@ -25,8 +24,6 @@ var queue = kue.createQueue({
     disableSearch: false
 });
 
-var repos = require('./lib/repos.js');
-
 var steps = 3;
 queue.process('install', 1, function(job, done) {
     job.progress(0, steps);
@@ -36,7 +33,7 @@ queue.process('install', 1, function(job, done) {
     var repo = job.data.repo;
     return Promise.resolve()
         .then(function() {
-            log.info('queue:deploying the app:', name);
+            Log.info('queue:deploying the app:', name);
             job.log('queue:deploying the app:', name);
             job.progress(1, steps);
             return new Promise(function(resolve, reject) {
@@ -61,8 +58,9 @@ queue.process('install', 1, function(job, done) {
             return new Promise(function(resolve, reject) {
                 if(repo.type == 'NODE') {
                     // Verify that a package.json exists
+                    // TODO: this should timeout if it takes too long
                     if(fs.existsSync(path.resolve(directory, 'package.json'))) {
-                        log.info('queue: running npm install :', name);
+                        Log.info('queue: running npm install :', name);
                         job.log('queue: running npm install :', name);
 
                         var cmd = path.resolve(require.resolve('npm'), '..', '..', 'bin', 'npm-cli.js');
@@ -71,10 +69,10 @@ queue.process('install', 1, function(job, done) {
                             cwd: directory
                         });
                         npm.stdout.on('data', function(data) {
-                            db(name, 'logs').push(data.toString());
+                            Log.application(repo.name, data.toString(), 'DEPLOY-INFO');
                         });
                         npm.stderr.on('data', function(data) {
-                            db(name, 'logs').push(data.toString());
+                            Log.application(repo.name, data.toString(), 'DEPLOY-ERROR');
                         });
                         npm.on('close', function(code) {
                             if (code === 0) {
@@ -93,12 +91,15 @@ queue.process('install', 1, function(job, done) {
         })
         .then(function() {
             job.progress(3, steps);
-            log.info('queue:restarting the services:', name);
+            Log.info('queue:restarting the services:', name);
             job.log('queue:restarting the services:', name);
-            startApplication(repo, directory, repos.get(), function() {
+            startApplication(repo, function(err) {
+                if(err) {
+                  Log.error('application:errored:', err);
+                }
                 job.remove(function(err) {
                     if (err) {
-                        log.error(err);
+                        Log.error(err);
                     }
                     done();
                 });
@@ -113,14 +114,14 @@ queue.process('install', 1, function(job, done) {
  * @return {Promise}
  */
 module.exports = function(location, repo) {
-    log.info('deploy:stop process', repo.name);
+    Log.info('deploy:stop process', repo.name);
     pm2.connect(true, function(err) {
         if (err) {
-            log.error(err);
+            Log.error(err);
         }
         pm2.stop(repo.name, function(err) {
             if (err) {
-                log.error(err);
+                Log.error(err);
             }
             queue.create('install', {
                     location: location,
@@ -131,7 +132,7 @@ module.exports = function(location, repo) {
                 .searchKeys(['title', 'hash'])
                 .save(function(err){
                    if(err) {
-                       log.error(err);
+                       Log.error(err);
                    }
                 });
         });

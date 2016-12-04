@@ -3,6 +3,7 @@ var path = require('path');
 var assert = require('chai').assert;
 var spawn = require('child_process').spawn;
 var chance = require('chance')();
+var random_ua = require('random-ua');
 
 describe('node-app', function() {
     it('should add the necessary remote', function(done) {
@@ -38,6 +39,7 @@ describe('node-app', function() {
                 .get('/distribute')
                 .set('Host', 'test.example.com')
                 .set('x-forwarded-for', chance.ip())
+                .set('user-agent', random_ua.generate())
                 .set('referrer', chance.domain())
                 .expect(200, function(err) {
                     assert.isNull(err);
@@ -45,6 +47,7 @@ describe('node-app', function() {
                         .get('/testing')
                         .set('Host', 'test.example.com')
                         .set('x-forwarded-for', chance.ip())
+                        .set('user-agent', random_ua.generate())
                         .set('referrer', chance.domain())
                         .expect(200, function(err) {
                             assert.isNull(err);
@@ -52,6 +55,7 @@ describe('node-app', function() {
                                 .get('/world')
                                 .set('Host', 'test.example.com')
                                 .set('x-forwarded-for', chance.ip())
+                                .set('user-agent', random_ua.generate())
                                 .set('referrer', chance.domain())
                                 .expect(200, function(err) {
                                     assert.isNull(err);
@@ -68,6 +72,7 @@ describe('node-app', function() {
             .send({name: 'Bob'})
             .set('Host', 'test.example.com')
             .set('x-forwarded-for', chance.ip())
+            .set('user-agent', random_ua.generate())
             .set('referrer', chance.domain())
             .expect(function(res) {
                 assert.equal(res.text, 'hello Bob');
@@ -83,6 +88,7 @@ describe('node-app', function() {
             .send({name: 'Ned'})
             .set('Host', 'test.example.com')
             .set('x-forwarded-for', chance.ip())
+            .set('user-agent', random_ua.generate())
             .set('referrer', chance.domain())
             .expect(function(res) {
                 assert.equal(res.text, 'updated 1 with {"name":"Ned"}');
@@ -97,6 +103,7 @@ describe('node-app', function() {
             .delete('/delete/1')
             .set('Host', 'test.example.com')
             .set('x-forwarded-for', chance.ip())
+            .set('user-agent', random_ua.generate())
             .set('referrer', chance.domain())
             .expect(function(res) {
                 assert.equal(res.text, 'deleted request with id 1');
@@ -113,6 +120,7 @@ describe('node-app', function() {
           .attach('avatar', path.resolve(__dirname, './fixtures/images/avatar.png'))
           .set('Host', 'test.example.com')
           .set('x-forwarded-for', chance.ip())
+          .set('user-agent', random_ua.generate())
           .set('referrer', chance.domain())
           .expect(function(res) {
               assert.isObject(res.body.body);

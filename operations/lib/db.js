@@ -1,5 +1,5 @@
 var flat = require('node-flat-db');
-var db = flat('db.json', { storage: require('node-flat-db/file-sync') });
+var db = flat(__dirname + '/db.json', { storage: require('node-flat-db/file-sync') });
 
 /**
  * Exports the underlying node-flat-db structure
