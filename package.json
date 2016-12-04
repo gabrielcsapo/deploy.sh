@@ -8,7 +8,7 @@
     "test": "npm run test:functional; npm run test:unit",
     "test:functional": "npm run lint;redis-cli flushall;./scripts/functional-test.sh;",
     "test:unit": "npm run coverage;",
-    "lint": "eslint .",
+    "lint": "eslint --ext js,vue .",
     "start": "node index.js | ./node_modules/.bin/bunyan -o short",
     "coverage": "./scripts/unit-test.sh; nyc --reporter=html mocha test/unit/index.js",
     "coveralls": "./scripts/unit-test.sh; nyc mocha test/unit/index.js && nyc report --reporter=text-lcov | coveralls",
@@ -61,7 +61,9 @@
     "chance": "^1.0.4",
     "chart.js": "^2.4.0",
     "coveralls": "^2.11.15",
-    "eslint": "^3.9.1",
+    "css-loader": "^0.26.1",
+    "eslint": "^3.11.1",
+    "eslint-plugin-html": "^1.7.0",
     "jsdoc": "^3.4.3",
     "less": "^2.7.1",
     "minami": "^1.1.1",
@@ -69,8 +71,12 @@
     "nyc": "^10.0.0",
     "pug-cli": "^1.0.0-alpha6",
     "random-ua": "0.0.6",
+    "style-loader": "^0.13.1",
     "supertest": "^2.0.0",
     "uglify-js": "git://github.com/mishoo/UglifyJS2#harmony",
-    "webpack": "^1.13.3"
+    "vue-html-loader": "^1.0.0",
+    "vue-loader": "^10.0.2",
+    "vue-template-compiler": "^2.1.4",
+    "webpack": "^2.1.0-beta.27"
   }
 }
