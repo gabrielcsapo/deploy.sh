@@ -3,27 +3,41 @@ var webpack = require('webpack');
 module.exports = {
     entry: './operations/views/admin/index.js',
     output: {
-        filename: './operations/views/admin/dist/app.js'
+        path: './operations/views/admin/dist/',
+        filename: 'app.js'
     },
     resolve: {
         alias: {
             vue: 'vue/dist/vue.js'
         }
     },
-    loaders: [{
-        test: /\.js$/,
-        loader: 'babel',
-        query: {
-            presets: ['es2015']
-        }
-    }],
-    devtool: 'eval-source-map',
+    module: {
+        rules: [{
+            test: /\.vue$/,
+            loader: 'vue-loader'
+        }, {
+            test: /\.css$/,
+            exclude: /\.useable\.css$/,
+            loader: "style-loader!css-loader"
+        }]
+    },
     plugins: [
         new webpack.optimize.UglifyJsPlugin({
-            minimize: true,
             compress: {
-                warnings: false
-            }
+                warnings: false,
+                screw_ie8: true,
+                conditionals: true,
+                unused: true,
+                comparisons: true,
+                sequences: true,
+                dead_code: true,
+                evaluate: true,
+                if_return: true,
+                join_vars: true,
+            },
+            output: {
+                comments: false
+            },
         })
     ]
 };
