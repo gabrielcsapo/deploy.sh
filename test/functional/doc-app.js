@@ -5,12 +5,12 @@ var spawn = require('child_process').spawn;
 var chance = require('chance')();
 var random_ua = require('random-ua');
 
-describe('main-app', function() {
+describe('doc-app', function() {
     it('should add the necessary remote', function(done) {
         var user = require('../../operations/lib/user.js').get();
-        var remote = 'http://' + user.username + ':' + user.password + '@localhost:7000/main-app.git';
+        var remote = 'http://' + user.username + ':' + user.password + '@localhost:7000/doc-app.git';
         var git = spawn('git', ['remote', 'add', 'origin', remote], {
-            cwd: path.resolve(__dirname, 'fixtures', 'main-app')
+            cwd: path.resolve(__dirname, '..', '..', 'docs')
         });
 
         git.on('close', function() {
@@ -22,7 +22,11 @@ describe('main-app', function() {
 
     it('should be able to get test repo', function(done) {
         var git = spawn('git', ['push', 'origin', 'master'], {
-            cwd: path.resolve(__dirname, 'fixtures', 'main-app')
+            cwd: path.resolve(__dirname, '..', '..', 'docs')
+        });
+
+        git.on('message', function(m) {
+          console.log(m);
         });
 
         git.on('close', function() {
