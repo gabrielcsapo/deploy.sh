@@ -17,7 +17,6 @@ To learn more visit [http://www.gabrielcsapo.com/node-distribute/](http://www.ga
 
 ## Contributions
 
-- If you update the docs, please also copy changes to `/test/fixtures/main-app`
-- If you update the code in any way that changes the interface, please update the jsdoc and tests that validate functionality
+- If you update the code in any way that changes the interface, please update the `jsdocs` and tests that validate functionality
 
 Thank you!

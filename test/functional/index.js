@@ -63,7 +63,7 @@ describe('node-distribute', function() {
                 'anonRead': false
             }, {
                 'subdomain': '*',
-                'name': 'main-app',
+                'name': 'doc-app',
                 'type': 'STATIC',
                 'anonRead': false
             }]
@@ -121,7 +121,7 @@ describe('node-distribute', function() {
     });
 
     require('./node-app');
-    require('./main-app');
+    require('./doc-app');
     require('./static-app');
     require('./static-app-different-directory');
 });
