@@ -26,7 +26,7 @@ describe('doc-app', function() {
         });
 
         git.on('message', function(m) {
-          console.log(m);
+            console.log(m); // eslint-disable-line 
         });
 
         git.on('close', function() {

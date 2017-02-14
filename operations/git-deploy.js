@@ -11,13 +11,15 @@ var spawn = require('child_process').spawn;
 var startApplication = require('./startup-application');
 var pm2 = require('pm2');
 var _ = require('underscore');
+var url = require('url');
 
 var Log = require('./lib/log');
 
+var redis = url.parse(process.env.REDIS_URL);
 var queue = kue.createQueue({
     redis: {
-        port: 6379,
-        host: '127.0.0.1',
+        port: redis.port,
+        host: redis.hostname,
         auth: '',
         options: {}
     },

@@ -75,8 +75,8 @@ describe('node-distribute', function() {
     });
 
     it('should spawn node-distribute', function(done) {
-        distribute = spawn('npm', ['start'], {
-            cwd: path.resolve(__dirname)
+        distribute = spawn('node', ['./bin/node-distribute', '--start'], {
+            cwd: process.cwd()
         });
 
         distribute.stdout.on('data', function(data) {

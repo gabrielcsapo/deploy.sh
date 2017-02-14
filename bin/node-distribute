@@ -7,16 +7,19 @@ program
   .version(require('../package.json').version)
   .option('-s, --start', 'start node distribute')
   .option('-c, --configure [editor]', 'opens up editor to edit configuration file')
-  .option('-r, --regenerate-user', 'regenerates the user in config.json')
+  .option('-u, --regenerate-user', 'regenerates the user in config.json')
+  .option('-r, --redis [url]', 'sets the redis url', 'http://localhost:6379')
   .parse(process.argv);
 
   if (!process.argv.slice(2).length) {
     program.outputHelp();
   }
 
+process.env.REDIS_URL = program.redis;
+
 if (program.start) {
     GLOBAL.wildcards = {};
-    require('../operations/startup.js');
+    require('../operations/startup.js')();
 }
 
 if (program.configure) {

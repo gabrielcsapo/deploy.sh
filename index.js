@@ -1,3 +1,3 @@
 GLOBAL.wildcards = {};
 
-require('./operations/startup.js');
+require('./operations/startup.js')();
