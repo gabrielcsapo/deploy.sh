@@ -9,14 +9,10 @@
 ![npm](https://img.shields.io/npm/dt/node-distribute.svg)
 ![npm](https://img.shields.io/npm/dm/node-distribute.svg)
 
-![node-distribute](https://github.com/gabrielcsapo/node-distribute/blob/master/docs/node-distribute-logo.png?raw=true)
+# What is this
 
-node-distribute is a standalone SAAS application that deploys NodeJS and static assets.
+`node-distribute` is an easy way to deploy node applications to a single service provider.
+
+Simply add a `distribute.json` file to your repository specifying your startup information and push to the remote server `node-distribute` is running on
 
 To learn more visit [http://www.gabrielcsapo.com/node-distribute/](http://www.gabrielcsapo.com/node-distribute/)
-
-## Contributions
-
-- If you update the code in any way that changes the interface, please update the `jsdocs` and tests that validate functionality
-
-Thank you!
