@@ -1,8 +1,8 @@
 const path = require('path');
 
 const startup = require('./lib/startup');
-const startupServer = require('./lib/startupServer');
-const startupProxyServer = require('./lib/startupProxyServer');
+const gitServer = require('./lib/gitServer');
+const proxyServer = require('./lib/proxyServer');
 
 const directory = path.resolve(__dirname, 'tmp');
 const port = process.env.PORT || 8080;
@@ -12,8 +12,8 @@ startup(directory)
         console.error(ex); // eslint-disable-line
     })
     .then(() => {
-        return startupServer(directory);
+        return gitServer(directory);
     })
     .then(() => {
-        return startupProxyServer(port);
+        return proxyServer(port);
     });

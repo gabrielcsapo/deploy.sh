@@ -1,5 +1,5 @@
 # node-distribute
-> continuous deployment of node services, make your own vpn ☁️
+> the node ☁️
 
 [![Npm Version](https://img.shields.io/npm/v/node-distribute.svg)](https://www.npmjs.com/package/node-distribute)
 [![Dependency Status](https://david-dm.org/gabrielcsapo/node-distribute.svg)](https://david-dm.org/gabrielcsapo/node-distribute)
@@ -13,6 +13,18 @@
 
 `node-distribute` is an easy way to deploy node applications to a single service provider.
 
-Simply add a `distribute.json` file to your repository specifying your startup information and push to the remote server `node-distribute` is running on
+Simply add a `distribute.json` file to your repository specifying your startup information and push to the remote server `node-distribute` is running on.
+
+# Usage
+
+```javascript
+{
+    "name": String, // The subdomain of the application, if the name is * it denotes default path
+    "script" : String, // The relative path to the script that
+    "instances" : Number // The number of instances
+}
+```
+
+# More
 
 To learn more visit [http://www.gabrielcsapo.com/node-distribute/](http://www.gabrielcsapo.com/node-distribute/)
