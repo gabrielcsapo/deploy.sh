@@ -4,7 +4,8 @@
   "description": "the node ☁️",
   "main": "index.js",
   "scripts": {
-    "test": "npm run lint;",
+    "test": "tap test/**.js",
+    "coverage": "tap test/**.js --coverage",
     "lint": "eslint ."
   },
   "repository": {
