@@ -12,12 +12,15 @@
     "type": "git",
     "url": "git+https://github.com/gabrielcsapo/node-distribute.git"
   },
-  "author": "",
+  "engines": {
+    "node": ">= 6"
+  },
+  "author": "Gabriel J. Csapo <gabecsapo@gmail.com>",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/gabrielcsapo/node-distribute/issues"
   },
-  "homepage": "https://github.com/gabrielcsapo/node-distribute#readme",
+  "homepage": "https://www.gabrielcsapo.com/node-distribute",
   "dependencies": {
     "async": "^2.1.5",
     "http-proxy": "^1.16.2",
@@ -26,6 +29,7 @@
   },
   "devDependencies": {
     "eslint": "^3.16.1",
+    "tap": "^10.2.2",
     "tape": "^4.6.3"
   }
 }
