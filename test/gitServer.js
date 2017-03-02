@@ -79,7 +79,7 @@ test('gitServer', (t) => {
       });
   });
 
-  test.onFinish((t) => {
+  test.onFinish(() => {
     exec(`rm -rf ./tmp && rm -rf ./test/fixtures/test-server/.git && pm2 kill`, (error, stdout, stderr) => {
       t.pass();
     });
