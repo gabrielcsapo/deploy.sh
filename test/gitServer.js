@@ -65,10 +65,12 @@ test('gitServer', (t) => {
                     let data = '';
                     res.on('data', (chunk) => data += chunk);
                     res.on('end', () => {
-                      console.log(data);
-                      console.log(res);
+                      t.equal(res.statusCode, 200);
+                      t.equal(data, 'Hello World\n');
                       server.close();
-                      t.end();
+                      exec(`rm -rf ./tmp && rm -rf ./test/fixtures/test-server/.git && pm2 kill`, (error, stdout, stderr) => {
+                        t.pass();
+                      });
                     });
                 });
             }, 3000);
@@ -81,15 +83,3 @@ test('gitServer', (t) => {
 
   t.end();
 });
-
-test('clean tests', (t) => {
-  t.plan(1);
-
-  t.test('cleans up directories and shuts down pm2', (t) => {
-    exec(`rm -rf ./tmp && rm -rf ./test/fixtures/test-server/.git && pm2 kill && killall node`, (error, stdout, stderr) => {
-      t.pass();
-    });
-  });
-
-  t.end();
-})
