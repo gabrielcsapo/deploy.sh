@@ -48,12 +48,13 @@ test('gitServer', (t) => {
       });
   });
 
-  t.test('should be able to push repo to server', (t) => {
+  t.test('should be able to push (node and static) repo to server', (t) => {
     t.timeout = 60000;
     process.env.GIT_PORT = 9091;
     gitServer('./tmp')
       .then((server) => {
         exec(`cd ./test/fixtures/test-server && git init && git add -A && git commit -m 'i' && git push http://localhost:${9091}/test-server.git master`, (error, stdout, stderr) => {
+          exec(`cd ./test/fixtures/test-static && git init && git add -A && git commit -m 'i' && git push http://localhost:${9091}/test-static.git master`, (error, stdout, stderr) => {
             setTimeout(() => {
                 http.get({
                     hostname: 'localhost',
@@ -67,13 +68,28 @@ test('gitServer', (t) => {
                     res.on('end', () => {
                       t.equal(res.statusCode, 200);
                       t.equal(data, 'Hello World\n');
-                      server.close();
-                      exec(`rm -rf ./tmp && rm -rf ./test/fixtures/test-server/.git && pm2 kill`, (error, stdout, stderr) => {
-                        t.pass();
+                      http.get({
+                          hostname: 'localhost',
+                          port: 45033,
+                          path: '/',
+                          agent: false
+                      }, (res) => {
+                          res.setEncoding('utf8');
+                          let data = '';
+                          res.on('data', (chunk) => data += chunk);
+                          res.on('end', () => {
+                            t.equal(res.statusCode, 200);
+                            t.equal(data.replace(/\n/g, '').replace(/ /g, ''), '<!DOCTYPEhtml><html><head><metacharset="utf-8"><title>Hello</title><linkrel="stylesheet"href="/assets/style.css"></head><body>HelloWORLD!</body></html>');
+                            server.close();
+                            exec(`rm -rf ./tmp && rm -rf ./test/fixtures/test-server/.git && rm -rf ./test/fixtures/test-static/.git && pm2 kill;`, (error, stdout, stderr) => {
+                              t.pass();
+                            });
+                          });
                       });
                     });
                 });
-            }, 3000);
+            }, 8000);
+          });
         });
       })
       .catch((err) => {

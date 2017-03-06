@@ -20,7 +20,9 @@ Simply add a `distribute.json` file to your repository specifying your startup i
 ```javascript
 {
     "name": String, // The subdomain of the application, if the name is * it denotes default path
-    "script" : String, // The relative path to the script that
+    "script" : String, // The relative path to the script to start the application
+    "type": String, // (optional) Default is NODE, this can also be static
+    "directory": String, // (optional) the directory to serve static files from
     "instances" : Number // The number of instances
 }
 ```

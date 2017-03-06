@@ -16,4 +16,7 @@ startup(directory)
     })
     .then(() => {
         return proxyServer(port);
+    })
+    .catch((ex) => {
+        console.error(ex); // eslint-disable-line
     });

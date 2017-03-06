@@ -1,0 +1,6 @@
+{
+    "name": "static",
+    "type": "STATIC",
+    "directory" : "./",
+    "instances" : 8
+ }
