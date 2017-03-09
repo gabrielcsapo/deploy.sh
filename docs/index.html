@@ -32,13 +32,52 @@
         </section>
         <section class="buzzwords">
             <section>
-                <h3>
-                    What is this? TLDR;
-                </h3>
-                <p>
-                    <small>node-distribute</small>
-                    is an open source SAAS application built with nodejs. It currently supports hosting static and nodejs applications.
-                </p>
+              <h3> What is this </h3>
+
+              <pre>
+                `node-distribute` is an easy way to deploy node applications to a single service provider.
+
+                Simply add a `distribute.json` file to your repository specifying your startup information and push to the remote server `node-distribute` is running on.
+              </pre>
+            </section>
+
+            <section>
+              <h3> Usage </h3>
+
+              <pre>
+              {
+                  "name": String, // The subdomain of the application, if the name is * it denotes default path
+                  "script" : String, // The relative path to the script to start the application
+                  "type": String, // (optional) Default is NODE, this can also be static
+                  "directory": String, // (optional) the directory to serve static files from
+                  "instances" : Number // The number of instances
+              }
+              </pre>
+            </section>
+
+            <section>
+              <h3> Examples </h3>
+
+              <h6> Deploying a static application </h3>
+
+              <pre>
+{
+  "name": "static",
+  "type": "STATIC",
+  "directory" : "./",
+  "instances" : 8
+}
+              </pre>
+
+              <h6> Deploying a <small>node</small> application </h3>
+
+              <pre>
+{
+  "name": "test",
+  "script" : "index.js",
+  "instances" : 8
+}
+              </pre>
             </section>
         </section>
         <section class="footer">
