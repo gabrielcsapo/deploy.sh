@@ -35,7 +35,7 @@ test('gitServer', (t) => {
     process.env.GIT_PORT = 9090;
     gitServer('./tmp/noop')
       .then((server) => {
-        exec(`git clone http://localhost:${9090}/test.git /tmp/foo`, (error, stdout, stderr) => {
+        exec(`git clone http://localhost:${9090}/test.git /tmp/foo`, (error) => {
           server.close();
           if (error) {
             return t.end();
@@ -53,7 +53,7 @@ test('gitServer', (t) => {
     process.env.GIT_PORT = 9091;
     gitServer('./tmp')
       .then((server) => {
-        exec(`cd ./test/fixtures/test-server && git init && git add -A && git commit -m 'i' && git push http://localhost:${9091}/test-server.git master`, (error) => {
+        exec(`cd ./test/fixtures/test-server && git init && git add -A && git commit -m 'i' && git push http://localhost:${9091}/test-server.git master`, () => {
             setTimeout(() => {
                 http.get({
                     hostname: 'localhost',
@@ -68,7 +68,7 @@ test('gitServer', (t) => {
                       t.equal(res.statusCode, 200);
                       t.equal(data, 'Hello World\n');
                       server.close();
-                      exec(`rm -rf ./tmp && rm -rf ./test/fixtures/test-server/.git && pm2 kill`, (error, stdout, stderr) => {
+                      exec(`rm -rf ./tmp && rm -rf ./test/fixtures/test-server/.git && pm2 kill`, () => {
                         t.pass();
                       });
                     });
@@ -77,7 +77,7 @@ test('gitServer', (t) => {
         });
       })
       .catch((err) => {
-        t.fail();
+        t.fail(err);
       });
   });
 
