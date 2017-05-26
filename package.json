@@ -22,15 +22,15 @@
   },
   "homepage": "https://www.gabrielcsapo.com/node-distribute",
   "dependencies": {
-    "async": "^2.1.5",
+    "async": "^2.4.1",
     "http-proxy": "^1.16.2",
-    "mongorito": "^2.2.0",
-    "node-git-server": "0.0.2",
-    "pm2": "^2.4.2"
+    "mongoose": "^4.10.2",
+    "node-git-server": "^0.1.0",
+    "pm2": "^2.4.6"
   },
   "devDependencies": {
-    "eslint": "^3.17.1",
-    "tap": "^10.3.0",
+    "eslint": "^3.19.0",
+    "tap": "^10.3.2",
     "tape": "^4.6.3"
   }
 }
