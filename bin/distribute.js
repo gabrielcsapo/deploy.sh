@@ -20,6 +20,7 @@ const request = require('request');
 const path = require('path');
 
 request.post({ url:'http://0.0.0.0:5000/upload', formData: {
+  name: path.basename(process.cwd()),
   distribute: fs.createReadStream(path.resolve(__dirname, '..', 'distribute.tgz'))
 }}, function optionalCallback(err, httpResponse, body) {
   if (err) {
