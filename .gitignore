@@ -1,11 +1,4 @@
-app
-repos
-config
 node_modules
-npm-debug.log
-db.json
-.DS_Store
 coverage
 .nyc_output
-tmp
-Users
+.DS_Store

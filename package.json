@@ -1,7 +1,7 @@
 {
   "name": "node-distribute",
   "version": "1.0.0",
-  "description": "the node ☁️",
+  "description": "deploying node application to the ☁️",
   "main": "index.js",
   "scripts": {
     "test": "tap test/**.js",
@@ -11,6 +11,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gabrielcsapo/node-distribute.git"
+  },
+  "bin": {
+    "distribute": "./bin/distribute.js"
   },
   "engines": {
     "node": ">= 6"
@@ -22,11 +25,10 @@
   },
   "homepage": "https://www.gabrielcsapo.com/node-distribute",
   "dependencies": {
-    "async": "^2.4.1",
-    "http-proxy": "^1.16.2",
-    "mongoose": "^4.10.2",
-    "node-git-server": "^0.1.0",
-    "pm2": "^2.4.6"
+    "commander": "^2.11.0",
+    "formidable": "^1.1.1",
+    "request": "^2.81.0",
+    "tar": "^3.1.5"
   },
   "devDependencies": {
     "eslint": "^3.19.0",
