@@ -10,14 +10,14 @@ before_install:
   - "npm install npm@3 -g"
 language: node_js
 script:
+  - npm run lint
   - npm run test
-  - npm run coveralls
+  - npm run coverage
 node_js:
-  - "4"
-  - "5"
   - "6"
-services:
-  - redis-server
+  - "7"
 os:
   - linux
+services:
+  - mongodb
 sudo: false
