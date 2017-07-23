@@ -18,14 +18,14 @@ tar.c({
 
   const request = require('request');
   const path = require('path');
-  
+
   request.post({ url:'http://0.0.0.0:5000/upload', formData: {
     name: path.basename(process.cwd()),
     distribute: fs.createReadStream(path.resolve(process.cwd(), 'distribute.tgz'))
   }}, function optionalCallback(err, httpResponse, body) {
     if (err) {
-      return console.error('upload failed:', err);
+      return console.error('upload failed:', err); // eslint-disable-line
     }
-    console.log('Upload successful!  Server responded with:', body);
+    console.log('Upload successful!  Server responded with:', body); // eslint-disable-line
   });
-}).catch((err) => { console.log(err); })
+}).catch((err) => { console.log(err); }); // eslint-disable-line
