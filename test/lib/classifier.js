@@ -10,7 +10,7 @@ test('@lib/classifier', (t) => {
     const directory = path.resolve(__dirname, '..', 'fixtures', 'static');
     const output = classifier(directory);
     t.deepEqual(output, { type: 'static',
-  build: `\n        FROM mhart/alpine-node:base-6\n        WORKDIR ${directory}\n        ADD . .\n\n        ENV PORT 3000\n\n        EXPOSE 3000\n        CMD ["node", "index.js"]\n      ` });
+  build: `\n        FROM mhart/alpine-node:base-6\n        WORKDIR ${directory}\n        ADD . .\n\n        CMD ["node", "index.js"]\n      ` });
     t.end();
   });
 });
