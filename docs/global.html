@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Module: lib/deploy</title>
+    <title>JSDoc: Global</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Module: lib/deploy</h1>
+    <h1 class="page-title">Global</h1>
 
     
 
@@ -28,8 +28,7 @@
 
 <header>
     
-        
-            
+        <h2></h2>
         
     
 </header>
@@ -38,13 +37,83 @@
     <div class="container-overview">
     
         
-            <div class="description"><p>handles the deployment of an application tar</p></div>
+
         
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+        
+    
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
 
         
             
 
+    
 
+    
+    <h4 class="name" id="contains"><span class="type-signature"></span>contains<span class="signature">(arr, contains)</span><span class="type-signature"> &rarr; {Boolean}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    <p>contains is a function that takes an array and see if the condition matches</p>
+</div>
 
 
 
@@ -79,13 +148,13 @@
 
         <tr>
             
-                <td class="name"><code>name</code></td>
+                <td class="name"><code>arr</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">String</span>
+<span class="param-type">Array</span>
 
 
             
@@ -95,20 +164,20 @@
 
             
 
-            <td class="description last"><p>the name of the application that is to be run</p></td>
+            <td class="description last"><p>array to check with rules</p></td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>directory</code></td>
+                <td class="name"><code>contains</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">String</span>
+<span class="param-type">Array</span>
 
 
             
@@ -118,7 +187,7 @@
 
             
 
-            <td class="description last"><p>the directory of which the tar of the application is located</p></td>
+            <td class="description last"><p>rules to make sure the arr contains the following</p></td>
         </tr>
 
     
@@ -159,7 +228,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="deploy.js.html">deploy.js</a>, <a href="deploy.js.html#line10">line 10</a>
+        <a href="classifier.js.html">classifier.js</a>, <a href="classifier.js.html#line4">line 4</a>
     </li></ul></dd>
     
 
@@ -182,29 +251,41 @@
 
 
 
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    <ul>
+<li>responds back with a boolean value</li>
+</ul>
+</div>
 
 
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Boolean</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>contains(['index.html', 'main.css'], ['index.html', '!Dockerfile', '!package.json'])</code></pre>
 
 
 
         
-    
-    </div>
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
     
 
     

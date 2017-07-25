@@ -4,9 +4,10 @@
   "description": "☁️ continuous deployment services",
   "main": "index.js",
   "scripts": {
-    "test": "tap test/**/**.js",
-    "coverage": "tap test/**.js --coverage",
+    "test": "tap test",
+    "coverage": "tap test --coverage",
     "lint": "eslint .",
+    "start": "node lib/server.js",
     "generate-docs": "rm -rf docs && jsdoc -c jsdoc.json"
   },
   "repository": {

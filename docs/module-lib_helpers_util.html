@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Module: lib/deploy</title>
+    <title>JSDoc: Module: lib/helpers/util</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Module: lib/deploy</h1>
+    <h1 class="page-title">Module: lib/helpers/util</h1>
 
     
 
@@ -29,8 +29,6 @@
 <header>
     
         
-            
-        
     
 </header>
 
@@ -38,13 +36,44 @@
     <div class="container-overview">
     
         
-            <div class="description"><p>handles the deployment of an application tar</p></div>
+
         
+    
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
 
         
             
 
+    
 
+    
+    <h4 class="name" id="~getPort"><span class="type-signature">(inner) </span>getPort<span class="signature">(callback)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    <p>gets an open port on the machine</p>
+</div>
 
 
 
@@ -79,13 +108,13 @@
 
         <tr>
             
-                <td class="name"><code>name</code></td>
+                <td class="name"><code>callback</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">String</span>
+<span class="param-type">function</span>
 
 
             
@@ -95,30 +124,7 @@
 
             
 
-            <td class="description last"><p>the name of the application that is to be run</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>directory</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">String</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>the directory of which the tar of the application is located</p></td>
+            <td class="description last"><p>the callback function to be returned when a port has been found</p></td>
         </tr>
 
     
@@ -159,7 +165,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="deploy.js.html">deploy.js</a>, <a href="deploy.js.html#line10">line 10</a>
+        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line6">line 6</a>
     </li></ul></dd>
     
 
@@ -188,23 +194,6 @@
 
 
         
-    
-    </div>
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
     
 
     
