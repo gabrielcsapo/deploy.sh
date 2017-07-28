@@ -10,8 +10,6 @@
 ![npm](https://img.shields.io/npm/dt/node-distribute.svg)
 ![npm](https://img.shields.io/npm/dm/node-distribute.svg)
 
-![logo](./docs/node-distribute.png)
-
-# More
+![logo](./docs/logo.png)
 
 To learn more visit [http://www.gabrielcsapo.com/node-distribute/](http://www.gabrielcsapo.com/node-distribute/)
