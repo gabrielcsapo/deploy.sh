@@ -1,35 +1,35 @@
-const tar = require('tar');
+const Async = require('async');
 const fs = require('fs');
-const request = require('request');
-const ora = require('ora');
 const path = require('path');
+const ora = require('ora');
 
-tar.c({
-  gzip: true,
-  portable: true,
-  file: 'distribute.tgz'
-}, fs.readdirSync(process.cwd())).then(() => {
-  const spinner = ora(`Uploading application bundle`).start();
+const { createBundle, uploadBundle } = require('../lib/helpers/util');
 
-  const distribute = fs.createReadStream(path.resolve(process.cwd(), 'distribute.tgz'));
+const spinner = ora(`Starting deploy process`).start();
 
-  request.post({
-    url: 'http://0.0.0.0:5000/upload',
-    formData: {
+Async.waterfall([
+  function(callback) {
+    spinner.text = 'Creating Application Bundle';
+
+    createBundle(process.cwd())
+      .then(() => callback(null))
+      .catch((ex) => callback(ex, null));
+  },
+  function(callback) {
+    spinner.text = 'Uploading Application Bundle';
+
+    const bundle = fs.createReadStream(path.resolve(process.cwd(), 'bundle.tgz'));
+
+    uploadBundle({
+      url: 'http://localhost:5000/upload',
       name: path.basename(process.cwd()),
-      distribute
-    }
-  }, function optionalCallback(err, httpResponse, body) {
-    if (err) {
-      return spinner.fail('Deployment failed 🙈');
-    }
-    const response = JSON.parse(body);
-    if (response.error) {
-      spinner.fail(`Upload failed ${response.error}`);
-    } else {
-      spinner.succeed(`Upload succeed ${response.url}`);
-    }
-  });
-}).catch((err) => {
-  console.log(err);
-}); // eslint-disable-line
+      bundle
+    })
+    .then((response) => callback(null, response))
+    .catch((error) => callback(error, null));
+  }
+], (ex, result) => {
+  if (ex) return spinner.fail('Deployment failed 🙈');
+
+  spinner.succeed(`Upload succeed ${result.url}`);
+});
