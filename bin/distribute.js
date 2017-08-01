@@ -10,4 +10,5 @@ updateNotifier({pkg}).notify();
 program
   .version(pkg.version)
   .command('deploy', 'deploy the current directory', { isDefault: true })
+  .command('list', 'list depoyments')
   .parse(process.argv);

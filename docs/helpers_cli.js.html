@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: helpers/cli.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: helpers/cli.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @module lib/helpers/cli
+ */
+
+/**
+ * creates a bundle to send to the server for deployment
+ * @method createBundle
+ * @param  {String}     directory - the directory that is to be turned into a tar
+ * @return {Promise}
+ */
+module.exports.createBundle = function createBundle(directory) {
+  const tar = require('tar');
+  const fs = require('fs');
+
+  return tar.c({
+    gzip: true,
+    portable: true,
+    file: 'bundle.tgz'
+  }, fs.readdirSync(directory));
+};
+
+/**
+ * Deals with uploading a specified bundle
+ * @method uploadBundle
+ * @param  {Object} options
+ * @param  {String} options.url - the url endpoint for the deploy server
+ * @param  {String} options.name - the name of the specified application
+ * @param  {Stream} options.bundle - a file stream of the tar
+ * @return {Promise}
+ */
+module.exports.uploadBundle = function uploadBundle({ url, name, bundle, token, username }) {
+  const request = require('request');
+
+  return new Promise(function(resolve, reject) {
+    request.post({
+      url: `${url}/upload`,
+      headers: {
+        'x-distribute-token': token,
+        'x-distribute-username': username
+      },
+      formData: {
+        name,
+        bundle
+      }
+    }, function optionalCallback(err, httpResponse, body) {
+      if (err) return reject(err);
+      return resolve(JSON.parse(body));
+    });
+  });
+};
+
+module.exports.login = function login({ url }) {
+  const inquirer = require('inquirer');
+  const request = require('request');
+
+  return new Promise(function(resolve, reject) {
+    inquirer.prompt([
+      {
+        name: 'username',
+        type: 'input',
+        message: 'Enter your e-mail address:',
+        validate: function( value ) {
+          if (value.length > 0 &amp;&amp; value.indexOf('@') > -1 &amp;&amp; value.indexOf('.') > -1) {
+            return true;
+          } else {
+            return 'Please enter your username or e-mail address';
+          }
+        }
+      },
+      {
+        name: 'password',
+        type: 'password',
+        message: 'Enter your password:',
+        mask: true,
+        validate: function(value) {
+          if (value.length) {
+            return true;
+          } else {
+            return 'Please enter your password';
+          }
+        }
+      }
+    ]).then((credentials) => {
+      const { username, password } = credentials;
+      request.post({
+        url: `${url}/login`,
+        form: {
+          username,
+          password
+        }
+      }, function optionalCallback(err, httpResponse, body) {
+       if(err || httpResponse.statusCode !== 200) return reject('error trying to login');
+       return resolve(JSON.parse(body));
+      });
+    })
+    .catch((ex) => reject(ex));
+  });
+};
+
+module.exports.list = function list({ url, token, username }) {
+  const request = require('request');
+
+  return new Promise(function(resolve, reject) {
+    request.get({
+      url: `${url}/api/list`,
+      headers: {
+        'x-distribute-token': token,
+        'x-distribute-username': username
+      }
+    }, function optionalCallback(err, httpResponse, body) {
+      if (err) return reject(err);
+      return resolve(JSON.parse(body));
+    });
+  });
+};
+
+module.exports.saveCredentials = function saveCredentials({ username, token }) {
+  const Preferences = require('preferences');
+  const prefs = new Preferences('node-distribute');
+
+  return new Promise((resolve) => {
+    prefs.credentials = {
+      username,
+      token
+    };
+    resolve();
+  });
+};
+
+module.exports.getCredentials = function getCredentials() {
+    const Preferences = require('preferences');
+    const prefs = new Preferences('node-distribute');
+    const { credentials } = prefs;
+
+    return new Promise((resolve, reject) => {
+      if(credentials.username &amp;&amp; credentials.token) {
+        resolve({
+          username: credentials.username,
+          token: credentials.token
+        });
+      } else {
+        reject({});
+      }
+    });
+};
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-lib_classifier.html">lib/classifier</a></li><li><a href="module-lib_deploy.html">lib/deploy</a></li><li><a href="module-lib_helpers_cli.html">lib/helpers/cli</a></li><li><a href="module-lib_helpers_util.html">lib/helpers/util</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.3</a> on Tue Aug 01 2017 00:05:03 GMT-0700 (PDT)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

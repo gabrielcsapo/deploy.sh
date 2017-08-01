@@ -188,7 +188,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line52">line 52</a>
+        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line53">line 53</a>
     </li></ul></dd>
     
 
@@ -242,159 +242,6 @@
     <h5>Example</h5>
     
     <pre class="prettyprint"><code>contains(['index.html', 'main.css'], ['index.html', '!Dockerfile', '!package.json'])</code></pre>
-
-
-
-        
-            
-
-    
-
-    
-    <h4 class="name" id="~createBundle"><span class="type-signature">(inner) </span>createBundle<span class="signature">(directory)</span><span class="type-signature"> &rarr; {Promise}</span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    <p>creates a bundle to send to the server for deployment</p>
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>directory</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">String</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>the directory that is to be turned into a tar</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line73">line 73</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-
-        
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">Promise</span>
-
-
-    </dd>
-</dl>
-
-    
-
-
 
 
 
@@ -505,7 +352,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line6">line 6</a>
+        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line5">line 5</a>
     </li></ul></dd>
     
 
@@ -640,7 +487,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line13">line 13</a>
+        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line12">line 12</a>
     </li></ul></dd>
     
 
@@ -799,7 +646,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line34">line 34</a>
+        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line35">line 35</a>
     </li></ul></dd>
     
 
@@ -834,254 +681,6 @@
     <dd>
         
 <span class="param-type">String</span>
-
-
-    </dd>
-</dl>
-
-    
-
-
-
-
-
-        
-            
-
-    
-
-    
-    <h4 class="name" id="~uploadBundle"><span class="type-signature">(inner) </span>uploadBundle<span class="signature">(options)</span><span class="type-signature"> &rarr; {Promise}</span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    <p>Deals with uploading a specified bundle</p>
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Object</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">
-                <h6>Properties</h6>
-                
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>url</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">String</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>the url endpoint for the deploy server</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>name</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">String</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>the name of the specified application</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>bundle</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Stream</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>a file stream of the tar</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-            </td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line90">line 90</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-
-        
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">Promise</span>
 
 
     </dd>
@@ -1109,13 +708,13 @@
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-lib_classifier.html">lib/classifier</a></li><li><a href="module-lib_deploy.html">lib/deploy</a></li><li><a href="module-lib_helpers_util.html">lib/helpers/util</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-lib_classifier.html">lib/classifier</a></li><li><a href="module-lib_deploy.html">lib/deploy</a></li><li><a href="module-lib_helpers_cli.html">lib/helpers/cli</a></li><li><a href="module-lib_helpers_util.html">lib/helpers/util</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.3</a> on Mon Jul 31 2017 17:54:26 GMT-0700 (PDT)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.3</a> on Tue Aug 01 2017 00:05:03 GMT-0700 (PDT)
 </footer>
 
 <script> prettyPrint(); </script>

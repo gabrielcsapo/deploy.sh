@@ -1,30 +1,20 @@
 const Async = require('async');
-const fs = require('fs');
-const path = require('path');
 const ora = require('ora');
+const table = require('text-table');
 
-const { createBundle, uploadBundle, getCredentials, saveCredentials, login } = require('../lib/helpers/cli');
+const { list, getCredentials, saveCredentials, login } = require('../lib/helpers/cli');
 
 const spinner = ora(`Starting deploy process`).start();
 
 Async.waterfall([
-  function(callback) {
-    spinner.text = 'Creating Application Bundle';
-
-    createBundle(process.cwd())
-      .then(() => callback(null))
-      .catch((ex) => callback(ex, null));
-  },
   function(callback) {
     spinner.text = 'Getting deploy keys';
     spinner.stop();
 
     getCredentials()
       .then((credentials) => callback(null, credentials))
-      .catch((ex) => {
-        login({
-          url: 'http://localhost:5000'
-        })
+      .catch(() => {
+        login()
           .then((credentials) => {
             saveCredentials(credentials)
               .then(() => {
@@ -36,15 +26,12 @@ Async.waterfall([
   },
   function(credentials, callback) {
     spinner.start();
-    spinner.text = 'Uploading Application Bundle';
+    spinner.text = 'Calling list API';
 
     const { token, username } = credentials;
-    const bundle = fs.createReadStream(path.resolve(process.cwd(), 'bundle.tgz'));
 
-    uploadBundle({
+    list({
       url: 'http://localhost:5000',
-      name: path.basename(process.cwd()),
-      bundle,
       token,
       username
     })
@@ -52,7 +39,14 @@ Async.waterfall([
     .catch((error) => callback(error, null));
   }
 ], (ex, result) => {
-  if (ex) return spinner.fail('Deployment failed 🙈');
+  if (ex) return spinner.fail('API call failed 🙈');
 
-  spinner.succeed(`Upload succeed ${result.url}`);
+  spinner.stopAndPersist(`List of Deployments`);
+  const { deployments } = result;
+
+  console.log( // eslint-disable-line
+    table(
+      Object.keys(deployments).map((r) => [deployments[r], ''])
+    )
+  );
 });
