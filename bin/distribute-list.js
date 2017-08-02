@@ -2,30 +2,19 @@ const Async = require('async');
 const ora = require('ora');
 const table = require('text-table');
 
-const { list, getCredentials, saveCredentials, login } = require('../lib/helpers/cli');
+const { list, getCredentials } = require('../lib/helpers/cli');
 
 const spinner = ora(`Starting deploy process`).start();
 
 Async.waterfall([
   function(callback) {
     spinner.text = 'Getting deploy keys';
-    spinner.stop();
 
     getCredentials()
       .then((credentials) => callback(null, credentials))
-      .catch(() => {
-        login()
-          .then((credentials) => {
-            saveCredentials(credentials)
-              .then(() => {
-                callback(null, credentials);
-              });
-          })
-          .catch((ex) => callback(ex));
-      });
+      .catch((ex) => callback(ex, null));
   },
   function(credentials, callback) {
-    spinner.start();
     spinner.text = 'Calling list API';
 
     const { token, username } = credentials;
@@ -41,12 +30,17 @@ Async.waterfall([
 ], (ex, result) => {
   if (ex) return spinner.fail('API call failed 🙈');
 
-  spinner.stopAndPersist(`List of Deployments`);
+  spinner.text = `List of Deployments`;
+  spinner.stopAndPersist();
   const { deployments } = result;
 
-  console.log( // eslint-disable-line
-    table(
-      Object.keys(deployments).map((r) => [deployments[r], ''])
-    )
-  );
+  if(deployments) {
+    console.log( // eslint-disable-line
+      table(
+        Object.keys(deployments).map((r) => [deployments[r], ''])
+      )
+    );
+  } else {
+    console.log('\n  0 deployments found');
+  }
 });

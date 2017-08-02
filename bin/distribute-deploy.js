@@ -17,22 +17,10 @@ Async.waterfall([
   },
   function(callback) {
     spinner.text = 'Getting deploy keys';
-    spinner.stop();
 
     getCredentials()
       .then((credentials) => callback(null, credentials))
-      .catch((ex) => {
-        login({
-          url: 'http://localhost:5000'
-        })
-          .then((credentials) => {
-            saveCredentials(credentials)
-              .then(() => {
-                callback(null, credentials);
-              });
-          })
-          .catch((ex) => callback(ex));
-      });
+      .catch((ex) => callback(ex, null));
   },
   function(credentials, callback) {
     spinner.start();

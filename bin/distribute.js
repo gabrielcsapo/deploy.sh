@@ -11,4 +11,6 @@ program
   .version(pkg.version)
   .command('deploy', 'deploy the current directory', { isDefault: true })
   .command('list', 'list depoyments')
+  .command('register', 'register a user account')
+  .command('login', 'login to access deploy and deployment functionality')
   .parse(process.argv);
