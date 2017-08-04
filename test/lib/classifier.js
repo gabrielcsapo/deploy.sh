@@ -4,7 +4,7 @@ const path = require('path');
 const classifier = require('../../lib/classifier');
 
 test('@lib/classifier', (t) => {
-  t.plan(3);
+  t.plan(4);
 
   t.test('should be able to classify static site', (t) => {
     const directory = path.resolve(__dirname, '..', '..', 'fixtures', 'static');
@@ -21,7 +21,7 @@ test('@lib/classifier', (t) => {
     const output = classifier(directory);
     t.deepEqual(output, {
       type: 'node',
-      build: '\n        FROM mhart/alpine-node:8\n        WORKDIR /Users/gabrielcsapo/Documents/node-distribute/fixtures/node\n        ADD . .\n\n        RUN npm install\n\n        CMD ["npm", "start"]\n      '
+      build: `\n        FROM mhart/alpine-node:8\n        WORKDIR ${directory}\n        ADD . .\n\n        RUN npm install\n\n        CMD ["npm", "start"]\n      `
     });
     t.end();
   });
@@ -32,7 +32,17 @@ test('@lib/classifier', (t) => {
 
     t.deepEqual(output, {
       type: 'docker',
-      build: 'FROM mhart/alpine-node:8\nWORKDIR /Users/gabrielcsapo/Documents/node-distribute/fixtures/docker\nADD . .\n\nCMD ["node", "index.js"]\n'
+      build: `FROM mhart/alpine-node:8\nWORKDIR ${directory}\nADD . .\n\nCMD ["node", "index.js"]\n`
+    });
+    t.end();
+  });
+
+  t.test('should be able to classify unknown deploy target', (t) => {
+    const directory = path.resolve(__dirname, '..', '..', 'fixtures', 'unknown');
+    const output = classifier(directory);
+
+    t.deepEqual(output, {
+      type: 'unknown'
     });
     t.end();
   });

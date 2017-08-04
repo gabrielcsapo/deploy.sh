@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "tap test",
-    "coverage": "tap test --coverage",
+    "coverage": "tap test --coverage --coverage-report=html",
     "lint": "eslint .",
     "start": "node lib/server.js",
     "generate-docs": "jsdoc -c jsdoc.json"

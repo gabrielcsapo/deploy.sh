@@ -77,6 +77,13 @@ module.exports.uploadBundle = function uploadBundle({ url, name, bundle, token, 
   });
 };
 
+/**
+ * calls the login api to get a token to persist for future requests
+ * @method login
+ * @param {Object} options
+ * @param  {String} options.url - the url endpoint for the deploy server
+ * @return {Promise}
+ */
 module.exports.login = function login({ url }) {
   const inquirer = require('inquirer');
   const request = require('request');
@@ -91,7 +98,7 @@ module.exports.login = function login({ url }) {
           if (value.length > 0 &amp;&amp; value.indexOf('@') > -1 &amp;&amp; value.indexOf('.') > -1) {
             return true;
           } else {
-            return 'Please enter your username or e-mail address';
+            return 'Please enter your e-mail address';
           }
         }
       },
@@ -125,6 +132,41 @@ module.exports.login = function login({ url }) {
   });
 };
 
+/**
+ * calls the logout api to invalidate token
+ * @method logout
+ * @param {Object} options
+ * @param {String} options.url - the url endpoint for the deploy server
+ * @param {String} options.token - token to make authenticated calls
+ * @param {String} options.username - username linked to the token
+ * @return {Promise}
+ */
+module.exports.logout = function login({ url, token, username }) {
+  const request = require('request');
+
+  return new Promise(function(resolve, reject) {
+    request.get({
+      url: `${url}/api/logout`,
+      headers: {
+        'x-distribute-token': token,
+        'x-distribute-username': username
+      }
+    }, function optionalCallback(err, httpResponse, body) {
+      if (err) return reject(err);
+      return resolve(JSON.parse(body));
+    });
+  });
+};
+
+/**
+ * calls the list api to get all deployed applications
+ * @method list
+ * @param {Object} options
+ * @param {String} options.url - the url endpoint for the deploy server
+ * @param {String} options.token - token to make authenticated calls
+ * @param {String} options.username - username linked to the token
+ * @return {Promise}
+ */
 module.exports.list = function list({ url, token, username }) {
   const request = require('request');
 
@@ -142,6 +184,14 @@ module.exports.list = function list({ url, token, username }) {
   });
 };
 
+/**
+ * persists the token and username locally
+ * @method saveCredentials
+ * @param {Object} options
+ * @param {String} options.token - token to make authenticated calls
+ * @param {String} options.username - username linked to the token
+ * @return {Promise}
+ */
 module.exports.saveCredentials = function saveCredentials({ username, token }) {
   const Preferences = require('preferences');
   const prefs = new Preferences('node-distribute');
@@ -151,13 +201,22 @@ module.exports.saveCredentials = function saveCredentials({ username, token }) {
       username,
       token
     };
-    resolve();
+    return resolve({
+      username,
+      token
+    });
   });
 };
 
+/**
+ * gets the token and username that were persisted locally
+ * @method getCredentials
+ * @return {Promise}
+ */
 module.exports.getCredentials = function getCredentials() {
     const Preferences = require('preferences');
     const prefs = new Preferences('node-distribute');
+
     const { credentials } = prefs;
 
     return new Promise((resolve, reject) => {
@@ -167,9 +226,64 @@ module.exports.getCredentials = function getCredentials() {
           token: credentials.token
         });
       } else {
-        reject({});
+        reject({ error: 'no credentials found' });
       }
     });
+};
+
+/**
+ * prompts the user to register account
+ * @method register
+ * @param {Object} options
+ * @param {String} options.url - the url endpoint for the deploy server
+ * @return {Promise}
+ */
+module.exports.register = function register({ url }) {
+  const inquirer = require('inquirer');
+  const request = require('request');
+
+  return new Promise(function(resolve, reject) {
+    inquirer.prompt([
+      {
+        name: 'username',
+        type: 'input',
+        message: 'Enter a valid e-mail address:',
+        validate: function( value ) {
+          if (value.length > 0 &amp;&amp; value.indexOf('@') > -1 &amp;&amp; value.indexOf('.') > -1) {
+            return true;
+          } else {
+            return 'Please enter a valid e-mail address';
+          }
+        }
+      },
+      {
+        name: 'password',
+        type: 'password',
+        message: 'Enter a password:',
+        mask: true,
+        validate: function(value) {
+          if (value.length) {
+            return true;
+          } else {
+            return 'Please enter a password';
+          }
+        }
+      }
+    ]).then((credentials) => {
+      const { username, password } = credentials;
+      request.post({
+        url: `${url}/register`,
+        form: {
+          username,
+          password
+        }
+      }, function optionalCallback(err, httpResponse, body) {
+       if(err || httpResponse.statusCode !== 200) return reject('error trying to register email');
+       return resolve(JSON.parse(body));
+      });
+    })
+    .catch((ex) => reject(ex));
+  });
 };
 </code></pre>
         </article>
@@ -187,7 +301,7 @@ module.exports.getCredentials = function getCredentials() {
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.3</a> on Tue Aug 01 2017 00:05:03 GMT-0700 (PDT)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.3</a> on Fri Aug 04 2017 10:36:42 GMT-0700 (PDT)
 </footer>
 
 <script> prettyPrint(); </script>
