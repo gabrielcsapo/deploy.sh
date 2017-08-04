@@ -8,7 +8,7 @@ Async.waterfall([
       url: 'http://localhost:5000'
     })
     .then((credentials) => {
-      return saveCredentials(credentials)
+      return saveCredentials(credentials);
     })
     .then((credentials) => {
       callback(null, credentials);
@@ -16,7 +16,7 @@ Async.waterfall([
     .catch((ex) => callback(ex));
   }
 ], (ex, result) => {
-  if (ex) return console.error('login failed')
+  if (ex) return console.error('login failed'); // eslint-disable-line
 
-  console.log(`successfully logged in as ${result.username}`)
+  console.log(`successfully logged in as ${result.username}`); // eslint-disable-line
 });

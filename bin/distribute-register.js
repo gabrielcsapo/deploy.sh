@@ -8,13 +8,13 @@ Async.waterfall([
         url: 'http://localhost:5000'
       })
       .then((credentials) => {
-        return saveCredentials(credentials)
+        return saveCredentials(credentials);
       })
       .then((credentials) => callback(null, credentials))
       .catch((ex) => callback(ex, null));
   }
 ], (ex, result) => {
-  if (ex) console.error('failed to register');
+  if (ex) console.error('failed to register'); // eslint-disable-line
 
-  console.log(`registered as ${result.username}`);
+  console.log(`registered as ${result.username}`); // eslint-disable-line
 });

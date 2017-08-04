@@ -37,10 +37,10 @@ Async.waterfall([
   if(deployments) {
     console.log( // eslint-disable-line
       table(
-        Object.keys(deployments).map((r) => [deployments[r], ''])
+        deployments.map((r) => [r.project, `http://${r.id}.localhost:5000`])
       )
     );
   } else {
-    console.log('\n  0 deployments found');
+    console.log('\n  0 deployments found'); // eslint-disable-line
   }
 });

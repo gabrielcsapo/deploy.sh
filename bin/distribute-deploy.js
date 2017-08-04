@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const ora = require('ora');
 
-const { createBundle, uploadBundle, getCredentials, saveCredentials, login } = require('../lib/helpers/cli');
+const { createBundle, uploadBundle, getCredentials } = require('../lib/helpers/cli');
 
 const spinner = ora(`Starting deploy process`).start();
 
@@ -39,8 +39,8 @@ Async.waterfall([
     .then((response) => callback(null, response))
     .catch((error) => callback(error, null));
   }
-], (ex, result) => {
+], (ex, project) => {
   if (ex) return spinner.fail('Deployment failed 🙈');
 
-  spinner.succeed(`Upload succeed ${result.url}`);
+  spinner.succeed(`Upload succeed http://${project.id}.localhost:5000`);
 });
