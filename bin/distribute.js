@@ -13,4 +13,5 @@ program
   .command('list', 'list depoyments')
   .command('register', 'register a user account')
   .command('login', 'login to access deploy and deployment functionality')
+  .command('logout', 'logout and invalidate token')
   .parse(process.argv);
