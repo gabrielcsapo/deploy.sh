@@ -1,21 +1,14 @@
 #!/usr/bin/env node
 
+const Async = require('async');
 const opn = require('opn');
+const ora = require('ora');
 const program = require('commander');
-
-process.on('unhandledRejection', error => {
-  // Will print "unhandledRejection err is not defined"
-  console.log('unhandledRejection', error);
-});
 
 program
   .parse(process.argv);
 
 var project = program.args[0];
-
-const Async = require('async');
-const ora = require('ora');
-const table = require('text-table');
 
 const { list, getCredentials } = require('../lib/helpers/cli');
 
@@ -41,14 +34,13 @@ Async.waterfall([
     })
     .then((response) => callback(null, response))
     .catch((error) => {
-      console.log(error);
-      callback(error, null)
+      callback(error, null);
     });
   }
 ], (ex, result) => {
   if (ex) return spinner.fail('API call failed 🙈');
 
-  const dep = result.deployments.filter((d) => d.project == project)[0]
+  const dep = result.deployments.filter((d) => d.project == project)[0];
   const url = `http://${dep.id}.localhost:5000`;
 
   spinner.text = `Opening deployment at ${url}`;
