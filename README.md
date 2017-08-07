@@ -1,4 +1,4 @@
-# distribute.sh
+# distribute.sh <img src="static/logo.png" width="60">
 
 > ☁️ open source continuous deployment service
 
@@ -10,8 +10,6 @@
 ![npm](https://img.shields.io/npm/dt/distribute.sh.svg)
 ![npm](https://img.shields.io/npm/dm/distribute.sh.svg)
 
-![logo](./docs/logo.png)
-
-![example](./docs/example.gif)
+![example](./static/example.gif)
 
 To learn more visit [http://www.gabrielcsapo.com/distribute.sh/](http://www.gabrielcsapo.com/distribute.sh/)
