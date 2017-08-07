@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>helpers/util.js - Documentation</title>
+
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav>
+    <li class="nav-link nav-home-link"><a href="index.html">Home</a></li><li class="nav-heading">Modules</li><li class="nav-heading"><span class="nav-item-type type-module">M</span><span class="nav-item-name"><a href="module-lib_classifier.html">lib/classifier</a></span></li><li class="nav-heading"><span class="nav-item-type type-module">M</span><span class="nav-item-name"><a href="module-lib_deploy.html">lib/deploy</a></span></li><li class="nav-heading"><span class="nav-item-type type-module">M</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html">lib/helpers/cli</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~createBundle">createBundle</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~getCredentials">getCredentials</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~list">list</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~login">login</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~logout">logout</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~register">register</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~saveCredentials">saveCredentials</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~uploadBundle">uploadBundle</a></span></li><li class="nav-heading"><span class="nav-item-type type-module">M</span><span class="nav-item-name"><a href="module-lib_helpers_util.html">lib/helpers/util</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_util.html#~_authenticate">_authenticate</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_util.html#~contains">contains</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_util.html#~getPort">getPort</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_util.html#~getPort">getPort</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_util.html#~hash">hash</a></span></li>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">helpers/util.js</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @module lib/helpers/util
+ */
+
+/**
+ * gets an open port on the machine
+ * @method getPort
+ * @param  {Function} callback - the callback function to be returned when a port has been found
+ */
+let portrange = 45032;
+
+/**
+ * gets an open port
+ * @method getPort
+ * @param  {Function} callback - function(err, port) to be called when port is found
+ * @return {Number} - returns a valid port
+ */
+module.exports.getPort = function getPort(callback) {
+  const net = require('net');
+
+  var port = portrange += 1;
+  var server = net.createServer();
+
+  server.listen(port, function() {
+    server.once('close', function() {
+      callback(null, port);
+    });
+    server.close();
+  });
+  server.on('error', function() {
+    getPort(callback);
+  });
+};
+
+/**
+ * gets a lowercase random string with specified length
+ * @method hash
+ * @param  {Number} length - the specified length of the random string
+ * @return {String}
+ */
+const possible = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+module.exports.hash = function hash(length) {
+  let text = "";
+
+  for (let i = 0; i &lt; length; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+
+  return text;
+};
+
+/**
+ * contains is a function that takes an array and see if the condition matches
+ * @method contains
+ * @param  {Array} arr      - array to check with rules
+ * @param  {Array} contains - rules to make sure the arr contains the following
+ * @return {Boolean}        - responds back with a boolean value
+ * @example
+ * contains(['index.html', 'main.css'], ['index.html', '!Dockerfile', '!package.json'])
+ */
+module.exports.contains = function contains(arr, contains) {
+  var conditions = [];
+  for(var i in contains) {
+    var key = contains[i].substring(0, 1) === '!' ? contains[i].substring(1, contains[i].length) : contains[i];
+    conditions.push(contains[i].substring(0, 1) === '!' ? arr.indexOf(key) === -1 : arr.indexOf(key) > -1);
+  }
+  if(conditions.indexOf(false) > -1) {
+    return false;
+  }
+  return true;
+};
+
+/**
+ * middleware to verify the username and token are valid, will then set the user to req.user
+ * @function _authenticate
+ * @param {Object} req - express request
+ * @param {Object} res - express response
+ * @param {Function} next - callback to go to next middleware
+ */
+module.exports._authenticate = function _authenticate(req, res, next) {
+  const { authenticate } = require('./db');
+
+  const { headers } = req;
+  const username = headers['x-distribute-username'];
+  const token = headers['x-distribute-token'];
+  if(!username &amp;&amp; !token) {
+    res.status(500).send({ error: 'authentication necessary' });
+  }
+
+  authenticate({ username, token })
+    .then(function (result) {
+      req.user = result;
+      next();
+    })
+    .catch(function () {
+      res.status(500).send({ error: 'not authenticated' });
+    });
+};
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<br class="clear">
+
+<footer>
+    Generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.3</a> on Mon Aug 07 2017 02:19:06 GMT-0700 (PDT) using the Minami theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+</body>
+</html>

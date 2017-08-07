@@ -47,6 +47,8 @@
   "devDependencies": {
     "eslint": "^4.3.0",
     "jsdoc": "^3.5.3",
+    "minami": "^1.2.3",
+    "psychic-ui": "^1.0.7",
     "tap": "^10.3.2",
     "tape": "^4.7.0"
   }
