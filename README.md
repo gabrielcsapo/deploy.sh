@@ -1,4 +1,4 @@
-# distribute.sh <img src="static/logo.png" width="60">
+# distribute.sh <img align="right" src="static/logo.png" width="120">
 
 > ☁️ open source continuous deployment service
 
