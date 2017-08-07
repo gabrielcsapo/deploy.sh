@@ -6,8 +6,10 @@ const classifier = require('../../lib/classifier');
 test('@lib/classifier', (t) => {
   t.plan(4);
 
+  const baseDirectory = path.resolve(__dirname, '..', 'fixtures');
+
   t.test('should be able to classify static site', (t) => {
-    const directory = path.resolve(__dirname, '..', '..', 'fixtures', 'static');
+    const directory = path.resolve(baseDirectory, 'static');
     const output = classifier(directory);
     t.deepEqual(output, {
       type: 'static',
@@ -17,7 +19,7 @@ test('@lib/classifier', (t) => {
   });
 
   t.test('should be able to classify node site', (t) => {
-    const directory = path.resolve(__dirname, '..', '..', 'fixtures', 'node');
+    const directory = path.resolve(baseDirectory, 'node');
     const output = classifier(directory);
     t.deepEqual(output, {
       type: 'node',
@@ -27,7 +29,7 @@ test('@lib/classifier', (t) => {
   });
 
   t.test('should be able to classify docker site', (t) => {
-    const directory = path.resolve(__dirname, '..', '..', 'fixtures', 'docker');
+    const directory = path.resolve(baseDirectory, 'docker');
     const output = classifier(directory);
 
     t.deepEqual(output, {
@@ -38,7 +40,7 @@ test('@lib/classifier', (t) => {
   });
 
   t.test('should be able to classify unknown deploy target', (t) => {
-    const directory = path.resolve(__dirname, '..', '..', 'fixtures', 'unknown');
+    const directory = path.resolve(baseDirectory, 'unknown');
     const output = classifier(directory);
 
     t.deepEqual(output, {

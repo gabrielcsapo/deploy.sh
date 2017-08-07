@@ -1,15 +1,22 @@
+#!/usr/bin/env node
+
 const Async = require('async');
 const fs = require('fs');
 const path = require('path');
 const ora = require('ora');
 
-const { createBundle, uploadBundle, getCredentials } = require('../lib/helpers/cli');
+const program = require('commander');
+program
+    .option('-u, --url [url]', 'The endpoint of the distribute.sh server', 'http://localhost:5000')
+    .parse(process.argv);
+
+const { removeBundle, createBundle, uploadBundle, getCredentials } = require('../lib/helpers/cli')(program.url);
 
 const spinner = ora(`Starting deploy process`).start();
 
 Async.waterfall([
   function(callback) {
-    spinner.text = 'Creating Application Bundle';
+    spinner.text = 'Creating application bundle';
 
     createBundle(process.cwd())
       .then(() => callback(null))
@@ -24,23 +31,31 @@ Async.waterfall([
   },
   function(credentials, callback) {
     spinner.start();
-    spinner.text = 'Uploading Application Bundle';
+    spinner.text = 'Uploading application bundle';
 
     const { token, username } = credentials;
     const bundle = fs.createReadStream(path.resolve(process.cwd(), 'bundle.tgz'));
 
     uploadBundle({
-      url: 'http://localhost:5000',
       name: path.basename(process.cwd()),
       bundle,
       token,
       username
     })
-    .then((response) => callback(null, response))
-    .catch((error) => callback(error, null));
+      .then((response) => callback(null, response))
+      .catch((error) => callback(error, null));
+  },
+  function(project, callback) {
+    spinner.text = 'Cleaning up local files';
+
+    removeBundle(process.cwd())
+      .then(() => callback(null, project))
+      .catch((error) => callback(error, null));
   }
 ], (ex, project) => {
-  if (ex) return spinner.fail('Deployment failed 🙈');
+  if (ex) return spinner.fail(`Deployment failed 🙈 ${JSON.stringify({
+    ex
+  }, null, 4)}`);
 
-  spinner.succeed(`Upload succeed http://${project.id}.localhost:5000`);
+  spinner.succeed(`Upload successfully, http://${project.id}.localhost:5000`);
 });

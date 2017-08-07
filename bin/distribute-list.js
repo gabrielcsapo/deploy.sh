@@ -1,10 +1,19 @@
+#!/usr/bin/env node
+
 const Async = require('async');
 const ora = require('ora');
-const table = require('text-table');
+const moment = require('moment');
+const Url = require('url');
+const Table = require('easy-table');
 
-const { list, getCredentials } = require('../lib/helpers/cli');
+const program = require('commander');
+program
+    .option('-u, --url [url]', 'The endpoint of the distribute.sh server', 'http://localhost:5000')
+    .parse(process.argv);
 
-const spinner = ora(`Starting deploy process`).start();
+const { list, getCredentials } = require('../lib/helpers/cli')(program.url);
+
+const spinner = ora(`Getting deployment list`).start();
 
 Async.waterfall([
   function(callback) {
@@ -20,7 +29,6 @@ Async.waterfall([
     const { token, username } = credentials;
 
     list({
-      url: 'http://localhost:5000',
       token,
       username
     })
@@ -28,19 +36,31 @@ Async.waterfall([
     .catch((error) => callback(error, null));
   }
 ], (ex, result) => {
-  if (ex) return spinner.fail('API call failed 🙈');
+  if (ex) return spinner.fail(`API call failed 🙈 ${JSON.stringify({
+    ex
+  }, null, 4)}`);
 
-  spinner.text = `List of Deployments`;
-  spinner.stopAndPersist();
+  spinner.stop();
+
   const { deployments } = result;
 
   if(deployments) {
-    console.log( // eslint-disable-line
-      table(
-        deployments.map((r) => [r.project, `http://${r.id}.localhost:5000`])
-      )
-    );
+    var table = new Table();
+
+    deployments.forEach((r) => {
+      const config = Url.parse(program.url);
+      config.host = `${r.id}.${config.host}`;
+      const url = Url.format(config);
+
+      table.cell('project', r.project);
+      table.cell('url', url);
+      table.cell('age', moment(r.updated_at).fromNow());
+      table.newRow();
+    });
+    table.sort('age|asc');
+
+    console.log(table.toString()); // eslint-disable-line
   } else {
-    console.log('\n  0 deployments found'); // eslint-disable-line
+    console.log('0 deployments found'); // eslint-disable-line
   }
 });

@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 
 const Async = require('async');
+const Url = require('url');
 const opn = require('opn');
 const ora = require('ora');
+
 const program = require('commander');
-
 program
-  .parse(process.argv);
+    .option('-u, --url [url]', 'The endpoint of the distribute.sh server', 'http://localhost:5000')
+    .parse(process.argv);
 
-var project = program.args[0];
+const project = program.args[0];
+const { list, getCredentials } = require('../lib/helpers/cli')(program.url);
 
-const { list, getCredentials } = require('../lib/helpers/cli');
-
-const spinner = ora(`Starting deploy process`).start();
+const spinner = ora(`Opening up url to deployment instance`).start();
 
 Async.waterfall([
   function(callback) {
@@ -27,23 +28,24 @@ Async.waterfall([
 
     const { token, username } = credentials;
 
-    list({
-      url: 'http://localhost:5000',
-      token,
-      username
-    })
-    .then((response) => callback(null, response))
-    .catch((error) => {
-      callback(error, null);
-    });
+    list({ token, username })
+      .then((response) => callback(null, response))
+      .catch((error) => {
+        callback(error, null);
+      });
   }
 ], (ex, result) => {
-  if (ex) return spinner.fail('API call failed 🙈');
+  if (ex) return spinner.fail(`API call failed 🙈 ${JSON.stringify({
+    ex
+  }, null, 4)}`);
 
   const dep = result.deployments.filter((d) => d.project == project)[0];
-  const url = `http://${dep.id}.localhost:5000`;
+
+  const config = Url.parse(program.url);
+  config.host = `${dep.id}.${config.host}`;
+  const url = Url.format(config);
 
   spinner.text = `Opening deployment at ${url}`;
   spinner.stopAndPersist();
-  opn(url);
+  opn(url, { wait: false });
 });

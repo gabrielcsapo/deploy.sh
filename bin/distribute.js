@@ -14,5 +14,7 @@ program
   .command('register', 'register a user account')
   .command('login', 'login to access deploy and deployment functionality')
   .command('logout', 'logout and invalidate token')
-  .command('open <project>', 'open the deployment instance in the browser')
+  .command('open [project]', 'open the deployment instance in the browser')
   .parse(process.argv);
+
+process.env.HASH = 'hlakdsjf';
