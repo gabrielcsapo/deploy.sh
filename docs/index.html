@@ -2,34 +2,47 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>distribute.sh</title>
+    <title>deploy.sh</title>
     <link href="./psychic-min.css" rel="stylesheet" type="text/css"/>
     <link href="./main.css" rel="stylesheet" type="text/css"/>
+    <script>
+      document.addEventListener('DOMContentLoaded', function(){
+        document.querySelector('#example-switcher').onchange = function(e) {
+          document.querySelector('#example-image').src = e.target.value;
+        }
+      }, false);
+    </script>
   </head>
   <body>
     <div style="height:100%;width:100%;position:relative;">
       <div class="navbar navbar-center">
         <div class="container">
           <div class="navbar-title">
-            <span class="text-black">distribute.sh</span>
+            <span class="text-black tooltip-bottom" data-tooltip="☁️ open source continuous deployment service">deploy.sh</span>
           </div>
           <div class="nav">
             <a class="text-black" href="./code/index.html">Docs</a>
-            <a class="text-black" href="https://github.com/gabrielcsapo/distribute.sh">Source</a>
+            <a class="text-black" href="https://github.com/gabrielcsapo/deploy.sh">Source</a>
           </div>
         </div>
       </div>
-      <div class="text-center" style="width:100%;position:absolute;top:50%;transform:translateY(-50%);">
-        <h3> distribute.sh </h3>
-        <div>
-          <small> ☁️ open source continuous deployment service </small>
+      <div class="text-center">
+        <div style="position:absolute;top:50%;transform:translateY(-50%);">
+          <pre style="width:50%;margin:0 auto 30px;"> npm install deploy.sh -g </pre>
+          <select style="display:inline-block;" id="example-switcher">
+            <option value="example-static.gif"> static website </option>
+            <option value="example-node.gif"> node application </option>
+            <option value="example-docker.gif"> docker image </option>
+          </select>
+          <br/>
+          <br/>
+          <img id="example-image" src="./example-static.gif" alt="static example being uploaded">
         </div>
         <br/>
-        <img src="./example.gif" width="100%">
       </div>
       <div class="navbar navbar-center" style="bottom:0px;position:absolute;">
         <div class="container text-center">
-          <div class="text-black">Made with 🐒 by @gabrielcsapo</div>
+          <div class="text-black">Made with ☕️ by @gabrielcsapo</div>
         </div>
       </div>
     </div>

@@ -7,6 +7,6 @@ h3 {
   margin-top: 0;
 }
 img {
-  width: 98%;
-  border-radius: 5px;
+  max-height: 450px;
+  width: 100%;
 }

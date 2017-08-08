@@ -1,21 +1,21 @@
 {
-  "name": "distribute.sh",
+  "name": "deploy.sh",
   "version": "0.0.1",
   "description": "☁️ open source continuous deployment service",
   "main": "index.js",
   "scripts": {
     "test": "tap test/index.js test/lib",
-    "coverage": "tap test/index.js test/lib --coverage --coverage-report=html",
+    "coverage": "tap test/index.js test/lib --coverage --coverage-report=lcov",
     "lint": "eslint .",
     "start": "node lib/server.js",
     "generate-docs": "jsdoc -c jsdoc.json"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gabrielcsapo/distribute.sh.git"
+    "url": "git+https://github.com/gabrielcsapo/deploy.sh.git"
   },
   "bin": {
-    "distribute": "./bin/distribute.js"
+    "deploy": "./bin/deploy.js"
   },
   "engines": {
     "node": ">= 8"
@@ -23,16 +23,16 @@
   "author": "Gabriel J. Csapo <gabecsapo@gmail.com>",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/gabrielcsapo/distribute.sh/issues"
+    "url": "https://github.com/gabrielcsapo/deploy.sh/issues"
   },
-  "homepage": "https://www.gabrielcsapo.com/distribute.sh",
+  "homepage": "https://www.gabrielcsapo.com/deploy.sh",
   "dependencies": {
     "async": "^2.5.0",
     "body-parser": "^1.17.2",
     "commander": "^2.11.0",
     "dockerode": "^2.5.0",
     "easy-table": "^1.1.0",
-    "express": "^4.15.3",
+    "express": "^4.15.4",
     "formidable": "^1.1.1",
     "inquirer": "^3.2.1",
     "mkdirp": "^0.5.1",
@@ -45,11 +45,11 @@
     "update-notifier": "^2.2.0"
   },
   "devDependencies": {
-    "eslint": "^4.3.0",
-    "jsdoc": "^3.5.3",
+    "eslint": "^4.4.0",
+    "jsdoc": "^3.5.4",
     "minami": "^1.2.3",
     "psychic-ui": "^1.0.7",
-    "tap": "^10.3.2",
-    "tape": "^4.7.0"
+    "tap": "^10.7.1",
+    "tape": "^4.8.0"
   }
 }

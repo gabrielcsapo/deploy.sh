@@ -1,3 +1,6 @@
 - [ ] most recent tars and metadata somewhere to make sure when the service starts back up it will start those sub services also
 - [x] be able to persist data
   - [x] Once there is a way to store metadata, have an in memory store of a proxy routing to deal with subrouting application.
+- [ ] add timing metrics to cli calls (maybe add just overall function call tracing)
+- [ ] add lamba functionality
+- [ ] add web gui
