@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>deploy.js - Documentation</title>
+
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav>
+    <li class="nav-link nav-home-link"><a href="index.html">Home</a></li><li class="nav-heading">Modules</li><li class="nav-heading"><span class="nav-item-type type-module">M</span><span class="nav-item-name"><a href="module-lib_classifier.html">lib/classifier</a></span></li><li class="nav-heading"><span class="nav-item-type type-module">M</span><span class="nav-item-name"><a href="module-lib_deploy.html">lib/deploy</a></span></li><li class="nav-heading"><span class="nav-item-type type-module">M</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html">lib/helpers/cli</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~createBundle">createBundle</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~getCredentials">getCredentials</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~list">list</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~login">login</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~logout">logout</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~register">register</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~saveCredentials">saveCredentials</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_cli.html#~uploadBundle">uploadBundle</a></span></li><li class="nav-heading"><span class="nav-item-type type-module">M</span><span class="nav-item-name"><a href="module-lib_helpers_util.html">lib/helpers/util</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_util.html#~_authenticate">_authenticate</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_util.html#~contains">contains</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_util.html#~getPort">getPort</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_util.html#~getPort">getPort</a></span></li><li class="nav-item"><span class="nav-item-type type-function">F</span><span class="nav-item-name"><a href="module-lib_helpers_util.html#~hash">hash</a></span></li>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">deploy.js</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>const Async = require('async');
+const Docker = require('dockerode');
+const tar = require('tar');
+const path = require('path');
+const fs = require('fs');
+const mkdirp = require('mkdirp');
+
+const classifer = require('./classifier');
+
+const { getPort } = require('./helpers/util');
+
+/**
+ * handles the deployment of an application tar
+ * @module lib/deploy
+ * @param {String} id - the unique identifier of the application that is to be run
+ * @param {String} bundlePath - the directory of which the tar of the application is located
+ */
+module.exports = function deploy(id, bundlePath) {
+  const outputDir = path.resolve(__dirname, '..', 'tmp', id);
+  mkdirp.sync(outputDir);
+
+  return new Promise(function(resolve, reject) {
+    tar.x({
+      file: bundlePath,
+      cwd: outputDir
+    }).then(() => {
+      const docker = new Docker({
+        socketPath: '/var/run/docker.sock'
+      });
+
+      Async.waterfall([
+        (callback) => {
+          let found = false;
+          docker.listContainers({
+            all: 1
+          }, (err, containers) => {
+            if(err) return callback(err, null);
+            containers.forEach((container) => {
+              if(container.Image == id) {
+                found = true;
+                const old = docker.getContainer(container.Id);
+                old.stop(() => {
+                  // ignore any errors with it being stopped already
+                  old.remove(() => {
+                    callback();
+                  });
+                });
+              }
+            });
+            if(!found) return callback();
+          });
+        },
+        (callback) => {
+          const config = classifer(outputDir);
+          if (config.type === 'unknown') {
+            callback('deployment not supported', null);
+          }
+          if (config.type === 'static') {
+            fs.writeFileSync(path.resolve(outputDir, 'index.js'), fs.readFileSync(path.resolve(__dirname, 'helpers', 'static-server.js')));
+          }
+          callback(null, config.build);
+        },
+        (config, callback) => {
+          fs.writeFile(path.resolve(outputDir, 'Dockerfile'), config, callback);
+        },
+        (callback) => {
+          docker.buildImage({
+            context: outputDir,
+            src: fs.readdirSync(outputDir)
+          }, {
+            t: id
+          }, (err, stream) => {
+            if(err) return callback(err);
+            docker.modem.followProgress(stream, onFinished, onProgress);
+
+            function onFinished(err) {
+              if(err) return callback(err);
+              callback();
+            }
+            // TODO: be able to stream the output of this to a socket to give real time updates
+            // onProgress(ev)
+            function onProgress() {
+              // console.log(ev);
+            }
+          });
+        },
+        (callback) => {
+          getPort(callback);
+        },
+        (port, callback) => {
+          // TODO: before create a container, check for existing one to remove
+          docker.createContainer({
+            Image: id,
+            name: id,
+            env: [
+              'PORT=3000'
+            ],
+            ExposedPorts: {
+              '3000/tcp': {}
+            },
+            PortBindings: {
+              '3000/tcp': [{
+                'HostPort': `${port}`
+              }]
+            },
+            Privileged: true
+          }, (err, container) => {
+            if (err) return callback(err);
+            container.start((err) => {
+              if (err) return callback(err);
+              return callback(null, {
+                port,
+                id: id,
+                directory: outputDir
+              });
+            });
+          });
+        }
+      ], (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    }).catch((error) => {
+      reject(error);
+    });
+  });
+};
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<br class="clear">
+
+<footer>
+    Generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.4</a> on Tue Aug 08 2017 18:37:09 GMT-0700 (PDT) using the Minami theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+</body>
+</html>

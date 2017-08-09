@@ -1,22 +1,20 @@
+<<<<<<< HEAD
+# deploy.sh <img align="right" src="docs/logo.png" width="120">
+=======
 # node-distribute
 > the node ☁️
+>>>>>>> fc7d7d7a65a80e7dedba16dbf702a07ffe0ee923
 
-[![Npm Version](https://img.shields.io/npm/v/node-distribute.svg)](https://www.npmjs.com/package/node-distribute)
-[![Dependency Status](https://david-dm.org/gabrielcsapo/node-distribute.svg)](https://david-dm.org/gabrielcsapo/node-distribute)
-[![devDependency Status](https://david-dm.org/gabrielcsapo/node-distribute/dev-status.svg)](https://david-dm.org/gabrielcsapo/node-distribute#info=devDependencies)
-[![Build Status](https://travis-ci.org/gabrielcsapo/node-distribute.svg?branch=master)](https://travis-ci.org/gabrielcsapo/node-distribute)
-[![Coverage Status](https://coveralls.io/repos/github/gabrielcsapo/node-distribute/badge.svg?branch=master)](https://coveralls.io/github/gabrielcsapo/node-distribute?branch=master)
-![npm](https://img.shields.io/npm/dt/node-distribute.svg)
-![npm](https://img.shields.io/npm/dm/node-distribute.svg)
+> ☁️ open source continuous deployment service
 
-![node-distribute](https://github.com/gabrielcsapo/node-distribute/blob/master/docs/node-distribute-logo.png?raw=true)
+![Status](https://img.shields.io/badge/release-beta-orange.svg)
+[![Npm Version](https://img.shields.io/npm/v/deploy.sh.svg)](https://www.npmjs.com/package/deploy.sh)
+[![Dependency Status](https://david-dm.org/gabrielcsapo/deploy.sh.svg)](https://david-dm.org/gabrielcsapo/deploy.sh)
+[![devDependency Status](https://david-dm.org/gabrielcsapo/deploy.sh/dev-status.svg)](https://david-dm.org/gabrielcsapo/deploy.sh#info=devDependencies)
+[![Build Status](https://travis-ci.org/gabrielcsapo/deploy.sh.svg?branch=master)](https://travis-ci.org/gabrielcsapo/deploy.sh)
+![npm](https://img.shields.io/npm/dt/deploy.sh.svg)
+![npm](https://img.shields.io/npm/dm/deploy.sh.svg)
 
-node-distribute is a standalone SAAS application that deploys NodeJS and static assets.
+![Static Example](./docs/example-static.gif)
 
-To learn more visit [http://www.gabrielcsapo.com/node-distribute/](http://www.gabrielcsapo.com/node-distribute/)
-
-## Contributions
-
-- If you update the code in any way that changes the interface, please update the `jsdocs` and tests that validate functionality
-
-Thank you!
+To learn more visit [http://www.gabrielcsapo.com/deploy.sh/](http://www.gabrielcsapo.com/deploy.sh/)

@@ -1,16 +1,13 @@
-addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-    packages:
-      - libstdc++-4.9-dev
-before_install:
-  - git config --global user.name travis
-  - git config --global user.email travis@locahost
-  - "npm install npm@3 -g"
 language: node_js
 script:
   - npm run lint
+<<<<<<< HEAD
+  - npm test
+  - npm run coverage
+  - cat coverage/lcov.info | node-coverage-cli --url https://node-coverage-server.herokuapp.com
+node_js:
+  - "8"
+=======
   - npm run test
   - npm run coverage
 node_js:
@@ -21,3 +18,4 @@ os:
 services:
   - mongodb
 sudo: false
+>>>>>>> fc7d7d7a65a80e7dedba16dbf702a07ffe0ee923
