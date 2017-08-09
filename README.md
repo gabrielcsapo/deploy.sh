@@ -1,9 +1,4 @@
-<<<<<<< HEAD
 # deploy.sh <img align="right" src="docs/logo.png" width="120">
-=======
-# node-distribute
-> the node ☁️
->>>>>>> fc7d7d7a65a80e7dedba16dbf702a07ffe0ee923
 
 > ☁️ open source continuous deployment service
 
