@@ -1,8 +1,21 @@
 language: node_js
 script:
   - npm run lint
+<<<<<<< HEAD
   - npm test
   - npm run coverage
   - cat coverage/lcov.info | node-coverage-cli --url https://node-coverage-server.herokuapp.com
 node_js:
   - "8"
+=======
+  - npm run test
+  - npm run coverage
+node_js:
+  - "6"
+  - "7"
+os:
+  - linux
+services:
+  - mongodb
+sudo: false
+>>>>>>> fc7d7d7a65a80e7dedba16dbf702a07ffe0ee923

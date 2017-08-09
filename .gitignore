@@ -1,8 +1,13 @@
 node_modules
 coverage
 .nyc_output
+<<<<<<< HEAD
 .DS_Store
 package-lock.json
 npm-debug.log
 tmp
 *.tgz
+=======
+tmp
+Users
+>>>>>>> fc7d7d7a65a80e7dedba16dbf702a07ffe0ee923
