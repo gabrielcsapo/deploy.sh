@@ -12,6 +12,7 @@ program
   .command('deploy', 'deploy the current directory', { isDefault: true })
   .command('list', 'list depoyments')
   .command('register', 'register a user account')
+  .command('whoami', 'shows the current logged in user\'s details')
   .command('login', 'login to access deploy and deployment functionality')
   .command('logout', 'logout and invalidate token')
   .command('open [project]', 'open the deployment instance in the browser')
