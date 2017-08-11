@@ -11,7 +11,7 @@ program
     .option('-u, --url [url]', 'The endpoint of the deploy.sh server', 'http://localhost:5000')
     .parse(process.argv);
 
-const { list, getCredentials } = require('../lib/helpers/cli')(program.url);
+const { getDeployments, getCredentials } = require('../lib/helpers/cli')(program.url);
 
 const spinner = ora(`Getting deployment list`).start();
 
@@ -28,7 +28,7 @@ Async.waterfall([
 
     const { token, username } = credentials;
 
-    list({
+    getDeployments({
       token,
       username
     })
@@ -44,15 +44,15 @@ Async.waterfall([
 
   const { deployments } = result;
 
-  if(deployments) {
+  if(deployments.length > 0) {
     var table = new Table();
 
     deployments.forEach((r) => {
       const config = Url.parse(program.url);
-      config.host = `${r.id}.${config.host}`;
+      config.host = `${r.subdomain}.${config.host}`;
       const url = Url.format(config);
 
-      table.cell('project', r.project);
+      table.cell('name', r.name);
       table.cell('url', url);
       table.cell('age', moment(r.updated_at).fromNow());
       table.newRow();

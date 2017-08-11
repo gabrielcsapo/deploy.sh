@@ -8,7 +8,7 @@ program
     .option('-u, --url [url]', 'The endpoint of the deploy.sh server', 'http://localhost:5000')
     .parse(process.argv);
 
-const { saveCredentials, login } = require('../lib/helpers/cli')(program.url);
+const { cacheCredentials, login } = require('../lib/helpers/cli')(program.url);
 
 Async.waterfall([
   function(callback) {
@@ -42,7 +42,7 @@ Async.waterfall([
       const { username, password } = credentials;
       return login({ username, password})
         .then((credentials) => {
-          return saveCredentials(credentials);
+          return cacheCredentials(credentials);
         })
         .then((credentials) => {
           callback(null, credentials);

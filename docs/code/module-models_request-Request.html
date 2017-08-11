@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>helpers/util.js - Documentation</title>
+    <title>Request - Documentation</title>
 
     <script src="scripts/prettify/prettify.js"></script>
     <script src="scripts/prettify/lang-css.js"></script>
@@ -29,86 +29,318 @@
 
 <div id="main">
     
-    <h1 class="page-title">helpers/util.js</h1>
+    <h1 class="page-title">Request</h1>
     
 
     
 
 
 
+
+<section>
+
+<header>
     
-    <section>
-        <article>
-            <pre class="prettyprint source linenums"><code>/**
- * @module lib/helpers/util
- */
+        <h2>
+            <span class="ancestors"><a href="module-models_request.html">models/request</a>~</span>
+        
+        Request
+        </h2>
+        
+            <div class="class-description"><p>{Object} Request</p></div>
+        
+    
+</header>
 
-let portrange = 45032;
+<article>
+    <div class="container-overview">
+    
+        
+<div class="section-method">
 
-/**
- * gets an open port
- * @method getPort
- * @param  {Function} callback - function(err, port) to be called when port is found
- * @param  {Function} callback - the callback function returns a valid port
- */
-module.exports.getPort = function getPort(callback) {
-  const net = require('net');
+    
+    <h2>Constructor</h2>
+    
 
-  var port = portrange += 1;
-  var server = net.createServer();
+    <h4 class="name" id="Request"><span class="type-signature"></span>new Request<span class="signature">()</span><span class="type-signature"></span></h4>
 
-  server.listen(port, function() {
-    server.once('close', function() {
-      callback(null, port);
-    });
-    server.close();
-  });
-  server.on('error', function() {
-    getPort(callback);
-  });
-};
+    
 
-/**
- * gets a lowercase random string with specified length
- * @method hash
- * @param  {Number} length - the specified length of the random string
- * @return {String}
- */
-const possible = "abcdefghijklmnopqrstuvwxyz0123456789";
 
-module.exports.hash = function hash(length) {
-  let text = "";
 
-  for (let i = 0; i &lt; length; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
+<div class="description">
+    <p>Request definition</p>
+</div>
 
-  return text;
-};
 
-/**
- * contains is a function that takes an array and see if the condition matches
- * @method contains
- * @param  {Array} arr      - array to check with rules
- * @param  {Array} contains - rules to make sure the arr contains the following
- * @return {Boolean}        - responds back with a boolean value
- * @example
- * contains(['index.html', 'main.css'], ['index.html', '!Dockerfile', '!package.json'])
- */
-module.exports.contains = function contains(arr, contains) {
-  var conditions = [];
-  for(var i in contains) {
-    var key = contains[i].substring(0, 1) === '!' ? contains[i].substring(1, contains[i].length) : contains[i];
-    conditions.push(contains[i].substring(0, 1) === '!' ? arr.indexOf(key) === -1 : arr.indexOf(key) > -1);
-  }
-  if(conditions.indexOf(false) > -1) {
-    return false;
-  }
-  return true;
-};
-</code></pre>
-        </article>
-    </section>
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>hostname</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the hostname of the request</p></td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>url</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the url that was being accessed</p></td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>time</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>Number</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the time it took to access the resource</p></td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>userAgent</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the userAgent that access the resource</p></td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>referer</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the referer that the user was at before accessing the address</p></td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>acceptLanguage</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>browser based language preferences</p></td>
+        </tr>
+
+        
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="models_request.js.html">models/request.js</a>, <a href="models_request.js.html#line34">line 34</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    
+    </div>
+
+    
+
+    
+
+    
+
+     
+
+    
+
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
 
 
 

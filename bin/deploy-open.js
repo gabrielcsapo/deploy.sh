@@ -10,8 +10,8 @@ program
     .option('-u, --url [url]', 'The endpoint of the deploy.sh server', 'http://localhost:5000')
     .parse(process.argv);
 
-const project = program.args[0];
-const { list, getCredentials } = require('../lib/helpers/cli')(program.url);
+const name = program.args[0];
+const { getDeployments, getCredentials } = require('../lib/helpers/cli')(program.url);
 
 const spinner = ora(`Opening up url to deployment instance`).start();
 
@@ -28,21 +28,19 @@ Async.waterfall([
 
     const { token, username } = credentials;
 
-    list({ token, username })
+    getDeployments({ token, username, name })
       .then((response) => callback(null, response))
-      .catch((error) => {
-        callback(error, null);
-      });
+      .catch((error) => callback(error, null));
   }
 ], (ex, result) => {
   if (ex) return spinner.fail(`API call failed 🙈 ${JSON.stringify({
     ex
   }, null, 4)}`);
 
-  const dep = result.deployments.filter((d) => d.project == project)[0];
+  const { deployment } = result;
 
   const config = Url.parse(program.url);
-  config.host = `${dep.id}.${config.host}`;
+  config.host = `${deployment.subdomain}.${config.host}`;
   const url = Url.format(config);
 
   spinner.text = `Opening deployment at ${url}`;

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>helpers/util.js - Documentation</title>
+    <title>models/deployment.js - Documentation</title>
 
     <script src="scripts/prettify/prettify.js"></script>
     <script src="scripts/prettify/lang-css.js"></script>
@@ -29,7 +29,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">helpers/util.js</h1>
+    <h1 class="page-title">models/deployment.js</h1>
     
 
     
@@ -40,71 +40,162 @@
     <section>
         <article>
             <pre class="prettyprint source linenums"><code>/**
- * @module lib/helpers/util
+ * @module models/deployment
  */
 
-let portrange = 45032;
+const mongoose = require('mongoose');
+
+const Schema = mongoose.Schema;
+
+const User = require('./user');
+const { hash } = require('../helpers/util');
+
+const DeploymentSchema = new Schema({
+  id: String,
+  name: String,
+  port: Number,
+  subdomain: String,
+  directory: String,
+  username: String
+}, {
+  minimize: false,
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  }
+});
 
 /**
- * gets an open port
- * @method getPort
- * @param  {Function} callback - function(err, port) to be called when port is found
- * @param  {Function} callback - the callback function returns a valid port
+ * Deployment definition
+ * @class {Object} Deployment
+ * @property {String} id - the container id
+ * @property {String} name - the name of the deployment
+ * @property {Number} port - the port that the container has exposed
+ * @property {String} subdomain - the subdomain of the application
+ * @property {String} directory - the directory of tared application
+ * @property {String} username - the username who owns the deployment
  */
-module.exports.getPort = function getPort(callback) {
-  const net = require('net');
+const Deployment = mongoose.model('Deployment', DeploymentSchema);
 
-  var port = portrange += 1;
-  var server = net.createServer();
+/**
+ * [updateDeployments description]
+ * @method updateDeployments
+ * @param  {Object} options
+ * @param  {String} options.name       - the name of the deployment
+ * @param  {String} options.token      - the token for the user who owns the deployment
+ * @param  {String} options.username   - the username associated with this deployment
+ * @param  {Deployment} options.deployment - a deployment model that contains the updates that will be applied
+ * @return {Promise}
+ */
+module.exports.updateDeployments = function updateDeployments({ name, token, username, deployment }) {
+  return new Promise(function(resolve, reject) {
+      User.get({
+        username,
+        token
+      })
+        .then((user) => {
+          if(!user) return reject('not authenticated');
+          Deployment.findOne({
+            username,
+            name
+          }, (err, found) => {
+            if(found) {
+              found.id = deployment.id || found.id;
+              found.name = deployment.name || found.name;
+              found.port = deployment.port || found.port;
+              found.subdomain = deployment.subdomain || found.subdomain;
+              found.directory = deployment.directory || found.directory;
+              found.save((err) => {
+                if(err) return reject(err);
+                resolve(found);
+              });
+            } else {
+              const deployment = {
+                name,
+                subdomain: `${name}-${hash(6)}`,
+                username
+              };
+              Deployment.create(deployment, (err, deployment) => {
+                if(err) return reject(err);
+                return resolve(deployment);
+              });
+            }
+          });
+        })
+        .catch((ex) => reject(ex));
+  });
+};
 
-  server.listen(port, function() {
-    server.once('close', function() {
-      callback(null, port);
+/**
+ * gets the port for the requested subdomain
+ * @method getProxy
+ * @param  {String} subdomain - the subdomain for the application being requested
+ * @return {Promise}
+ */
+module.exports.getProxy = function getProxy({ subdomain }) {
+  return new Promise(function(resolve, reject) {
+    Deployment.findOne({
+       "subdomain":{
+          "$eq": subdomain
+       }
+    }, (err, deployment) => {
+      if(err || !deployment) return reject(err);
+      return resolve(deployment.port);
     });
-    server.close();
-  });
-  server.on('error', function() {
-    getPort(callback);
   });
 };
 
 /**
- * gets a lowercase random string with specified length
- * @method hash
- * @param  {Number} length - the specified length of the random string
- * @return {String}
+ * gets a specific deployment if name is passed or all deployments for the specified user
+ * @method getDeployments
+ * @param  {Object}  options
+ * @param  {String=} options.name     - the name of the deployment
+ * @param  {String} options.token      - the token for the user who owns the deployment
+ * @param  {String} options.username   - the username associated with this deployment
+ * @return {Promise}
  */
-const possible = "abcdefghijklmnopqrstuvwxyz0123456789";
+module.exports.getDeployments = function getDeployments({ name, token, username }) {
+  return new Promise(function(resolve, reject) {
+    User.get({
+      username,
+      token
+    })
+      .then((user) => {
+        if(!user) return reject('not authenticated');
 
-module.exports.hash = function hash(length) {
-  let text = "";
+        if(!name) {
+          Deployment.find({
+            username
+          }, (err, deployments) => {
+            if(err) return reject(err);
 
-  for (let i = 0; i &lt; length; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-
-  return text;
-};
-
-/**
- * contains is a function that takes an array and see if the condition matches
- * @method contains
- * @param  {Array} arr      - array to check with rules
- * @param  {Array} contains - rules to make sure the arr contains the following
- * @return {Boolean}        - responds back with a boolean value
- * @example
- * contains(['index.html', 'main.css'], ['index.html', '!Dockerfile', '!package.json'])
- */
-module.exports.contains = function contains(arr, contains) {
-  var conditions = [];
-  for(var i in contains) {
-    var key = contains[i].substring(0, 1) === '!' ? contains[i].substring(1, contains[i].length) : contains[i];
-    conditions.push(contains[i].substring(0, 1) === '!' ? arr.indexOf(key) === -1 : arr.indexOf(key) > -1);
-  }
-  if(conditions.indexOf(false) > -1) {
-    return false;
-  }
-  return true;
+            resolve(deployments);
+          });
+        } else {
+          Deployment.findOne({
+            username,
+            name
+          }, (err, deployment) => {
+            if(deployment) {
+              return resolve(deployment);
+            } else {
+              // add a new deployment name
+              // TODO: figure out how to avoid collisions
+              const deployment = {
+                name,
+                subdomain: `${name}-${hash(6)}`,
+                username
+              };
+              Deployment.create(deployment, (err) => {
+                if(err) return reject('issue updating deployment');
+                resolve(deployment);
+              });
+            }
+          });
+        }
+      })
+      .catch((ex) => reject(ex));
+  });
 };
 </code></pre>
         </article>

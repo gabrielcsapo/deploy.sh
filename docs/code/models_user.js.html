@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>helpers/util.js - Documentation</title>
+    <title>models/user.js - Documentation</title>
 
     <script src="scripts/prettify/prettify.js"></script>
     <script src="scripts/prettify/lang-css.js"></script>
@@ -29,7 +29,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">helpers/util.js</h1>
+    <h1 class="page-title">models/user.js</h1>
     
 
     
@@ -40,71 +40,157 @@
     <section>
         <article>
             <pre class="prettyprint source linenums"><code>/**
- * @module lib/helpers/util
+ * @module models/user
  */
 
-let portrange = 45032;
+const mongoose = require('mongoose');
+const crypto = require('crypto');
+
+const Schema = mongoose.Schema;
+
+const UserSchema = new Schema({
+  _id: String,
+  username: String,
+  password: String,
+  token: String
+}, {
+  minimize: false,
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  }
+});
 
 /**
- * gets an open port
- * @method getPort
- * @param  {Function} callback - function(err, port) to be called when port is found
- * @param  {Function} callback - the callback function returns a valid port
+ * User definition
+ * @class {Object} User
+ * @property {String} username - a string that defines the user's accounts
+ * @property {String} password - a password for the user
+ * @property {String=} token - an access token
  */
-module.exports.getPort = function getPort(callback) {
-  const net = require('net');
+const User = mongoose.model('User', UserSchema);
 
-  var port = portrange += 1;
-  var server = net.createServer();
+/**
+ * middleware to verify the username and token are valid, will then set the user to req.user
+ * @function authenticate
+ * @param {Object} req - express request
+ * @param {Object} res - express response
+ * @param {Function} next - callback to go to next middleware
+ */
+module.exports.authenticate = function authenticate(req, res, next) {
+  const { headers } = req;
+  const username = headers['x-deploy-username'];
+  const token = headers['x-deploy-token'];
+  if(!username &amp;&amp; !token) {
+    res.status(500).send({ error: 'authentication necessary' });
+  }
 
-  server.listen(port, function() {
-    server.once('close', function() {
-      callback(null, port);
+  User.findOne({
+    _id: username,
+    token
+  }, function(err, user) {
+    if(err || !user) return res.status(500).send({ error: 'not authenticated' });
+    req.user = {
+      username: user.username,
+      token: user.token,
+      depoyments: user.deployments
+    };
+    next();
+  });
+};
+
+/**
+ * logs out a user by deleting their token
+ * @method logout
+ * @param  {String} token      - the token associated with the username
+ * @param  {String} username   - the username of the user
+ * @return {Promise}
+ */
+module.exports.logout = function logout({ token, username }) {
+  return new Promise(function(resolve, reject) {
+    User.findOne({
+      _id: username,
+      token
+    }, function(err, user) {
+      if(err || !user) return reject('token and username not valid');
+      user.token = '';
+      user.save((err) => {
+        if(err) return reject('erro removing token from the database');
+        return resolve();
+      });
     });
-    server.close();
-  });
-  server.on('error', function() {
-    getPort(callback);
   });
 };
 
 /**
- * gets a lowercase random string with specified length
- * @method hash
- * @param  {Number} length - the specified length of the random string
- * @return {String}
+ * logs in a user and returns
+ * @method login
+ * @param  {String} username - the username of the user who is logging in
+ * @param  {String} password - the password associated with the user
+ * @return {Promise}
  */
-const possible = "abcdefghijklmnopqrstuvwxyz0123456789";
-
-module.exports.hash = function hash(length) {
-  let text = "";
-
-  for (let i = 0; i &lt; length; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-
-  return text;
+module.exports.login = function login({ username, password }) {
+  return new Promise(function(resolve, reject) {
+    User.findOne({
+      _id: username,
+      password: crypto.createHash('sha256').update(password).digest('hex')
+    }, function(err, user) {
+      if(err || !user) return reject('password username combination not correct');
+      user.token = crypto.createHash('sha256').update(Date.now() + password + username).digest('hex');
+      user.save((err) => {
+        if(err) return reject('erro persisting token to database');
+        return resolve({
+          username: user.username,
+          token: user.token
+        });
+      });
+    });
+  });
 };
 
 /**
- * contains is a function that takes an array and see if the condition matches
- * @method contains
- * @param  {Array} arr      - array to check with rules
- * @param  {Array} contains - rules to make sure the arr contains the following
- * @return {Boolean}        - responds back with a boolean value
- * @example
- * contains(['index.html', 'main.css'], ['index.html', '!Dockerfile', '!package.json'])
+ * registers a user
+ * @method register
+ * @param  {String} username - the username of the user who is logging in
+ * @param  {String} password - the password associated with the user
+ * @return {Promise}
  */
-module.exports.contains = function contains(arr, contains) {
-  var conditions = [];
-  for(var i in contains) {
-    var key = contains[i].substring(0, 1) === '!' ? contains[i].substring(1, contains[i].length) : contains[i];
-    conditions.push(contains[i].substring(0, 1) === '!' ? arr.indexOf(key) === -1 : arr.indexOf(key) > -1);
-  }
-  if(conditions.indexOf(false) > -1) {
-    return false;
-  }
-  return true;
+module.exports.register = function register({ username, password }) {
+  return new Promise(function(resolve, reject) {
+    User.create({
+      _id: username,
+      username,
+      password: crypto.createHash('sha256').update(password).digest('hex'),
+      token: crypto.createHash('sha256').update(Date.now() + password + username).digest('hex')
+    }, function(error, user) {
+      if(error) return reject(error);
+      resolve({
+        username: user.username,
+        token: user.token,
+        depoyments: user.deployments
+      });
+    });
+  });
+};
+
+/**
+ * returns the user if token and username are valid
+ * @method get
+ * @param  {String} token      - the token associated with the username
+ * @param  {String} username   - the username of the user
+ * @return {Promise}
+ */
+module.exports.get = function get({ token, username }) {
+  return new Promise(function(resolve, reject) {
+      User.findOne({
+        _id: username,
+        token
+      }, function(err, user) {
+        if(err || !user) return reject('token is no longer valid');
+        return resolve(user);
+    });
+
+  });
 };
 </code></pre>
         </article>

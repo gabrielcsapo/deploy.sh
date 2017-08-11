@@ -10,6 +10,6 @@
 ![npm](https://img.shields.io/npm/dt/deploy.sh.svg)
 ![npm](https://img.shields.io/npm/dm/deploy.sh.svg)
 
-![Static Example](./docs/example-static.gif)
+![Static Example](https://github.com/gabrielcsapo/deploy.sh/blob/master/docs/example-static.gif?raw=true)
 
 To learn more visit [http://www.gabrielcsapo.com/deploy.sh/](http://www.gabrielcsapo.com/deploy.sh/)

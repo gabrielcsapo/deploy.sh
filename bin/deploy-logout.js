@@ -8,7 +8,7 @@ program
     .option('-u, --url [url]', 'The endpoint of the deploy.sh server', 'http://localhost:5000')
     .parse(process.argv);
 
-const { logout, getCredentials, saveCredentials } = require('../lib/helpers/cli')(process.env.URL);
+const { logout, getCredentials, cacheCredentials } = require('../lib/helpers/cli')(program.url);
 
 const spinner = ora(`Logging out of current session`).start();
 
@@ -26,17 +26,21 @@ Async.waterfall([
     const { token, username } = credentials;
 
     logout({ token, username })
-    .then(() => callback())
-    .catch((error) => callback(error, null));
+      .then(() => callback())
+      .catch((error) => callback(error, null));
   },
   function(callback) {
-    saveCredentials({ username: '', token: '' })
+    cacheCredentials({ username: '', token: '' })
       .then(() => callback())
-      .catch((ex) => callback(ex, null));
+      .catch((error) => callback(error, null));
   }
-], (ex) => {
-  if (ex) return console.error(`Logout failed 🙈 ${JSON.stringify({ // eslint-disable-line
-    ex
+], (error) => {
+  if (error === 'credentials not found') {
+    return spinner.warn('Already logged out');
+  }
+
+  if (error) return spinner.fail(`Logout failed 🙈 ${JSON.stringify({ // eslint-disable-line
+    error
   }, null, 4)}`);
 
   spinner.succeed('Logged out of session successfully');

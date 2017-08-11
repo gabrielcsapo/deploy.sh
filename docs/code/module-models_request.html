@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>helpers/util.js - Documentation</title>
+    <title>models/request - Documentation</title>
 
     <script src="scripts/prettify/prettify.js"></script>
     <script src="scripts/prettify/lang-css.js"></script>
@@ -29,86 +29,249 @@
 
 <div id="main">
     
-    <h1 class="page-title">helpers/util.js</h1>
+    <h1 class="page-title">models/request</h1>
     
 
     
 
 
 
+
+<section>
+
+<header>
     
-    <section>
-        <article>
-            <pre class="prettyprint source linenums"><code>/**
- * @module lib/helpers/util
- */
+        
+    
+</header>
 
-let portrange = 45032;
+<article>
+    <div class="container-overview">
+    
+        
 
-/**
- * gets an open port
- * @method getPort
- * @param  {Function} callback - function(err, port) to be called when port is found
- * @param  {Function} callback - the callback function returns a valid port
- */
-module.exports.getPort = function getPort(callback) {
-  const net = require('net');
+        
+    
+    </div>
 
-  var port = portrange += 1;
-  var server = net.createServer();
+    
 
-  server.listen(port, function() {
-    server.once('close', function() {
-      callback(null, port);
-    });
-    server.close();
-  });
-  server.on('error', function() {
-    getPort(callback);
-  });
-};
+    
 
-/**
- * gets a lowercase random string with specified length
- * @method hash
- * @param  {Number} length - the specified length of the random string
- * @return {String}
- */
-const possible = "abcdefghijklmnopqrstuvwxyz0123456789";
+    
+        <h3 class="subsection-title">Classes</h3>
 
-module.exports.hash = function hash(length) {
-  let text = "";
+        <dl>
+            <dt><a href="module-models_request-Request.html">Request</a></dt>
+            <dd></dd>
+        </dl>
+    
 
-  for (let i = 0; i &lt; length; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
+     
 
-  return text;
-};
+    
 
-/**
- * contains is a function that takes an array and see if the condition matches
- * @method contains
- * @param  {Array} arr      - array to check with rules
- * @param  {Array} contains - rules to make sure the arr contains the following
- * @return {Boolean}        - responds back with a boolean value
- * @example
- * contains(['index.html', 'main.css'], ['index.html', '!Dockerfile', '!package.json'])
- */
-module.exports.contains = function contains(arr, contains) {
-  var conditions = [];
-  for(var i in contains) {
-    var key = contains[i].substring(0, 1) === '!' ? contains[i].substring(1, contains[i].length) : contains[i];
-    conditions.push(contains[i].substring(0, 1) === '!' ? arr.indexOf(key) === -1 : arr.indexOf(key) > -1);
-  }
-  if(conditions.indexOf(false) > -1) {
-    return false;
-  }
-  return true;
-};
-</code></pre>
-        </article>
-    </section>
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="~log"><span class="type-signature">(inner) </span>log<span class="signature">(req, res, next)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    <p>express middleware that logs requests</p>
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="models_request.js.html">models/request.js</a>, <a href="models_request.js.html#line36">line 36</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>req</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>Object</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                <p>express request object</p>
+                
+            </td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>res</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>Object</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                <p>express response object</p>
+                
+            </td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>next</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>function</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                <p>callback function</p>
+                
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+        
+    
+
+    
+
+    
+</article>
+
+</section>
 
 
 

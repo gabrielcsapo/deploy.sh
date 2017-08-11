@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>helpers/util.js - Documentation</title>
+    <title>models/request.js - Documentation</title>
 
     <script src="scripts/prettify/prettify.js"></script>
     <script src="scripts/prettify/lang-css.js"></script>
@@ -29,7 +29,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">helpers/util.js</h1>
+    <h1 class="page-title">models/request.js</h1>
     
 
     
@@ -40,71 +40,69 @@
     <section>
         <article>
             <pre class="prettyprint source linenums"><code>/**
- * @module lib/helpers/util
+ * @module models/request
  */
 
-let portrange = 45032;
+const mongoose = require('mongoose');
+
+const Schema = mongoose.Schema;
+
+const RequestSchema = new Schema({
+  hostname: String,
+  url: String,
+  time: Number,
+  userAgent: String,
+  referer: String,
+  acceptLanguage: String
+}, {
+  minimize: false,
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  }
+});
 
 /**
- * gets an open port
- * @method getPort
- * @param  {Function} callback - function(err, port) to be called when port is found
- * @param  {Function} callback - the callback function returns a valid port
+ * Request definition
+ * @class {Object} Request
+ * @property {String} hostname - the hostname of the request
+ * @property {String} url - the url that was being accessed
+ * @property {Number} time - the time it took to access the resource
+ * @property {String} userAgent - the userAgent that access the resource
+ * @property {String} referer - the referer that the user was at before accessing the address
+ * @property {String} acceptLanguage - browser based language preferences
  */
-module.exports.getPort = function getPort(callback) {
-  const net = require('net');
+const Request = mongoose.model('Request', RequestSchema);
 
-  var port = portrange += 1;
-  var server = net.createServer();
+/**
+ * express middleware that logs requests
+ * @method log
+ * @param  {Object}   req  - express request object
+ * @param  {Object}   res  - express response object
+ * @param  {Function} next - callback function
+ */
+module.exports.log = function log(req, res, next) {
+  const { url, headers } = req;
+  const { host } = headers;
 
-  server.listen(port, function() {
-    server.once('close', function() {
-      callback(null, port);
+  const hostname = host.split('.')[0];
+  const startAt = process.hrtime();
+
+  res.on('finish', () => {
+    const diff = process.hrtime(startAt);
+    const time = diff[0] * 1e3 + diff[1] * 1e-6;
+
+    Request.create({
+      url,
+      time,
+      hostname,
+      userAgent: headers['user-agent'],
+      referer: headers['referer'],
+      acceptLanguage: headers['accept-language']
     });
-    server.close();
   });
-  server.on('error', function() {
-    getPort(callback);
-  });
-};
 
-/**
- * gets a lowercase random string with specified length
- * @method hash
- * @param  {Number} length - the specified length of the random string
- * @return {String}
- */
-const possible = "abcdefghijklmnopqrstuvwxyz0123456789";
-
-module.exports.hash = function hash(length) {
-  let text = "";
-
-  for (let i = 0; i &lt; length; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-
-  return text;
-};
-
-/**
- * contains is a function that takes an array and see if the condition matches
- * @method contains
- * @param  {Array} arr      - array to check with rules
- * @param  {Array} contains - rules to make sure the arr contains the following
- * @return {Boolean}        - responds back with a boolean value
- * @example
- * contains(['index.html', 'main.css'], ['index.html', '!Dockerfile', '!package.json'])
- */
-module.exports.contains = function contains(arr, contains) {
-  var conditions = [];
-  for(var i in contains) {
-    var key = contains[i].substring(0, 1) === '!' ? contains[i].substring(1, contains[i].length) : contains[i];
-    conditions.push(contains[i].substring(0, 1) === '!' ? arr.indexOf(key) === -1 : arr.indexOf(key) > -1);
-  }
-  if(conditions.indexOf(false) > -1) {
-    return false;
-  }
-  return true;
+  next();
 };
 </code></pre>
         </article>

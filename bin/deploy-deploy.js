@@ -52,10 +52,10 @@ Async.waterfall([
       .then(() => callback(null, project))
       .catch((error) => callback(error, null));
   }
-], (ex, project) => {
+], (ex, deployment) => {
   if (ex) return spinner.fail(`Deployment failed 🙈 ${JSON.stringify({
     ex
   }, null, 4)}`);
 
-  spinner.succeed(`Upload successfully, http://${project.id}.localhost:5000`);
+  spinner.succeed(`Upload successfully, http://${deployment.subdomain}.localhost:5000`);
 });

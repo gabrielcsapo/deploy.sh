@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>lib/helpers/util - Documentation</title>
+    <title>models/deployment - Documentation</title>
 
     <script src="scripts/prettify/prettify.js"></script>
     <script src="scripts/prettify/lang-css.js"></script>
@@ -29,7 +29,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">lib/helpers/util</h1>
+    <h1 class="page-title">models/deployment</h1>
     
 
     
@@ -59,6 +59,13 @@
     
 
     
+        <h3 class="subsection-title">Classes</h3>
+
+        <dl>
+            <dt><a href="module-models_deployment-Deployment.html">Deployment</a></dt>
+            <dd></dd>
+        </dl>
+    
 
      
 
@@ -75,14 +82,14 @@
 
     
 
-    <h4 class="name" id="~contains"><span class="type-signature">(inner) </span>contains<span class="signature">(arr, contains)</span><span class="type-signature"> &rarr; {Boolean}</span></h4>
+    <h4 class="name" id="~getDeployments"><span class="type-signature">(inner) </span>getDeployments<span class="signature">(options)</span><span class="type-signature"> &rarr; {Promise}</span></h4>
 
     
 
 
 
 <div class="description">
-    <p>contains is a function that takes an array and see if the condition matches</p>
+    <p>gets a specific deployment if name is passed or all deployments for the specified user</p>
 </div>
 
 
@@ -118,7 +125,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line48">line 48</a>
+        <a href="models_deployment.js.html">models/deployment.js</a>, <a href="models_deployment.js.html#line107">line 107</a>
     </li></ul></dd>
     
 
@@ -162,13 +169,13 @@
 
         <tr>
             
-                <td class="name"><code>arr</code></td>
+                <td class="name"><code>options</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><code>Array</code></span>
+<span class="param-type"><code>Object</code></span>
 
 
             
@@ -179,7 +186,62 @@
             
 
             <td class="description last">
-                <p>array to check with rules</p>
+                
+                
+                    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">
+                <p>the name of the deployment</p>
                 
             </td>
         </tr>
@@ -188,24 +250,74 @@
 
         <tr>
             
-                <td class="name"><code>contains</code></td>
+                <td class="name"><code>token</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><code>Array</code></span>
+<span class="param-type"><code>String</code></span>
 
 
             
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
 
             
 
             <td class="description last">
-                <p>rules to make sure the arr contains the following</p>
+                <p>the token for the user who owns the deployment</p>
+                
+            </td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>username</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">
+                <p>the username associated with this deployment</p>
+                
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
                 
             </td>
         </tr>
@@ -238,30 +350,17 @@
     </dt>
     <dd>
         
-<span class="param-type"><code>Boolean</code></span>
+<span class="param-type"><code>Promise</code></span>
 
 
     </dd>
 </dl>
 
 
-<div class="param-desc">
-    <ul>
-<li>responds back with a boolean value</li>
-</ul>
-</div>
-
     
 </div>
 
 
-
-<div class="section-examples">
-<h5>Example</h5>
-
-    <pre class="prettyprint"><code>contains(['index.html', 'main.css'], ['index.html', '!Dockerfile', '!package.json'])</code></pre>
-
-</div>
 
 </div>
         
@@ -270,14 +369,14 @@
 
     
 
-    <h4 class="name" id="~getPort"><span class="type-signature">(inner) </span>getPort<span class="signature">(callback, callback)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="~getProxy"><span class="type-signature">(inner) </span>getProxy<span class="signature">(subdomain)</span><span class="type-signature"> &rarr; {Promise}</span></h4>
 
     
 
 
 
 <div class="description">
-    <p>gets an open port</p>
+    <p>gets the port for the requested subdomain</p>
 </div>
 
 
@@ -313,7 +412,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line7">line 7</a>
+        <a href="models_deployment.js.html">models/deployment.js</a>, <a href="models_deployment.js.html#line88">line 88</a>
     </li></ul></dd>
     
 
@@ -357,13 +456,13 @@
 
         <tr>
             
-                <td class="name"><code>callback</code></td>
+                <td class="name"><code>subdomain</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><code>function</code></span>
+<span class="param-type"><code>String</code></span>
 
 
             
@@ -374,168 +473,7 @@
             
 
             <td class="description last">
-                <p>function(err, port) to be called when port is found</p>
-                
-            </td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>callback</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type"><code>function</code></span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">
-                <p>the callback function returns a valid port</p>
-                
-            </td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-</div>
-        
-            
-<div class="section-method">
-
-    
-
-    <h4 class="name" id="~hash"><span class="type-signature">(inner) </span>hash<span class="signature">(length)</span><span class="type-signature"> &rarr; {String}</span></h4>
-
-    
-
-
-
-<div class="description">
-    <p>gets a lowercase random string with specified length</p>
-</div>
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="helpers_util.js.html">helpers/util.js</a>, <a href="helpers_util.js.html#line30">line 30</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>length</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type"><code>Number</code></span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">
-                <p>the specified length of the random string</p>
+                <p>the subdomain for the application being requested</p>
                 
             </td>
         </tr>
@@ -568,7 +506,292 @@
     </dt>
     <dd>
         
+<span class="param-type"><code>Promise</code></span>
+
+
+    </dd>
+</dl>
+
+
+    
+</div>
+
+
+
+</div>
+        
+            
+<div class="section-method">
+
+    
+
+    <h4 class="name" id="~updateDeployments"><span class="type-signature">(inner) </span>updateDeployments<span class="signature">(options)</span><span class="type-signature"> &rarr; {Promise}</span></h4>
+
+    
+
+
+
+<div class="description">
+    <p>[updateDeployments description]</p>
+</div>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="models_deployment.js.html">models/deployment.js</a>, <a href="models_deployment.js.html#line39">line 39</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>Object</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                
+                
+                    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
 <span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                <p>the name of the deployment</p>
+                
+            </td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>token</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                <p>the token for the user who owns the deployment</p>
+                
+            </td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>username</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                <p>the username associated with this deployment</p>
+                
+            </td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>deployment</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>Deployment</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                <p>a deployment model that contains the updates that will be applied</p>
+                
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+                
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="section-returns">
+<h5>Returns:</h5>
+
+        
+
+<dl class="param-type">
+    <dt>
+        Type:
+    </dt>
+    <dd>
+        
+<span class="param-type"><code>Promise</code></span>
 
 
     </dd>
