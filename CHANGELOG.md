@@ -1,5 +1,6 @@
 # Unreleased
 
+- adds caching to static-server 
 - abstract models into their own files and their own collections
 - fixes the middleware request logger
 - fixes CLI responses
