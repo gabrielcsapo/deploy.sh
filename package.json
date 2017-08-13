@@ -7,7 +7,7 @@
     "test": "tap test/index.js test/lib",
     "coverage": "tap test/index.js test/lib --coverage --coverage-report=lcov",
     "lint": "eslint .",
-    "start": "node lib/server.js",
+    "start": "node index.js",
     "generate-docs": "jsdoc -c jsdoc.json"
   },
   "repository": {

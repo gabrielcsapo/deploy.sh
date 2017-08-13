@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>classifier.js - Documentation</title>
+    <title>Deployment - Documentation</title>
 
     <script src="scripts/prettify/prettify.js"></script>
     <script src="scripts/prettify/lang-css.js"></script>
@@ -29,75 +29,318 @@
 
 <div id="main">
     
-    <h1 class="page-title">classifier.js</h1>
+    <h1 class="page-title">Deployment</h1>
     
 
     
 
 
 
+
+<section>
+
+<header>
     
-    <section>
-        <article>
-            <pre class="prettyprint source linenums"><code>const fs = require('fs');
-const path = require('path');
+        <h2>
+            <span class="ancestors"><a href="module-models_deployment.html">models/deployment</a>.</span>
+        
+        Deployment
+        </h2>
+        
+            <div class="class-description"><p>{Object} Deployment</p></div>
+        
+    
+</header>
 
-const { contains } = require('./helpers/util');
+<article>
+    <div class="container-overview">
+    
+        
+<div class="section-method">
 
-/**
- * classifies what type of deployment is needed for a certain directory
- * @module lib/classifier
- * @param  {String}   directory - the directory of which to classify
- * @return {Object}   the configuration needed to deploy
- */
-module.exports = function classifier(directory) {
-  const files = fs.readdirSync(directory);
-  
-  if(contains(files, ['Dockerfile'])) {
-    let build = fs.readFileSync(path.resolve(directory, 'Dockerfile')).toString('utf8');
-    build = build.replace(/\$\{directory\}/, directory);
+    
+    <h2>Constructor</h2>
+    
 
-    return {
-      type: 'docker',
-      build
-    };
-  }
+    <h4 class="name" id="Deployment"><span class="type-signature"></span>new Deployment<span class="signature">()</span><span class="type-signature"></span></h4>
 
-  if(contains(files, ['package.json'])) {
-    return {
-      type: 'node',
-      build: `
-        FROM mhart/alpine-node:8
-        WORKDIR ${directory}
-        ADD . .
+    
 
-        RUN npm install
 
-        CMD ["npm", "start"]
-      `
-    };
-  }
 
-  if(contains(files, ['index.html', '!Dockerfile', '!package.json'])) {
-    return {
-      type: 'static',
-      build: `
-        FROM mhart/alpine-node:base-8
-        WORKDIR ${directory}
-        ADD . .
+<div class="description">
+    <p>Deployment definition</p>
+</div>
 
-        CMD ["node", "index.js"]
-      `
-    };
-  }
 
-  return {
-    type: 'unknown'
-  };
-};
-</code></pre>
-        </article>
-    </section>
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the container id</p></td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the name of the deployment</p></td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>port</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>Number</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the port that the container has exposed</p></td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>subdomain</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the subdomain of the application</p></td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>directory</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the directory of tared application</p></td>
+        </tr>
+
+        
+
+    
+
+        <tr>
+            
+                <td class="name"><code>username</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><code>String</code></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the username who owns the deployment</p></td>
+        </tr>
+
+        
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="models_deployment.js.html">models/deployment.js</a>, <a href="models_deployment.js.html#line47">line 47</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    
+    </div>
+
+    
+
+    
+
+    
+
+     
+
+    
+
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
 
 
 

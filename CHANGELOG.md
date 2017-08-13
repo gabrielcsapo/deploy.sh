@@ -1,6 +1,12 @@
-# Unreleased
+# 0.1.0
 
-- adds caching to static-server 
+- adds api and cli action to be able retrieve logs
+- deals with cleaning up old images
+- deletes image and container when application is being redeployed
+- further consolidates deployment logic into the deployment model
+- starts up containers from cold start
+- shuts down containers when process is closing
+- adds caching to static-server
 - abstract models into their own files and their own collections
 - fixes the middleware request logger
 - fixes CLI responses

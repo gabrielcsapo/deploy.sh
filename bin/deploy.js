@@ -16,5 +16,6 @@ program
   .command('login', 'login to access deploy and deployment functionality')
   .command('logout', 'logout and invalidate token')
   .command('open [project]', 'open the deployment instance in the browser')
+  .command('logs [project]', 'shows the logs for the specificed project')
   .command('server', 'starts a server instance locally')
   .parse(process.argv);
