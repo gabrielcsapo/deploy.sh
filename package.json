@@ -1,6 +1,6 @@
 {
   "name": "deploy.sh",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "☁️ open source continuous deployment service",
   "main": "index.js",
   "scripts": {
@@ -8,7 +8,20 @@
     "coverage": "tap test/index.js test/lib --coverage --coverage-report=lcov",
     "lint": "eslint .",
     "start": "node index.js",
+    "pack": "pkg bin/deploy.js -c package.json -o packed/deploy",
     "generate-docs": "jsdoc -c jsdoc.json"
+  },
+  "pkg": {
+    "scripts": [
+      "bin/*",
+      "lib/**/*"
+    ],
+    "targets": [
+      "node8-alpine-x64",
+      "node8-linux-x64",
+      "node8-macos-x64",
+      "node8-win-x64"
+    ]
   },
   "repository": {
     "type": "git",

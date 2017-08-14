@@ -1,5 +1,6 @@
-# Unreleased
+# 0.1.1 (08/13/2017)
 
+- now is packaged as a universal binary
 - fixes failure when no logs are retrieved from server
 
 # 0.1.0 (08/13/2017)
