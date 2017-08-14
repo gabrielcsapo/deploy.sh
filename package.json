@@ -1,6 +1,6 @@
 {
   "name": "deploy.sh",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "☁️ open source continuous deployment service",
   "main": "index.js",
   "scripts": {

@@ -38,11 +38,15 @@ Async.waterfall([
   spinner.stop();
   const { logs } = result;
 
-  console.log( // eslint-disable-line
-    logs.map((l) => {
-      let log = l.split(' ');
-      log.unshift('-');
-      return log.join(' ');
-    }).join('')
-  );
+  if(logs) {
+    console.log( // eslint-disable-line
+      logs.map((l) => {
+        let log = l.split(' ');
+        log.unshift('-');
+        return log.join(' ');
+      }).join('')
+    );
+  } else {
+    console.log('no logs available 🙈'); // eslint-disable-line
+  }
 });

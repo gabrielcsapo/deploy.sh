@@ -1,4 +1,8 @@
-# 0.1.0
+# Unreleased
+
+- fixes failure when no logs are retrieved from server
+
+# 0.1.0 (08/13/2017)
 
 - adds api and cli action to be able retrieve logs
 - deals with cleaning up old images
