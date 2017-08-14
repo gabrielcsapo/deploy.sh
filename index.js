@@ -1,6 +1,12 @@
+const Async = require('async');
 const mongoose = require('mongoose');
+const ora = require('ora');
 
-mongoose.connect('mongodb://localhost/deploy-sh');
+const spinner = ora('Starting up deploy.sh server').start();
+const { start, stop } = require('./lib/models/deployment');
+
+let running = true;
+
 mongoose.Promise = global.Promise;
 
 process.on('unhandledRejection', (err, p) => {
@@ -9,49 +15,55 @@ process.on('unhandledRejection', (err, p) => {
   console.log(`Rejection: ${err}`); // eslint-disable-line
 });
 
-const { start, stop } = require('./lib/models/deployment');
+Async.waterfall([
+  function(callback) {
+    spinner.text = 'Connecting to mongo';
 
-console.log('starting up deployments'); // eslint-disable-line
-start({})
- .then((deployments) => {
-   console.log( // eslint-disable-line
-     `
-     started ${deployments.length} deployment(s) successfully
-     `
-   );
-   require('./lib/server');
- })
- .catch((ex) => {
-   console.log( // eslint-disable-line
-     `
-     error on startup:
-     ${ex}
-     `
-   );
-   require('./lib/server');
- });
+    mongoose.connect('mongodb://localhost/deploy-sh', { useMongoClient: true })
+      .then(() => callback())
+      .catch(err => callback(err));
+  },
+  function(callback) {
+    spinner.text = 'Starting existing applications';
+    start({})
+     .then((deployments) => callback(null, deployments))
+     .catch((ex) => callback(ex));
+  }
+], (error, deployments) => {
+  if(error) {
+    spinner.fail(`
+      Error on startup:
+      ${error}
+    `);
+  } else {
+    spinner.succeed(`Started ${deployments.length} deployment(s) successfully`);
+  }
+  return require('./lib/server');
+});
 
 function shutdown() {
-  console.log('shutting down deployments'); // eslint-disable-line
-  stop({})
-    .then((deployments) => {
-      console.log( // eslint-disable-line
-        `
-        shutdown ${deployments.length} deployment(s) successfully
-        `
-      );
-      process.exit();
-    })
-    .catch((ex) => {
+  if(!running) return;
+  running = false;
+  const spinner = ora('Shutting down up deploy.sh server').start();
 
-      console.log( // eslint-disable-line
-        `
-          error on shutdown:
-          ${ex}
-        `
-      );
-      process.exit();
-    });
+  Async.waterfall([
+    function(callback) {
+      spinner.text = 'Stopping deployments';
+      stop({})
+        .then((deployments) => callback(null, deployments))
+        .catch((error) => callback(error));
+    }
+  ], (error, deployments) => {
+    if(error) {
+      spinner.fail(`
+        Error on shutdown:
+        ${error}
+      `);
+    } else {
+      spinner.succeed(`Shutdown ${deployments.length} deployment(s) successfully`);
+    }
+    process.exit(0);
+  });
 }
 
 process.on('SIGTERM', shutdown);

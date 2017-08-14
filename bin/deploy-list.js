@@ -55,6 +55,7 @@ Async.waterfall([
       table.cell('name', r.name);
       table.cell('url', url);
       table.cell('age', moment(r.updated_at).fromNow());
+      table.cell('requests', r.requests);
       table.newRow();
     });
     table.sort('age|asc');

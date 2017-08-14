@@ -1,3 +1,11 @@
+# 0.2.0 (08/14/2017)
+
+- deployment model now contains amount of requests
+- stops overloading Deployment.get and breaks out functionality into Deployment.get and Deployment.getAll
+- the request model now captures the http verb associated with the request
+- now captures statusCode for responses in the request model
+- startup and shutdown is now coordinated and less prone to breaking
+
 # 0.1.1 (08/13/2017)
 
 - now is packaged as a universal binary

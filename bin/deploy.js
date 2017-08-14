@@ -10,7 +10,7 @@ updateNotifier({pkg}).notify();
 program
   .version(pkg.version)
   .command('deploy', 'deploy the current directory', { isDefault: true })
-  .command('list', 'list depoyments')
+  .command('list', 'list depoyments').alias('ls')
   .command('register', 'register a user account')
   .command('whoami', 'shows the current logged in user\'s details')
   .command('login', 'login to access deploy and deployment functionality')
