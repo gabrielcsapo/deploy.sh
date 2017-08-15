@@ -17,5 +17,6 @@ program
   .command('logout', 'logout and invalidate token')
   .command('open [project]', 'open the deployment instance in the browser')
   .command('logs [project]', 'shows the logs for the specificed project')
+  .command('delete [project]', 'deletes the deployment instance').alias('rm')
   .command('server', 'starts a server instance locally')
   .parse(process.argv);

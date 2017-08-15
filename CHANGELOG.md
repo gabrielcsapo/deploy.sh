@@ -1,3 +1,7 @@
+# UNRELEASED
+
+- adds the ability to delete deployment and its assets 
+
 # 0.2.0 (08/14/2017)
 
 - deployment model now contains amount of requests
