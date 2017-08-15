@@ -1,6 +1,7 @@
 # UNRELEASED
 
-- adds the ability to delete deployment and its assets 
+- adds the ability to delete deployment and its assets
+- be able to get container status by querying the container on the get call (add to decorator function) is now visible when running (deploy ls) as a status column
 
 # 0.2.0 (08/14/2017)
 
