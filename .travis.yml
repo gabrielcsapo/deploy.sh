@@ -1,9 +1,9 @@
 language: node_js
 script:
-  - npm install node-coverage-server
+  - npm install lcov-server
   - npm run lint
   - npm test
   - npm run coverage
-  - cat coverage/lcov.info | node-coverage-cli --url https://node-coverage-server.herokuapp.com
+  - cat coverage/lcov.info | lcov-server --upload https://node-coverage-server.herokuapp.com
 node_js:
   - "8"
