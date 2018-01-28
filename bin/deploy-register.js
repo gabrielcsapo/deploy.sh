@@ -1,58 +1,40 @@
 #!/usr/bin/env node
 
-const Async = require('async');
 const inquirer = require('inquirer');
 
-const program = require('commander');
-program
-    .option('-u, --url [url]', 'The endpoint of the deploy.sh server', 'http://localhost:5000')
-    .parse(process.argv);
-
-const { cacheCredentials, register } = require('../lib/helpers/cli')(program.url);
-
-Async.waterfall([
-  function(callback) {
-    inquirer.prompt([
-      {
-        name: 'username',
-        type: 'input',
-        message: 'Enter a valid e-mail address:',
-        validate: function( value ) {
-          if (value.length > 0 && value.indexOf('@') > -1 && value.indexOf('.') > -1) {
-            return true;
-          } else {
-            return 'Please enter a valid e-mail address';
-          }
-        }
-      },
-      {
-        name: 'password',
-        type: 'password',
-        message: 'Enter a password:',
-        mask: true,
-        validate: function(value) {
-          if (value.length) {
-            return true;
-          } else {
-            return 'Please enter a password';
-          }
+module.exports = async function(cli, spinner) {
+  spinner.stop();
+  
+  const { username, password } = await inquirer.prompt([
+    {
+      name: 'username',
+      type: 'input',
+      message: 'Enter a valid e-mail address:',
+      validate: function( value ) {
+        if (value.length > 0 && value.indexOf('@') > -1 && value.indexOf('.') > -1) {
+          return true;
+        } else {
+          return 'Please enter a valid e-mail address';
         }
       }
-    ])
-    .then((credentials) => {
-      const { username, password } = credentials;
-      register({ username, password })
-        .then((credentials) => {
-          return cacheCredentials(credentials);
-        })
-        .then((credentials) => callback(null, credentials));
-    })
-    .catch((err) => callback(err, null));
-  }
-], (ex, result) => {
-  if (ex) return console.error(`Register failed 🙈 ${JSON.stringify({ // eslint-disable-line
-    ex
-  }, null, 4)}`);
+    },
+    {
+      name: 'password',
+      type: 'password',
+      message: 'Enter a password:',
+      mask: true,
+      validate: function(value) {
+        if (value.length) {
+          return true;
+        } else {
+          return 'Please enter a password';
+        }
+      }
+    }
+  ]);
 
-  console.log(`registered as ${result.username}`); // eslint-disable-line
-});
+  const credentials = await cli.register({ username, password });
+  await cli.cacheCredentials(credentials);
+
+  console.log(`registered as ${credentials.username}`); // eslint-disable-line
+};

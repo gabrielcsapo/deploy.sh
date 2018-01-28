@@ -1,61 +1,31 @@
 #!/usr/bin/env node
 
-const Async = require('async');
 const fs = require('fs');
 const path = require('path');
-const ora = require('ora');
 
-const program = require('commander');
-program
-    .option('-u, --url [url]', 'The endpoint of the deploy.sh server', 'http://localhost:5000')
-    .parse(process.argv);
+module.exports = async function(cli, spinner) {
+  spinner.text = 'Creating application bundle';
 
-const { removeBundle, createBundle, uploadBundle, getCredentials } = require('../lib/helpers/cli')(program.url);
+  await cli.createBundle(process.cwd());
 
-const spinner = ora(`Starting deploy process`).start();
+  spinner.text = 'Getting deploy keys';
 
-Async.waterfall([
-  function(callback) {
-    spinner.text = 'Creating application bundle';
+  const { token, username } = await cli.getCredentials();
 
-    createBundle(process.cwd())
-      .then(() => callback(null))
-      .catch((ex) => callback(ex, null));
-  },
-  function(callback) {
-    spinner.text = 'Getting deploy keys';
+  spinner.text = 'Uploading application bundle';
 
-    getCredentials()
-      .then((credentials) => callback(null, credentials))
-      .catch((ex) => callback(ex, null));
-  },
-  function(credentials, callback) {
-    spinner.start();
-    spinner.text = 'Uploading application bundle';
+  const bundle = fs.createReadStream(path.resolve(process.cwd(), 'bundle.tgz'));
 
-    const { token, username } = credentials;
-    const bundle = fs.createReadStream(path.resolve(process.cwd(), 'bundle.tgz'));
+  const { deployment } = await cli.uploadBundle({
+    name: path.basename(process.cwd()),
+    bundle,
+    token,
+    username
+  });
 
-    uploadBundle({
-      name: path.basename(process.cwd()),
-      bundle,
-      token,
-      username
-    })
-      .then((response) => callback(null, response))
-      .catch((error) => callback(error, null));
-  },
-  function(project, callback) {
-    spinner.text = 'Cleaning up local files';
+  spinner.text = 'Cleaning up local files';
 
-    removeBundle(process.cwd())
-      .then(() => callback(null, project))
-      .catch((error) => callback(error, null));
-  }
-], (ex, deployment) => {
-  if (ex) return spinner.fail(`Deployment failed 🙈 ${JSON.stringify({
-    ex
-  }, null, 4)}`);
+  await cli.removeBundle(process.cwd());
 
   spinner.succeed(`Upload successfully, http://${deployment.subdomain}.localhost:5000`);
-});
+};

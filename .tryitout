@@ -1,0 +1,48 @@
+module.exports = {
+    title: 'deploy.sh',
+    nav: {
+      Source: 'https://github.com/gabrielcsapo/deploy.sh',
+      Docs: './code/index.html'
+    },
+    body: `
+      <div>
+        <div class="main">
+          <div>
+            <div id="example-area">
+              <img class="logo" src="./logo.png"/>
+              <br/>
+              <blockquote> an open source continuous deployment service; deploying to the ☁️ shouldn't be 🚀🔬 </blockquote>
+              <pre id="install"></pre>
+            </div>
+
+            <div class="platforms">
+              <div class="platform">
+                <h3 id="docker">Docker</h3>
+                <div class="code"><span>$ my-app/</span> ls<br><b>Dockerfile</b> server.go<br><span>$ my-app/</span> deploy</div>
+              </div>
+              <div class="platform">
+                <h3 id="node">Node.js</h3>
+                <div class="code"><span>$ my-api/</span> ls<br><b>package.json</b> index.js<br><span>$ my-api/</span> deploy</div>
+              </div>
+              <div class="platform">
+                <h3 id="static">Static Websites</h3>
+                <div class="code"><span>$ my-site/</span> ls<br><b>index.html</b> logo.png<br><span>$ my-site/</span> deploy</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `,
+    template: 'landing',
+    options: {
+      width: '100%'
+    },
+    output: './docs',
+    footer: `
+      <div class="text-black">Made with ☕️ by <a href="https://www.gabrielcsapo.com">@gabrielcsapo</a></div>
+    `,
+    externals: [,
+      "./docs/main.css",
+      "./docs/main.js"
+    ]
+};

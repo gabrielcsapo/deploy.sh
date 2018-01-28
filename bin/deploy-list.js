@@ -1,68 +1,32 @@
 #!/usr/bin/env node
 
-const Async = require('async');
-const ora = require('ora');
 const moment = require('moment');
 const Url = require('url');
-const Table = require('easy-table');
+const Table = require('turtler');
 
-const program = require('commander');
-program
-    .option('-u, --url [url]', 'The endpoint of the deploy.sh server', 'http://localhost:5000')
-    .parse(process.argv);
+module.exports = async function(cli, spinner) {
+  spinner.text = 'Getting deployment list';
 
-const { getDeployments, getCredentials } = require('../lib/helpers/cli')(program.url);
-
-const spinner = ora(`Getting deployment list`).start();
-
-Async.waterfall([
-  function(callback) {
-    spinner.text = 'Getting deploy keys';
-
-    getCredentials()
-      .then((credentials) => callback(null, credentials))
-      .catch((ex) => callback(ex, null));
-  },
-  function(credentials, callback) {
-    spinner.text = 'Calling list API';
-
-    const { token, username } = credentials;
-
-    getDeployments({
-      token,
-      username
-    })
-    .then((response) => callback(null, response))
-    .catch((error) => callback(error, null));
-  }
-], (ex, result) => {
-  if (ex) return spinner.fail(`API call failed 🙈 ${JSON.stringify({
-    ex
-  }, null, 4)}`);
+  const { token, username } = await cli.getCredentials();
+  const { deployments } = await cli.getDeployments({ token, username });
 
   spinner.stop();
 
-  const { deployments } = result;
-
   if(deployments.length > 0) {
-    var table = new Table();
+    let data = [["name", "url", "age", "requests", "status"]];
 
-    deployments.forEach((r) => {
-      const config = Url.parse(program.url);
+    deployments.forEach((r, i) => {
+      const config = Url.parse(cli.url);
       config.host = `${r.subdomain}.${config.host}`;
       const url = Url.format(config);
 
-      table.cell('name', r.name);
-      table.cell('url', url);
-      table.cell('age', moment(r.updated_at).fromNow());
-      table.cell('requests', r.requests);
-      table.cell('status', r.status);
-      table.newRow();
+      data[i + 1] = [r.name, url, moment(r.updated_at).fromNow(), r.requests.toString(), r.status];
     });
-    table.sort('age|asc');
 
-    console.log(table.toString()); // eslint-disable-line
+    let table = new Table(data);
+
+    console.log(table.markdown()); // eslint-disable-line
   } else {
     console.log('0 deployments found'); // eslint-disable-line
   }
-});
+};

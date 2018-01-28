@@ -1,69 +1,54 @@
-const Async = require('async');
-const mongoose = require('mongoose');
 const ora = require('ora');
-
-const spinner = ora('Starting up deploy.sh server').start();
+const mongoose = require('mongoose');
 const { start, stop } = require('./lib/models/deployment');
 
 let running = true;
 
 mongoose.Promise = global.Promise;
 
-process.on('unhandledRejection', (err, p) => {
-  console.log('An unhandledRejection occurred'); // eslint-disable-line
-  console.log(`Rejected Promise: ${p}`); // eslint-disable-line
-  console.log(`Rejection: ${err}`); // eslint-disable-line
-});
+module.exports = async function(cli, spinner) {
+  try {
+    spinner.text = 'Starting up deploy.sh server';
 
-Async.waterfall([
-  function(callback) {
     spinner.text = 'Connecting to mongo';
+    await mongoose.connect(cli.mongo, { useMongoClient: true });
 
-    mongoose.connect('mongodb://localhost/deploy-sh', { useMongoClient: true })
-      .then(() => callback())
-      .catch(err => callback(err));
-  },
-  function(callback) {
     spinner.text = 'Starting existing applications';
-    start({})
-     .then((deployments) => callback(null, deployments))
-     .catch((ex) => callback(ex));
-  }
-], (error, deployments) => {
-  if(error) {
-    spinner.fail(`
-      Error on startup:
-      ${error}
-    `);
-  } else {
-    spinner.succeed(`Started ${deployments.length} deployment(s) successfully`);
-  }
-  return require('./lib/server');
-});
+    const deployments = await start({});
 
-function shutdown() {
+    spinner.succeed(`Started ${deployments ? deployments.length : 0} deployment(s) successfully`);
+
+    return require('./lib/server');
+  } catch(ex) {
+    if(ex.message.indexOf('HTTP code 304') > -1 || ex.message.indexOf('(HTTP code 404) no such container') > -1) {
+      spinner.warn(`Services already started`);
+
+      return require('./lib/server');
+    }
+    throw new Error(ex);
+  }
+};
+
+async function shutdown() {
   if(!running) return;
   running = false;
+
   const spinner = ora('Shutting down up deploy.sh server').start();
 
-  Async.waterfall([
-    function(callback) {
-      spinner.text = 'Stopping deployments';
-      stop({})
-        .then((deployments) => callback(null, deployments))
-        .catch((error) => callback(error));
-    }
-  ], (error, deployments) => {
-    if(error) {
-      spinner.fail(`
-        Error on shutdown:
-        ${error}
-      `);
-    } else {
-      spinner.succeed(`Shutdown ${deployments.length} deployment(s) successfully`);
-    }
+  try {
+    spinner.text = 'Stopping deployments';
+    const deployments = await stop({});
+
+    spinner.succeed(`Shutdown ${deployments ? deployments.length : 0} deployment(s) successfully`);
+
     process.exit(0);
-  });
+  } catch(ex) {
+    spinner.fail(`
+      Error on shutdown:
+      ${ex}
+    `);
+    process.exit(1);
+  }
 }
 
 process.on('SIGTERM', shutdown);

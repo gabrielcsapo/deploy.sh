@@ -3,7 +3,7 @@
         "allowUnknownTags": false
     },
     "source": {
-        "include": ["./lib", "README.md"],
+        "include": ["./lib"],
         "includePattern": ".js$",
         "excludePattern": "(node_modules/|docs)"
     },
@@ -15,10 +15,13 @@
         "destination": "docs/code",
         "recurse": true,
         "verbose": true,
-        "template": "./node_modules/minami"
+        "template": "node_modules/minami"
     },
     "templates": {
         "cleverLinks": true,
-        "monospaceLinks": false
+        "monospaceLinks": false,
+        "default": {
+            "includeDate": false
+        }
     }
 }

@@ -1,3 +1,24 @@
+# 1.0.0 (01/27/2018)
+
+- sub directories would cause deploy to fail, now recursively find the strings and add them manually
+- delete should delete the current working directories deployment if not specified
+- Deployment.del removes the instance metadata from the database using the correct query params
+- refactors CLI to be a class
+- moves from easy-table to turtler
+- fixes login and logout functionality was mixed on cli
+- by default the open command will open the current directory if it is deployed
+- by default the log command will open the current directory if it is deployed
+- logs no longer have a `-` preceding each line
+- logs trim white space instead of adding an empty line
+- delete API actually works now, instead of continuously hanging
+- removes; mkdirp, easy-table, async
+- adds tryitout for docs page generation
+- config is now stored in `${homedir}/.deployrc`
+- getCredentials and cacheCredentials are no longer blocking calls, they will happen async
+- all error responses from the server will contain an error object
+- not-found (application not deployed) and page-could-not-load (proxy errors) pages are now moved into a static directory
+- main landing page is rendered with tryitout
+
 # 0.2.1 (08/15/2017)
 
 - adds the ability to delete deployment and its assets
