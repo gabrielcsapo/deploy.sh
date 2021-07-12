@@ -12,4 +12,4 @@
 
 ![Static Example](./docs/example.gif)
 
-To learn more visit [http://www.gabrielcsapo.com/deploy.sh/](http://www.gabrielcsapo.com/deploy.sh/)
+To learn more visit [https://gabrielcsapo.github.io/deploy.sh](https://gabrielcsapo.github.io/deploy.sh)
