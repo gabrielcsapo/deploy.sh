@@ -12,7 +12,7 @@ export default async function (cli, spinner) {
     spinner.text = "Starting up deploy.sh server";
 
     spinner.text = "Connecting to mongo";
-    await mongoose.connect(cli.mongo, { useMongoClient: true });
+    await mongoose.connect(cli.mongo);
 
     spinner.text = "Starting existing applications";
     const deployments = await Deployment.start({});

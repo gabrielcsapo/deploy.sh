@@ -3,7 +3,7 @@ import inquirer from "inquirer";
 import ora from "ora";
 
 export default async function (cli) {
-  const spinner = ora().start();
+  const spinner = ora();
 
   const { username, password } = await inquirer.prompt([
     {
