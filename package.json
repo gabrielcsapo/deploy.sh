@@ -4,8 +4,8 @@
   "description": "☁️ open source continuous deployment service",
   "main": "index.js",
   "scripts": {
-    "test": "tap test/index.js test/lib",
-    "coverage": "tap test/index.js test/lib --coverage --coverage-report=lcov",
+    "test": "jest tests",
+    "coverage": "jest tests --collect-coverage",
     "lint": "eslint .",
     "start": "./bin/deploy serve",
     "pack": "pkg bin/deploy.js -c package.json -o packed/deploy",
@@ -20,10 +20,10 @@
       "lib/static/*"
     ],
     "targets": [
-      "node8-alpine-x64",
-      "node8-linux-x64",
-      "node8-macos-x64",
-      "node8-win-x64"
+      "node16-alpine-x64",
+      "node16-linux-x64",
+      "node16-macos-x64",
+      "node16-win-x64"
     ]
   },
   "repository": {
@@ -34,9 +34,9 @@
     "deploy": "./bin/deploy.js"
   },
   "engines": {
-    "node": ">= 8"
+    "node": ">= 16"
   },
-  "homepage": "https://www.gabrielcsapo.com/deploy.sh",
+  "homepage": "https://gabrielcsapo.github.io/deploy.sh",
   "dependencies": {
     "body-parser": "^1.17.2",
     "commander": "^2.11.0",
@@ -55,12 +55,15 @@
     "woof": "^0.2.1"
   },
   "devDependencies": {
-    "eslint": "^4.4.1",
+    "eslint": "^8.11.0",
+    "eslint-plugin-jest": "^26.1.1",
+    "jest": "^27.5.1",
     "jsdoc": "^3.5.4",
     "minami": "^1.2.3",
     "pkg": "^4.3.0",
-    "tap": "^10.7.1",
-    "tape": "^4.8.0",
     "tryitout": "^2.0.7"
+  },
+  "volta": {
+    "node": "16.14.0"
   }
 }

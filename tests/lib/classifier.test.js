@@ -1,51 +1,47 @@
-const test = require('tape');
 const path = require('path');
 
 const classifier = require('../../lib/classifier');
 
-test('@lib/classifier', async (t) => {
-  t.plan(4);
+describe('@lib/classifier', () => {
 
-  const baseDirectory = path.resolve(__dirname, '..', 'fixtures');
+  const baseDirectory = path.resolve(__dirname, '..', '..', 'examples');
 
-  t.test('should be able to classify static site', async (t) => {
+  test('should be able to classify static site', async () => {
     const directory = path.resolve(baseDirectory, 'static');
     const output = await classifier(directory);
-    t.deepEqual(output, {
+    
+    expect(output).toEqual({
       type: 'static',
       build: `\n        FROM mhart/alpine-node:base-8\n        WORKDIR ${directory}\n        ADD . .\n\n        CMD ["node", "index.js"]\n      `
     });
-    t.end();
   });
 
-  t.test('should be able to classify node site', async (t) => {
+  test('should be able to classify node site', async () => {
     const directory = path.resolve(baseDirectory, 'node');
     const output = await classifier(directory);
-    t.deepEqual(output, {
+   
+    expect(output).toEqual({
       type: 'node',
       build: `\n        FROM mhart/alpine-node:8\n        WORKDIR ${directory}\n        ADD . .\n\n        RUN npm install\n\n        CMD ["npm", "start"]\n      `
     });
-    t.end();
   });
 
-  t.test('should be able to classify docker site', async (t) => {
+  test('should be able to classify docker site', async () => {
     const directory = path.resolve(baseDirectory, 'docker');
     const output = await classifier(directory);
 
-    t.deepEqual(output, {
+    expect(output).toEqual({
       type: 'docker',
       build: `FROM mhart/alpine-node:8\nWORKDIR ${directory}\nADD . .\n\nCMD ["node", "index.js"]\n`
     });
-    t.end();
   });
 
-  t.test('should be able to classify unknown deploy target', async (t) => {
-    const directory = path.resolve(baseDirectory, 'unknown');
+  test('should be able to classify unknown deploy target', async () => {
+    const directory = path.resolve(path.resolve(__dirname, '..', 'fixtures'), 'unknown');
     const output = await classifier(directory);
 
-    t.deepEqual(output, {
+    expect(output).toEqual({
       type: 'unknown'
     });
-    t.end();
   });
 });
