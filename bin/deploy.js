@@ -4,12 +4,18 @@ process.on('unhandledRejection', (err) => {
   console.log(`Something extremely bad happened, please let us know about this \n ${err.stack}`); // eslint-disable-line
 });
 
-const ora = require('ora');
-const woof = require('woof');
-const updateNotifier = require('update-notifier');
+import ora from 'ora';
+import woof from 'woof';
+import { readFileSync } from 'fs';
+import updateNotifier from 'update-notifier';
 
-const CLI = require('../lib/helpers/cli');
-const pkg = require('../package.json');
+import CLI from '../lib/helpers/cli.js';
+
+const pkg = JSON.parse(
+  readFileSync(
+    new URL('../package.json', import.meta.url)
+  )
+);
 
 let program = woof(`
   Usage: deploy [options] [command]
@@ -35,6 +41,7 @@ let program = woof(`
     -u, --url <url>             Changes the URL of the serve instance of deploy.sh (defaults to http://localhost:5000)
     -m, --mongo <url>           Changes the hosted instance of mongo (defaults to mongodb://localhost/deploy-sh)
 `, {
+  importMeta: import.meta,
   version: pkg.version,
   commands: {
     deploy: {
@@ -85,7 +92,7 @@ let program = woof(`
 
 (async function() {
   const cli = new CLI(program);
-  const spinner = ora().start();
+  const spinner = ora('').start();
 
   let found = false;
   let commands = ['deploy','list','register','whoami','login','logout','open','logs','delete','server'];
@@ -95,10 +102,13 @@ let program = woof(`
     if(program[command]) {
       try {
         found = true;
-        await require(`./deploy-${command}`)(cli, spinner);
+
+        const { default: commandImported } = await import(`./deploy-${command}.js`);
+        commandImported(cli, spinner);
       } catch(ex) {
         spinner.stop();
         if(ex === 'credentials not found') return console.log('Please login for this action'); // eslint-disable-line
+        console.log(ex.stack);
         console.log(`something happened when running ${command} \n ${ex}`); // eslint-disable-line
       }
     }
@@ -109,7 +119,8 @@ let program = woof(`
   if(!found && !program['help'] && !program['version']) {
     try {
       found = true;
-      await require(`./deploy-deploy`)(cli, spinner);
+      const { default: commandImported } = await import(`./deploy-deploy.js`);
+      commandImported(cli, spinner);
     } catch(ex) {
       spinner.stop();
       console.log(`something happened when running deploy \n ${ex}`); // eslint-disable-line

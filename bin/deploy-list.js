@@ -1,10 +1,9 @@
 #!/usr/bin/env node
+import moment from 'moment';
+import Url from 'url';
+import Table from 'turtler';
 
-const moment = require('moment');
-const Url = require('url');
-const Table = require('turtler');
-
-module.exports = async function(cli, spinner) {
+export default async function(cli, spinner) {
   spinner.text = 'Getting deployment list';
 
   const { token, username } = await cli.getCredentials();

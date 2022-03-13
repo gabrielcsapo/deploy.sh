@@ -1,8 +1,7 @@
 #!/usr/bin/env node
+import inquirer from 'inquirer';
 
-const inquirer = require('inquirer');
-
-module.exports = async function(cli, spinner) {
+export default async function(cli, spinner) {
   spinner.stop();
 
   const { username, password } = await inquirer.prompt([

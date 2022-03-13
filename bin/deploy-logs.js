@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-module.exports = async function(cli, spinner) {
+export default async function(cli, spinner) {
   spinner.text = `Getting logs for ${cli.application}`;
 
   const { token, username } = await cli.getCredentials();

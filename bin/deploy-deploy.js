@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
-module.exports = async function(cli, spinner) {
+export default async function(cli, spinner) {
   spinner.text = 'Creating application bundle';
 
   await cli.createBundle(process.cwd());
@@ -14,7 +14,7 @@ module.exports = async function(cli, spinner) {
 
   spinner.text = 'Uploading application bundle';
 
-  const bundle = fs.createReadStream(path.resolve(process.cwd(), 'bundle.tgz'));
+  const bundle = fs.readFileSync(path.resolve(process.cwd(), 'bundle.tgz'));
 
   const { deployment } = await cli.uploadBundle({
     name: path.basename(process.cwd()),

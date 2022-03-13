@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-const Url = require('url');
-const opn = require('opn');
+import Url from 'url';
+import opn from 'opn';
 
-module.exports = async function(cli, spinner) {
+export default async function(cli, spinner) {
   spinner.text = 'Opening up url to deployment instance';
 
   const { token, username } = await cli.getCredentials();

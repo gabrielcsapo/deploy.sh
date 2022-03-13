@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
-module.exports = async function(cli, spinner) {
-  await require('../index.js')(cli, spinner);
+export default async function(cli, spinner) {
+  const { default: importCommand } = await import('../index.js');
+
+  importCommand(cli, spinner);
 };

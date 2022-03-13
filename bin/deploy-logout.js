@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-module.exports = async function(cli, spinner) {
+export default async function(cli, spinner) {
   const { token, username } = await cli.getCredentials();
 
   spinner.text = `Logging out of current session for ${username}`;
