@@ -10,7 +10,7 @@ const config = {
   tagline:
     "an open source continuous deployment service; deploying to the ☁️ shouldn't be 🚀🔬",
   url: "https://gabrielcsapo.github.io",
-  baseUrl: "/gabrielcsapo/deploy.sh/",
+  baseUrl: "/deploy.sh/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.ico",
