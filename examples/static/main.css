@@ -1,0 +1,9 @@
+html,
+body {
+  background-color: rgba(0, 0, 0, 0.78);
+}
+h1,
+small {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: rgb(180, 180, 180);
+}

@@ -1,23 +1,12 @@
 {
-  "extends": "eslint:recommended",
+  "extends": ["eslint:recommended", "plugin:jest/recommended"],
+  "plugins": ["jest"],
   "env": {
     "es6": true,
     "node": true
   },
   "parserOptions": {
-    "ecmaVersion": "2017"
-  },
-  "rules": {
-    "no-inner-declarations": 0,
-    "strict": 0,
-    "semi": [
-      "error",
-      "always"
-    ],
-    "no-octal": 0,
-    "indent": [
-      "error",
-      2
-    ]
+    "ecmaVersion": "latest",
+    "sourceType": "module"
   }
 }

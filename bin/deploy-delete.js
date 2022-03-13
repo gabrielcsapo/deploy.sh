@@ -1,6 +1,9 @@
 #!/usr/bin/env node
+import ora from "ora";
 
-module.exports = async function(cli, spinner) {
+export default async function (cli) {
+  const spinner = ora().start();
+
   spinner.text = `Deleting deployment ${cli.application}`;
 
   const { token, username } = await cli.getCredentials();
@@ -8,4 +11,4 @@ module.exports = async function(cli, spinner) {
   await cli.deleteDeployment({ token, username, name: cli.application });
 
   spinner.succeed(`Deployment deleted, ${cli.application} successfully`);
-};
+}

@@ -1,40 +1,45 @@
 #!/usr/bin/env node
 
-const inquirer = require('inquirer');
+import inquirer from "inquirer";
+import ora from "ora";
 
-module.exports = async function(cli, spinner) {
-  spinner.stop();
-  
+export default async function (cli) {
+  const spinner = ora();
+
   const { username, password } = await inquirer.prompt([
     {
-      name: 'username',
-      type: 'input',
-      message: 'Enter a valid e-mail address:',
-      validate: function( value ) {
-        if (value.length > 0 && value.indexOf('@') > -1 && value.indexOf('.') > -1) {
+      name: "username",
+      type: "input",
+      message: "Enter a valid e-mail address:",
+      validate: function (value) {
+        if (
+          value.length > 0 &&
+          value.indexOf("@") > -1 &&
+          value.indexOf(".") > -1
+        ) {
           return true;
         } else {
-          return 'Please enter a valid e-mail address';
+          return "Please enter a valid e-mail address";
         }
-      }
+      },
     },
     {
-      name: 'password',
-      type: 'password',
-      message: 'Enter a password:',
+      name: "password",
+      type: "password",
+      message: "Enter a password:",
       mask: true,
-      validate: function(value) {
+      validate: function (value) {
         if (value.length) {
           return true;
         } else {
-          return 'Please enter a password';
+          return "Please enter a password";
         }
-      }
-    }
+      },
+    },
   ]);
 
   const credentials = await cli.register({ username, password });
   await cli.cacheCredentials(credentials);
 
-  console.log(`registered as ${credentials.username}`); // eslint-disable-line
-};
+  spinner.succeed(`registered as ${credentials.username}`); // eslint-disable-line
+}

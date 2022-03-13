@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
-module.exports = async function(cli, spinner) {
-  await require('../index.js')(cli, spinner);
-};
+import ora from "ora";
+
+export default async function (cli) {
+  const spinner = ora().start();
+
+  const { default: importCommand } = await import("../index.js");
+
+  importCommand(cli, spinner);
+}
