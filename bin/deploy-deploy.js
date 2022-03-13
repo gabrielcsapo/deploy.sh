@@ -2,8 +2,11 @@
 
 import fs from 'fs';
 import path from 'path';
+import ora from 'ora';
 
-export default async function(cli, spinner) {
+export default async function(cli) {
+  const spinner = ora().start();
+
   spinner.text = 'Creating application bundle';
 
   await cli.createBundle(process.cwd());

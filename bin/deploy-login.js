@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import inquirer from 'inquirer';
+import ora from 'ora';
 
-export default async function(cli, spinner) {
-  spinner.stop();
+export default async function(cli) {
+  const spinner = ora().start();
 
   const { username, password } = await inquirer.prompt([
     {
@@ -34,5 +35,5 @@ export default async function(cli, spinner) {
   const credentials = await cli.login({ username, password});
   await cli.cacheCredentials(credentials);
 
-  console.log(`Successfully logged in as ${credentials.username}`); // eslint-disable-line
+  spinner.succeed(`Logged in as ${credentials.username}`); // eslint-disable-line
 };

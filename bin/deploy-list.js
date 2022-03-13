@@ -2,8 +2,11 @@
 import moment from 'moment';
 import Url from 'url';
 import Table from 'turtler';
+import ora from 'ora';
 
-export default async function(cli, spinner) {
+export default async function(cli) {
+  const spinner = ora().start();
+
   spinner.text = 'Getting deployment list';
 
   const { token, username } = await cli.getCredentials();

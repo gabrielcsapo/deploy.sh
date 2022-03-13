@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 
-export default async function(cli, spinner) {
+import ora from 'ora';
+
+export default async function(cli) {
+  const spinner = ora().start();
+
   const { default: importCommand } = await import('../index.js');
 
   importCommand(cli, spinner);

@@ -92,7 +92,6 @@ let program = woof(`
 
 (async function() {
   const cli = new CLI(program);
-  const spinner = ora('').start();
 
   let found = false;
   let commands = ['deploy','list','register','whoami','login','logout','open','logs','delete','server'];
@@ -104,12 +103,10 @@ let program = woof(`
         found = true;
 
         const { default: commandImported } = await import(`./deploy-${command}.js`);
-        commandImported(cli, spinner);
+        commandImported(cli);
       } catch(ex) {
-        spinner.stop();
         if(ex === 'credentials not found') return console.log('Please login for this action'); // eslint-disable-line
-        console.log(ex.stack);
-        console.log(`something happened when running ${command} \n ${ex}`); // eslint-disable-line
+        console.log(`something happened when running ${command} \n ${ex.stack}`); // eslint-disable-line
       }
     }
   }
@@ -120,13 +117,11 @@ let program = woof(`
     try {
       found = true;
       const { default: commandImported } = await import(`./deploy-deploy.js`);
-      commandImported(cli, spinner);
+      commandImported(cli);
     } catch(ex) {
-      spinner.stop();
-      console.log(`something happened when running deploy \n ${ex}`); // eslint-disable-line
+      console.log(`something happened when running deploy \n ${ex.stack}`); // eslint-disable-line
     }
   }
 
-  spinner.stop();
   updateNotifier({pkg}).notify();
 }());

@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
-export default async function(cli, spinner) {
+import ora from 'ora';
+
+export default async function(cli) {
+  const spinner = ora().start();
+
   spinner.text = 'Figuring out who you are';
 
   const { token, username } = await cli.getCredentials();
   const { user } = await cli.getUserDetails({ token, username });
 
-  spinner.stop();
-  
-  console.log(`currently logged in as ${user.username}`); // eslint-disable-line
+  spinner.info(`currently logged in as ${user.username}`); // eslint-disable-line
 };

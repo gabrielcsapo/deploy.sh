@@ -2,8 +2,11 @@
 
 import Url from 'url';
 import opn from 'opn';
+import ora from 'ora';
 
-export default async function(cli, spinner) {
+export default async function(cli) {
+  const spinner = ora().start();
+
   spinner.text = 'Opening up url to deployment instance';
 
   const { token, username } = await cli.getCredentials();
