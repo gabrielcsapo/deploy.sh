@@ -1,13 +1,6 @@
-const os = require("os");
-const fs = require("fs");
-
-const {
-  getPort,
-  hash,
-  contains,
-  mk,
-  rm,
-} = require("../../../lib/helpers/util");
+import os from "os";
+import fs from "fs";
+import { getPort, hash, contains, mk, rm } from "../../../lib/helpers/util";
 
 describe("@lib/util", () => {
   test("@getPort: should be able return a valid port", async () => {

@@ -1,6 +1,9 @@
-const path = require("path");
+import path from "path";
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import classifier from "../../lib/classifier";
 
-const classifier = require("../../lib/classifier");
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe("@lib/classifier", () => {
   const baseDirectory = path.resolve(__dirname, "..", "..", "examples");
