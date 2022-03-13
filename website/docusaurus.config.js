@@ -1,45 +1,44 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-const lightCodeTheme = require('prism-react-renderer/themes/github');
-const darkCodeTheme = require('prism-react-renderer/themes/dracula');
+const lightCodeTheme = require("prism-react-renderer/themes/github");
+const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'deploy.sh',
-  tagline: 'an open source continuous deployment service; deploying to the ☁️ shouldn\'t be 🚀🔬',
-  url: 'https://gabrielcsapo.github.io',
-  baseUrl: '/gabrielcsapo/deploy.sh/',
-  onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
-  favicon: 'img/favicon.ico',
-  organizationName: 'gabrielcsapo',
-  projectName: 'deploy.sh',
+  title: "deploy.sh",
+  tagline:
+    "an open source continuous deployment service; deploying to the ☁️ shouldn't be 🚀🔬",
+  url: "https://gabrielcsapo.github.io",
+  baseUrl: "/gabrielcsapo/deploy.sh/",
+  onBrokenLinks: "throw",
+  onBrokenMarkdownLinks: "warn",
+  favicon: "img/favicon.ico",
+  organizationName: "gabrielcsapo",
+  projectName: "deploy.sh",
   plugins: [
-    [
-      require.resolve("docusaurus-plugin-search-local"),
-      {}
-    ],
-    require.resolve('docusaurus-plugin-image-zoom')
+    [require.resolve("docusaurus-plugin-search-local"), {}],
+    require.resolve("docusaurus-plugin-image-zoom"),
   ],
   presets: [
     [
-      'classic',
+      "classic",
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
-          sidebarPath: require.resolve('./sidebars.js'),
+          sidebarPath: require.resolve("./sidebars.js"),
           // Please change this to your repo.
-          editUrl: 'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+          editUrl:
+            "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
         },
         blog: {
           showReadingTime: true,
           // Please change this to your repo.
           editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+            "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
         },
         theme: {
-          customCss: require.resolve('./src/css/custom.css'),
+          customCss: require.resolve("./src/css/custom.css"),
         },
       }),
     ],
@@ -50,27 +49,27 @@ const config = {
     ({
       zoom: {},
       navbar: {
-        title: 'deploy.sh',
+        title: "deploy.sh",
         logo: {
-          alt: 'deploy.sh Logo',
-          src: 'img/logo.png',
+          alt: "deploy.sh Logo",
+          src: "img/logo.png",
         },
         items: [
           {
-            type: 'doc',
-            docId: 'intro',
-            position: 'left',
-            label: 'Documentation',
+            type: "doc",
+            docId: "intro",
+            position: "left",
+            label: "Documentation",
           },
           {
-            href: 'https://github.com/gabrielcsapo/deploy.sh',
-            label: 'GitHub',
-            position: 'right',
+            href: "https://github.com/gabrielcsapo/deploy.sh",
+            label: "GitHub",
+            position: "right",
           },
         ],
       },
       footer: {
-        style: 'dark',
+        style: "dark",
         copyright: `Copyright © ${new Date().getFullYear()} deploy.sh, Inc. Built with Docusaurus.`,
       },
       prism: {

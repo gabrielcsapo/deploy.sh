@@ -1,11 +1,16 @@
-const os = require('os');
-const fs = require('fs');
+const os = require("os");
+const fs = require("fs");
 
-const { getPort, hash, contains, mk, rm } = require('../../../lib/helpers/util');
+const {
+  getPort,
+  hash,
+  contains,
+  mk,
+  rm,
+} = require("../../../lib/helpers/util");
 
-describe('@lib/util', () => {
-
-  test('@getPort: should be able return a valid port', async () => {
+describe("@lib/util", () => {
+  test("@getPort: should be able return a valid port", async () => {
     let port = await getPort();
     let port1 = await getPort();
 
@@ -14,23 +19,31 @@ describe('@lib/util', () => {
     expect(port !== port1).toBeTruthy();
   });
 
-  test('@hash: should return a proper lowercase hash', () => {
+  test("@hash: should return a proper lowercase hash", () => {
     const ret = hash(6);
     expect(ret.length).toBeTruthy();
     expect(ret.toLowerCase()).toBeTruthy();
   });
 
-  test('@contains: should be able to return a proper conditional for truthy and false cases', () => {
+  test("@contains: should be able to return a proper conditional for truthy and false cases", () => {
     expect(
-      contains(['index.html', 'main.css'], ['index.html', '!Dockerfile', '!package.json'])
+      contains(
+        ["index.html", "main.css"],
+        ["index.html", "!Dockerfile", "!package.json"]
+      )
     ).toBeTruthy();
     expect(
-      contains(['index.html', 'main.css', 'Dockerfile'], ['index.html', '!Dockerfile', '!package.json'])
+      contains(
+        ["index.html", "main.css", "Dockerfile"],
+        ["index.html", "!Dockerfile", "!package.json"]
+      )
     ).toBeFalsy();
-    expect(contains([], ['index.html', '!Dockerfile', '!package.json'])).toBeFalsy();
+    expect(
+      contains([], ["index.html", "!Dockerfile", "!package.json"])
+    ).toBeFalsy();
   });
 
-  test('@mk / @rm: should be able to make recursive directory', async () => {
+  test("@mk / @rm: should be able to make recursive directory", async () => {
     let directory = `${os.tmpdir()}/hello/world/this/is/a/nested/directory`;
 
     await mk(directory);
@@ -41,5 +54,4 @@ describe('@lib/util', () => {
 
     expect(!fs.existsSync(directory)).toBeTruthy();
   });
-
 });
