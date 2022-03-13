@@ -4,12 +4,12 @@
   "description": "☁️ open source continuous deployment service",
   "main": "index.js",
   "scripts": {
-    "test": "jest tests",
-    "coverage": "jest tests --collect-coverage",
+    "test": "jest",
+    "coverage": "jest --collect-coverage",
     "lint": "eslint .",
     "start": "./bin/deploy serve",
     "pack": "pkg bin/deploy.js -c package.json -o packed/deploy",
-    "generate-docs": "tryitout && jsdoc -c jsdoc.json"
+    "generate-docs": "node generate-docs.js"
   },
   "pkg": {
     "scripts": [
@@ -59,9 +59,8 @@
     "eslint-plugin-jest": "^26.1.1",
     "jest": "^27.5.1",
     "jsdoc": "^3.5.4",
-    "minami": "^1.2.3",
-    "pkg": "^4.3.0",
-    "tryitout": "^2.0.7"
+    "jsdoc-to-markdown": "^7.1.1",
+    "pkg": "^4.3.0"
   },
   "volta": {
     "node": "16.14.0"

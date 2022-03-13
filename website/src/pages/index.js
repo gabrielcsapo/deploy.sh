@@ -9,15 +9,27 @@ import HomepageFeatures from '@site/src/components/HomepageFeatures';
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
   return (
-    <header className={clsx('hero hero--primary', styles.heroBanner)}>
+    <header className={clsx('hero', styles.heroBanner)}>
       <div className="container">
         <h1 className="hero__title">{siteConfig.title}</h1>
         <p className="hero__subtitle">{siteConfig.tagline}</p>
+        <pre className='text--left' style={{ width: '300px', margin: '0 auto' }}> 
+          $ npm install deploy.sh -g
+          <br/>
+          $ ls 
+          <br/>
+          <b> index.html logo.png </b>
+          <br/>
+          $ deploy 
+          <br/>
+          <b>  🚀☁️  </b>
+        </pre>
+        <br/>
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
             to="/docs/intro">
-            Docusaurus Tutorial - 5min ⏱️
+            Getting Started
           </Link>
         </div>
       </div>

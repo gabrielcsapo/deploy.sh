@@ -1,4 +1,4 @@
-# deploy.sh <img align="right" src="docs/logo.png" width="120">
+# deploy.sh <img align="right" src="website/static/logo.png" width="120">
 
 > ☁️ open source continuous deployment service
 
@@ -10,6 +10,6 @@
 ![npm](https://img.shields.io/npm/dt/deploy.sh.svg)
 ![npm](https://img.shields.io/npm/dm/deploy.sh.svg)
 
-![Static Example](./docs/example.gif)
+![Static Example](./website/static/example.gif)
 
 To learn more visit [https://gabrielcsapo.github.io/deploy.sh](https://gabrielcsapo.github.io/deploy.sh)
