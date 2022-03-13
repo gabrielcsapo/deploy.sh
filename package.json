@@ -56,7 +56,7 @@
     "tar": "^6.1.11",
     "turtler": "^1.1.1",
     "update-notifier": "^5.1.0",
-    "woof": "^0.4.0"
+    "woof": "^0.4.1"
   },
   "devDependencies": {
     "eslint": "^8.11.0",
