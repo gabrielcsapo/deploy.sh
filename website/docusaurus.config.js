@@ -9,7 +9,7 @@ const config = {
   title: 'deploy.sh',
   tagline: 'an open source continuous deployment service; deploying to the ☁️ shouldn\'t be 🚀🔬',
   url: 'https://gabrielcsapo.github.io',
-  baseUrl: '/',
+  baseUrl: '/gabrielcsapo/deploy.sh/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
@@ -19,7 +19,8 @@ const config = {
     [
       require.resolve("docusaurus-plugin-search-local"),
       {}
-    ]
+    ],
+    require.resolve('docusaurus-plugin-image-zoom')
   ],
   presets: [
     [
@@ -47,6 +48,7 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      zoom: {},
       navbar: {
         title: 'deploy.sh',
         logo: {

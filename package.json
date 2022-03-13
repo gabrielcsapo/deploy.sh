@@ -60,7 +60,7 @@
     "eslint": "^8.11.0",
     "eslint-plugin-jest": "^26.1.1",
     "jest": "^27.5.1",
-    "jsdoc": "^3.5.4",
+    "jsdoc": "^3.6.10",
     "jsdoc-to-markdown": "^7.1.1",
     "pkg": "^5.5.2"
   },

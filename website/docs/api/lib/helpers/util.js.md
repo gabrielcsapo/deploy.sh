@@ -4,7 +4,7 @@
 
 * [lib/helpers/util](#module_lib/helpers/util)
     * _static_
-        * [.mk(directory)](#module_lib/helpers/util.mk) ⇒ <code>Promise</code>
+        * [.mk](#module_lib/helpers/util.mk) ⇒ <code>Promise</code>
     * _inner_
         * [~getPort()](#module_lib/helpers/util..getPort) ⇒ <code>Promise</code>
         * [~hash(length)](#module_lib/helpers/util..hash) ⇒ <code>String</code>
@@ -12,10 +12,10 @@
 
 <a name="module_lib/helpers/util.mk"></a>
 
-### lib/helpers/util.mk(directory) ⇒ <code>Promise</code>
+### lib/helpers/util.mk ⇒ <code>Promise</code>
 makes a directory recursively
 
-**Kind**: static method of [<code>lib/helpers/util</code>](#module_lib/helpers/util)  
+**Kind**: static constant of [<code>lib/helpers/util</code>](#module_lib/helpers/util)  
 
 | Param | Type | Description |
 | --- | --- | --- |

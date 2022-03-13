@@ -1,12 +1,13 @@
 /**
  * Requires jsdoc and jsdoc-to-markdown
  */
- 
+
 /* eslint-disable no-console */
-const fs = require('fs')
-const path = require('path')
-const glob = require('glob')
-const { execSync } = require('child_process');
+import fs from 'fs';
+
+import path from 'path';
+import glob from 'glob';
+import { execSync } from 'child_process';
 
 /**
  * Runs through packages folders looking for JSDoc and generates markdown docs
@@ -14,7 +15,7 @@ const { execSync } = require('child_process');
 function generateDocs() {
   console.log('Generating package docs')
   // Use glob to get all js/ts files
-  const pathPattern = path.join(__dirname, './lib/**/*.[jt]s?(x)')
+  const pathPattern = path.join(process.cwd(), './lib/**/*.[jt]s?(x)')
   const filePaths = glob.sync(pathPattern, {
     ignore: [
       '**/node_modules/**',
@@ -25,8 +26,6 @@ function generateDocs() {
     ],
   })
 
-  console.log(filePaths)
-
   for(const file of filePaths) {
     const { base: fileName } = path.parse(file);
 
@@ -34,7 +33,7 @@ function generateDocs() {
     const markdown = execSync(`./node_modules/.bin/jsdoc2md ${relativePath}`);
 
     const writeDir = path.join(
-      __dirname,
+      process.cwd(),
       `website/docs/api/${relativePath.replace(fileName, '')}`,
     )
 

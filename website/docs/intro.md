@@ -1,47 +1,57 @@
 ---
 sidebar_position: 1
+title: "Intro"
 ---
-
-# Tutorial Intro
-
-Let's discover **Docusaurus in less than 5 minutes**.
 
 ## Getting Started
 
-Get started by **creating a new site**.
+Firstly we must install `deploy.sh`.
 
-Or **try Docusaurus immediately** with **[docusaurus.new](https://docusaurus.new)**.
+```bash
+npm install deploy.sh -g
+```
 
 ### What you'll need
 
 - [Node.js](https://nodejs.org/en/download/) version 14 or above:
   - When installing Node.js, you are recommended to check all checkboxes related to dependencies.
+- [Docker](https://docs.docker.com/get-docker/) is how deploy.sh runs and is required to start new applications
+- [Mongo](https://docs.mongodb.com/manual/administration/install-community/) is required to store application state and logs
 
-## Generate a new site
+## Starting deploy.sh server
 
-Generate a new Docusaurus site using the **classic template**.
-
-The classic template will automatically be added to your project after you run the command:
+In order to deploy your applications you will need to spin up a deploy.sh server
 
 ```bash
-npm init docusaurus@latest my-website classic
+deploy server
 ```
 
-You can type this command into Command Prompt, Powershell, Terminal, or any other integrated terminal of your code editor.
-
-The command also installs all necessary dependencies you need to run Docusaurus.
+```bash
+% deploy serve
+✔ Started 0 deployment(s) successfully
+⛅️ deploy.sh is running on port 5000
+```
 
 ## Start your site
 
-Run the development server:
+In order to do anything you must first go through the registration process by running:
 
-```bash
-cd my-website
-npm run start
+```
+deploy register
 ```
 
-The `cd` command changes the directory you're working with. In order to work with your newly created Docusaurus site, you'll need to navigate the terminal there.
+For this example I am going to use the folder in `examples/docker` in <https://github.com/gabrielcsapo/deploy.sh>.
 
-The `npm run start` command builds your website locally and serves it through a development server, ready for you to view at http://localhost:3000/.
+```bash
+deploy
+```
 
-Open `docs/intro.md` (this page) and edit some lines: the site **reloads automatically** and displays your changes.
+![../static/img/intro/deploy.png](../static/img/intro/deploy.png)
+
+To look at the logs from the docker container itself, simply run `deploy logs`
+
+```bash
+deploy logs
+```
+
+![../static/img/intro/logs.png](../static/img/intro/logs.png)
