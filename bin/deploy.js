@@ -6,7 +6,6 @@ process.on("unhandledRejection", (err) => {
   ); // eslint-disable-line
 });
 
-import ora from "ora";
 import woof from "woof";
 import { readFileSync } from "fs";
 import updateNotifier from "update-notifier";
