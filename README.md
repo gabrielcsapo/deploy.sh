@@ -1,4 +1,4 @@
-# deploy.sh <img align="right" src="website/static/logo.png" width="120">
+# deploy.sh <img align="right" src="website/static/img/logo.png" width="120">
 
 > ☁️ open source continuous deployment service
 
