@@ -1,0 +1,344 @@
+import { describe, it, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { type ChildProcess, spawn } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { type AddressInfo, createServer } from 'node:net';
+
+// Find an available port
+function getPort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.listen(0, () => {
+      const { port } = srv.address() as AddressInfo;
+      srv.close(() => resolve(port));
+    });
+    srv.on('error', reject);
+  });
+}
+
+// Start the API server as a child process in a temp directory
+function startServer(port: number, cwd: string): Promise<ChildProcess> {
+  return new Promise((resolve, reject) => {
+    const serverPath = join(process.cwd(), 'server', 'index.ts');
+    const child = spawn('node', [serverPath], {
+      env: { ...process.env, PORT: String(port) },
+      cwd,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let started = false;
+    const timeout = setTimeout(() => {
+      if (!started) {
+        child.kill();
+        reject(new Error('Server did not start within 5s'));
+      }
+    }, 5000);
+
+    child.stdout!.on('data', (data: Buffer) => {
+      if (!started && data.toString().includes('running on')) {
+        started = true;
+        clearTimeout(timeout);
+        resolve(child);
+      }
+    });
+
+    child.stderr!.on('data', (data: Buffer) => {
+      if (!started) {
+        clearTimeout(timeout);
+        reject(new Error(`Server error: ${data}`));
+      }
+    });
+
+    child.on('error', (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+  });
+}
+
+// HTTP helper
+async function req(port: number, path: string, options: RequestInit = {}) {
+  const res = await fetch(`http://localhost:${port}${path}`, options);
+  const text = await res.text();
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = text;
+  }
+  return { status: res.status, body, headers: res.headers };
+}
+
+function authHeaders(username: string, token: string) {
+  return {
+    'x-deploy-username': username,
+    'x-deploy-token': token,
+  };
+}
+
+describe('API – auth flow', () => {
+  let server: ChildProcess;
+  let port: number;
+  let tempDir: string;
+
+  before(async () => {
+    port = await getPort();
+    tempDir = mkdtempSync(join(tmpdir(), 'deploy-sh-api-'));
+    server = await startServer(port, tempDir);
+  });
+
+  after(() => {
+    server?.kill();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('POST /register creates a user and returns 201', async () => {
+    const { status, body } = await req(port, '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'alice', password: 'pass123' }),
+    });
+    assert.equal(status, 201);
+    assert.ok(body.token);
+    assert.equal(typeof body.token, 'string');
+  });
+
+  it('POST /register rejects duplicate username', async () => {
+    const { status, body } = await req(port, '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'alice', password: 'other' }),
+    });
+    assert.equal(status, 409);
+    assert.ok(body.error);
+  });
+
+  it('POST /register rejects missing fields', async () => {
+    const { status } = await req(port, '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'bob' }),
+    });
+    assert.equal(status, 400);
+  });
+
+  it('POST /login returns token for valid credentials', async () => {
+    // Register first
+    await req(port, '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'logintest', password: 'secret' }),
+    });
+    const { status, body } = await req(port, '/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'logintest', password: 'secret' }),
+    });
+    assert.equal(status, 200);
+    assert.ok(body.token);
+  });
+
+  it('POST /login rejects wrong password', async () => {
+    const { status, body } = await req(port, '/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'logintest', password: 'wrong' }),
+    });
+    assert.equal(status, 401);
+    assert.ok(body.error);
+  });
+
+  it('GET /api/user returns user info with valid auth', async () => {
+    const reg = await req(port, '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'userinfo', password: 'pass' }),
+    });
+    const { status, body } = await req(port, '/api/user', {
+      headers: authHeaders('userinfo', reg.body.token),
+    });
+    assert.equal(status, 200);
+    assert.equal(body.username, 'userinfo');
+    assert.ok(body.createdAt);
+  });
+
+  it('GET /api/user returns 401 without auth', async () => {
+    const { status } = await req(port, '/api/user');
+    assert.equal(status, 401);
+  });
+
+  it('GET /api/logout invalidates the token', async () => {
+    const reg = await req(port, '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'logouttest', password: 'pass' }),
+    });
+    const token = reg.body.token;
+
+    // Logout
+    const { status } = await req(port, '/api/logout', {
+      headers: authHeaders('logouttest', token),
+    });
+    assert.equal(status, 200);
+
+    // Token should now be invalid
+    const { status: afterStatus } = await req(port, '/api/user', {
+      headers: authHeaders('logouttest', token),
+    });
+    assert.equal(afterStatus, 401);
+  });
+});
+
+describe('API – deployments', () => {
+  let server: ChildProcess;
+  let port: number;
+  let tempDir: string;
+  let token: string;
+
+  before(async () => {
+    port = await getPort();
+    tempDir = mkdtempSync(join(tmpdir(), 'deploy-sh-api-'));
+    server = await startServer(port, tempDir);
+
+    // Register a user for deployment tests
+    const reg = await req(port, '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'deployer', password: 'pass' }),
+    });
+    token = reg.body.token;
+  });
+
+  after(() => {
+    server?.kill();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('GET /api/deployments returns empty array for new user', async () => {
+    const { status, body } = await req(port, '/api/deployments', {
+      headers: authHeaders('deployer', token),
+    });
+    assert.equal(status, 200);
+    assert.deepEqual(body, []);
+  });
+
+  it('GET /api/deployments/:name returns 404 for non-existent', async () => {
+    const { status } = await req(port, '/api/deployments/nope', {
+      headers: authHeaders('deployer', token),
+    });
+    assert.equal(status, 404);
+  });
+
+  it('DELETE /api/deployments/:name returns 404 for non-existent', async () => {
+    const { status } = await req(port, '/api/deployments/nope', {
+      method: 'DELETE',
+      headers: authHeaders('deployer', token),
+    });
+    assert.equal(status, 404);
+  });
+
+  it('GET /api/deployments/:name/inspect returns 404 for non-existent', async () => {
+    const { status } = await req(port, '/api/deployments/nope/inspect', {
+      headers: authHeaders('deployer', token),
+    });
+    assert.equal(status, 404);
+  });
+
+  it('GET /api/deployments/:name/stats returns 404 for non-existent', async () => {
+    const { status } = await req(port, '/api/deployments/nope/stats', {
+      headers: authHeaders('deployer', token),
+    });
+    assert.equal(status, 404);
+  });
+
+  it('POST /api/deployments/:name/restart returns 404 for non-existent', async () => {
+    const { status } = await req(port, '/api/deployments/nope/restart', {
+      method: 'POST',
+      headers: authHeaders('deployer', token),
+    });
+    assert.equal(status, 404);
+  });
+
+  it('GET /api/deployments/:name/history returns 404 for non-existent', async () => {
+    const { status } = await req(port, '/api/deployments/nope/history', {
+      headers: authHeaders('deployer', token),
+    });
+    assert.equal(status, 404);
+  });
+});
+
+describe('API – upload validation', () => {
+  let server: ChildProcess;
+  let port: number;
+  let tempDir: string;
+  let token: string;
+
+  before(async () => {
+    port = await getPort();
+    tempDir = mkdtempSync(join(tmpdir(), 'deploy-sh-api-'));
+    server = await startServer(port, tempDir);
+
+    const reg = await req(port, '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'uploader', password: 'pass' }),
+    });
+    token = reg.body.token;
+  });
+
+  after(() => {
+    server?.kill();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('POST /upload returns 401 without auth', async () => {
+    const { status } = await req(port, '/upload', { method: 'POST' });
+    assert.equal(status, 401);
+  });
+
+  it('POST /upload returns 400 with no file', async () => {
+    const boundary = '----TestBoundary';
+    const body = `--${boundary}\r\nContent-Disposition: form-data; name="name"\r\n\r\ntestapp\r\n--${boundary}--\r\n`;
+    const { status } = await req(port, '/upload', {
+      method: 'POST',
+      headers: {
+        ...authHeaders('uploader', token),
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      },
+      body,
+    });
+    assert.equal(status, 400);
+  });
+});
+
+describe('API – CORS and 404', () => {
+  let server: ChildProcess;
+  let port: number;
+  let tempDir: string;
+
+  before(async () => {
+    port = await getPort();
+    tempDir = mkdtempSync(join(tmpdir(), 'deploy-sh-api-'));
+    server = await startServer(port, tempDir);
+  });
+
+  after(() => {
+    server?.kill();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('OPTIONS returns 204 with CORS headers', async () => {
+    const { status, headers } = await req(port, '/', { method: 'OPTIONS' });
+    assert.equal(status, 204);
+    assert.equal(headers.get('access-control-allow-origin'), '*');
+    assert.ok(headers.get('access-control-allow-methods'));
+  });
+
+  it('GET /nonexistent returns 404', async () => {
+    const { status, body } = await req(port, '/nonexistent');
+    assert.equal(status, 404);
+    assert.ok(body.error);
+  });
+});

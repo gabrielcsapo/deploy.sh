@@ -1,5 +1,5 @@
 name: Feature request
-title: "[Feature Request] YOUR_FEATURE_TITLE_HERE_REPLACE_ME"
+title: '[Feature Request] YOUR_FEATURE_TITLE_HERE_REPLACE_ME'
 labels: [feature request]
 description: |
   💡 Suggest an idea for the `deploy.sh` project

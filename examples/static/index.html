@@ -1,22 +1,48 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="./main.css" />
-    <title>Hello World</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Static Site Example</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: #13111c;
+        color: #fafafa;
+      }
+      .card {
+        text-align: center;
+        padding: 3rem;
+        border: 1px solid #2a2540;
+        border-radius: 12px;
+        background: #1a1726;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+      }
+      p {
+        color: #8b82a8;
+        font-size: 0.875rem;
+      }
+    </style>
   </head>
   <body>
-    <div
-      style="
-        text-align: center;
-        width: 100%;
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-      "
-    >
-      <h1>Welcome</h1>
-      <small> <i> This is deployed on the ⛅️ </i> </small>
+    <div class="card">
+      <h1>Hello from deploy.sh</h1>
+      <p>This is a static site deployed with deploy.sh.</p>
     </div>
   </body>
 </html>

@@ -1,0 +1,15 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+@import './theme.css';
+
+@utility vt-name {
+  view-transition-name: var(--vt-name);
+}
+
+@utility no-vt {
+  view-transition-name: none;
+}
+
+@view-transition {
+  navigation: auto;
+}

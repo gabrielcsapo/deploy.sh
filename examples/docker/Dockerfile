@@ -1,5 +1,5 @@
-FROM mhart/alpine-node:8
-WORKDIR ${directory}
-ADD . .
-
-CMD ["node", "index.js"]
+FROM node:22-alpine
+WORKDIR /app
+COPY server.js .
+EXPOSE 3000
+CMD ["node", "server.js"]

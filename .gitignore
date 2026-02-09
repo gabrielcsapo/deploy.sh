@@ -1,8 +1,9 @@
-node_modules
-coverage
-.nyc_output
+node_modules/
+dist/
+dist-docs/
 .DS_Store
-npm-debug.log
-tmp
 *.tgz
-packed
+.env
+.env.local
+.vite/
+.deploy-data/
