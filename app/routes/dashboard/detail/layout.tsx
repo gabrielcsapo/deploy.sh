@@ -9,10 +9,11 @@ import {
 import { getAuth, StatusBadge } from './shared';
 import type { Deployment, ContainerInfo, DetailContext } from './shared';
 
-type Tab = 'overview' | 'logs' | 'requests' | 'resources' | 'history' | 'backups';
+type Tab = 'overview' | 'logs' | 'requests' | 'resources' | 'history' | 'backups' | 'build';
 
 const tabs: { key: Tab; label: string; path: string }[] = [
   { key: 'overview', label: 'Overview', path: '' },
+  { key: 'build', label: 'Build', path: 'build' },
   { key: 'logs', label: 'Logs', path: 'logs' },
   { key: 'requests', label: 'Requests', path: 'requests' },
   { key: 'resources', label: 'Resources', path: 'resources' },

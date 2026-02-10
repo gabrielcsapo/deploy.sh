@@ -13,6 +13,7 @@ export default [
     route('settings', 'routes/dashboard/settings.tsx'),
     route(':name', 'routes/dashboard/detail/layout.tsx', [
       index('routes/dashboard/detail/overview.tsx'),
+      route('build', 'routes/dashboard/detail/build.tsx'),
       route('logs', 'routes/dashboard/detail/logs.tsx'),
       route('requests', 'routes/dashboard/detail/requests.tsx'),
       route('resources', 'routes/dashboard/detail/resources.tsx'),

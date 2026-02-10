@@ -85,10 +85,18 @@ export function ensureDockerfile(dir: string, type: string) {
 
 // ── Docker build & run ──────────────────────────────────────────────────────
 
-export function buildImage(name: string, dir: string): Promise<string> {
-  const tag = `deploy-sh-${name}`;
+export interface BuildResult {
+  tag: string;
+  output: string;
+  success: boolean;
+  duration: number;
+}
 
-  return new Promise((resolve, reject) => {
+export function buildImage(name: string, dir: string): Promise<BuildResult> {
+  const tag = `deploy-sh-${name}`;
+  const startTime = Date.now();
+
+  return new Promise((resolve) => {
     const proc = spawn('docker', ['build', '-t', tag, '.'], {
       cwd: dir,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -98,26 +106,33 @@ export function buildImage(name: string, dir: string): Promise<string> {
     let stderr = '';
 
     proc.stdout?.on('data', (data) => {
-      stdout += data.toString();
+      const str = data.toString();
+      stdout += str;
       // Log build progress to console
       process.stdout.write(data);
     });
 
     proc.stderr?.on('data', (data) => {
-      stderr += data.toString();
+      const str = data.toString();
+      stderr += str;
       process.stderr.write(data);
     });
 
     proc.on('close', (code) => {
+      const duration = Date.now() - startTime;
+      const output = stdout + stderr;
+
       if (code === 0) {
-        resolve(tag);
+        resolve({ tag, output, success: true, duration });
       } else {
-        reject(new Error(`Docker build failed with code ${code}\n${stderr}`));
+        resolve({ tag, output, success: false, duration });
       }
     });
 
     proc.on('error', (err) => {
-      reject(new Error(`Failed to start docker build: ${err.message}`));
+      const duration = Date.now() - startTime;
+      const output = `Failed to start docker build: ${err.message}`;
+      resolve({ tag, output, success: false, duration });
     });
   });
 }

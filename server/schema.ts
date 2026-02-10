@@ -112,3 +112,19 @@ export const backups = sqliteTable(
     createdIdx: index('idx_backups_created').on(table.deploymentName, table.createdAt),
   }),
 );
+
+export const buildLogs = sqliteTable(
+  'build_logs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    deploymentName: text('deployment_name').notNull(),
+    output: text('output').notNull(),
+    success: integer('success', { mode: 'boolean' }).notNull(),
+    duration: integer('duration').notNull(),
+    timestamp: text('timestamp').notNull(),
+  },
+  (table) => ({
+    deploymentIdx: index('idx_build_logs_deployment').on(table.deploymentName),
+    timestampIdx: index('idx_build_logs_timestamp').on(table.deploymentName, table.timestamp),
+  }),
+);

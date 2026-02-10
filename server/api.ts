@@ -24,6 +24,8 @@ import {
   saveBackup,
   getBackups,
   deleteBackupRecord,
+  saveBuildLog,
+  getBuildLogs,
 } from './store.ts';
 import {
   classifyProject,
@@ -345,12 +347,25 @@ export function apiMiddleware() {
         }
 
         console.log(`Building ${name} (${type})...`);
-        const imageTag = await buildImage(name, deployDir);
+        const buildResult = await buildImage(name, deployDir);
+
+        // Save build log
+        saveBuildLog({
+          deploymentName: name,
+          output: buildResult.output,
+          success: buildResult.success,
+          duration: buildResult.duration,
+        });
+
+        // If build failed, return error
+        if (!buildResult.success) {
+          return error(res, `Build failed after ${buildResult.duration}ms. Check build logs for details.`, 500);
+        }
 
         const port = await getAvailablePort();
         console.log(`Starting ${name} on port ${port}...`);
         const volumeDir = getVolumeDir(name);
-        const { id, containerName } = await runContainer(imageTag, name, port, volumeDir);
+        const { id, containerName } = await runContainer(buildResult.tag, name, port, volumeDir);
 
         saveDeployment({
           name,
@@ -567,6 +582,20 @@ export function apiMiddleware() {
         deleteBackupRecord(name, filename);
 
         return json(res, { message: 'Backup deleted' });
+      }
+
+      // ── Build Logs ─────────────────────────────────────────────────────
+
+      const buildLogsMatch = path.match(/^\/api\/deployments\/([^/]+)\/build-logs$/);
+      if (buildLogsMatch && method === 'GET') {
+        const auth = requireAuth(req, res);
+        if (!auth) return;
+        const name = buildLogsMatch[1];
+        const d = getDeployment(name);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
+
+        const logs = getBuildLogs(name);
+        return json(res, { logs });
       }
 
       // ── Not an API route — pass to next middleware ─────────────────────

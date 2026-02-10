@@ -12,6 +12,7 @@ import {
   getBackups as _getBackups,
   saveBackup as _saveBackup,
   deleteBackupRecord as _deleteBackupRecord,
+  getBuildLogs as _getBuildLogs,
 } from '../../server/store.ts';
 import {
   getContainerStatus,
@@ -157,4 +158,12 @@ export async function deleteBackup(
   _deleteBackupRecord(name, filename);
 
   return { message: 'Backup deleted' };
+}
+
+export async function fetchBuildLogs(username: string, token: string, name: string) {
+  requireAuth(username, token);
+  const d = _getDeployment(name);
+  if (!d || d.username !== username) throw new Error('Not found');
+
+  return _getBuildLogs(name);
 }

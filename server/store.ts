@@ -5,7 +5,7 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { eq, and } from 'drizzle-orm';
-import { users, sessions, deployments, history, requestLogs, resourceMetrics, backups } from './schema.ts';
+import { users, sessions, deployments, history, requestLogs, resourceMetrics, backups, buildLogs } from './schema.ts';
 import type { RawContainerStats } from './docker.ts';
 
 const DATA_DIR = resolve(process.cwd(), '.deploy-data');
@@ -401,4 +401,46 @@ export function deleteBackupRecord(deploymentName: string, filename: string) {
   db.delete(backups)
     .where(and(eq(backups.deploymentName, deploymentName), eq(backups.filename, filename)))
     .run();
+}
+
+// ── Build Logs ──────────────────────────────────────────────────────────────
+
+export function saveBuildLog(log: {
+  deploymentName: string;
+  output: string;
+  success: boolean;
+  duration: number;
+}) {
+  const db = getDb();
+  db.insert(buildLogs)
+    .values({
+      deploymentName: log.deploymentName,
+      output: log.output,
+      success: log.success,
+      duration: log.duration,
+      timestamp: new Date().toISOString(),
+    })
+    .run();
+}
+
+export function getBuildLogs(deploymentName: string, limit = 10) {
+  const db = getDb();
+  return db
+    .select()
+    .from(buildLogs)
+    .where(eq(buildLogs.deploymentName, deploymentName))
+    .orderBy(buildLogs.timestamp)
+    .limit(limit)
+    .all();
+}
+
+export function getLatestBuildLog(deploymentName: string) {
+  const db = getDb();
+  return db
+    .select()
+    .from(buildLogs)
+    .where(eq(buildLogs.deploymentName, deploymentName))
+    .orderBy(buildLogs.timestamp)
+    .limit(1)
+    .get();
 }
