@@ -114,12 +114,66 @@ describe('store – logoutUser', () => {
   beforeEach(setup);
   afterEach(teardown);
 
-  it('invalidates the token', async () => {
+  it('invalidates the specified session token', async () => {
     const store = await loadStore();
     const { token } = store.registerUser('dave', 'pass');
     assert.equal(store.authenticate('dave', token), true);
-    store.logoutUser('dave');
+    store.logoutUser('dave', token);
     assert.equal(store.authenticate('dave', token), false);
+  });
+
+  it('does not invalidate other sessions', async () => {
+    const store = await loadStore();
+    const { token: token1 } = store.registerUser('dave', 'pass');
+    const { token: token2 } = store.loginUser('dave', 'pass');
+    assert.equal(store.authenticate('dave', token1), true);
+    assert.equal(store.authenticate('dave', token2), true);
+    store.logoutUser('dave', token1);
+    assert.equal(store.authenticate('dave', token1), false);
+    assert.equal(store.authenticate('dave', token2), true);
+  });
+});
+
+describe('store – concurrent sessions', () => {
+  beforeEach(setup);
+  afterEach(teardown);
+
+  it('keeps previous session valid after new login', async () => {
+    const store = await loadStore();
+    const reg = store.registerUser('bob', 'secret');
+    const login = store.loginUser('bob', 'secret');
+    assert.equal(store.authenticate('bob', reg.token), true);
+    assert.equal(store.authenticate('bob', login.token), true);
+  });
+});
+
+describe('store – changePassword', () => {
+  beforeEach(setup);
+  afterEach(teardown);
+
+  it('changes password with valid current password', async () => {
+    const store = await loadStore();
+    store.registerUser('frank', 'oldpass');
+    const result = store.changePassword('frank', 'oldpass', 'newpass');
+    assert.ok(result.success);
+    const login = store.loginUser('frank', 'newpass');
+    assert.ok(login.token);
+  });
+
+  it('rejects wrong current password', async () => {
+    const store = await loadStore();
+    store.registerUser('frank', 'oldpass');
+    const result = store.changePassword('frank', 'wrongpass', 'newpass');
+    assert.equal(result.error, 'Invalid current password');
+    assert.equal(result.status, 401);
+  });
+
+  it('old password no longer works after change', async () => {
+    const store = await loadStore();
+    store.registerUser('frank', 'oldpass');
+    store.changePassword('frank', 'oldpass', 'newpass');
+    const result = store.loginUser('frank', 'oldpass');
+    assert.equal(result.error, 'Invalid credentials');
   });
 });
 

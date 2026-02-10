@@ -3,7 +3,14 @@ import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
 export const users = sqliteTable('users', {
   username: text('username').primaryKey(),
   password: text('password').notNull(),
-  token: text('token'),
+  createdAt: text('created_at').notNull(),
+});
+
+export const sessions = sqliteTable('sessions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  username: text('username').notNull(),
+  token: text('token').notNull(),
+  label: text('label'),
   createdAt: text('created_at').notNull(),
 });
 

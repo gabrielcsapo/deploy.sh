@@ -7,7 +7,7 @@ A self-hosted deployment platform. Deploy and manage applications from your own 
 - **One-command deploys** — run `deploy` from any project directory
 - **Auto-detection** — supports Node.js, static sites, and Dockerfiles
 - **Web dashboard** — monitor deployments, view logs, track resources, and manage containers
-- **Subdomain routing** — each app gets its own `<name>.localhost` URL
+- **mDNS routing** — each app gets its own `<name>.local` URL via multicast DNS
 - **Live container logs** — stream logs in real time from the CLI or dashboard
 - **Resource metrics** — track CPU, memory, network, and disk I/O over time
 - **Request analytics** — automatic traffic logging with status codes, response times, and RPM
@@ -57,7 +57,7 @@ From any project directory:
 npx deploy
 ```
 
-Your app will be bundled, uploaded, built into a Docker image, and started. Visit `http://<name>.localhost:5173` to see it running.
+Your app will be bundled, uploaded, built into a Docker image, and started. Visit `http://<name>.local:5173` to see it running.
 
 ## CLI commands
 

@@ -10,6 +10,7 @@ export default [
   ]),
   route('dashboard', 'routes/dashboard/layout.tsx', [
     index('routes/dashboard/index.tsx'),
+    route('settings', 'routes/dashboard/settings.tsx'),
     route(':name', 'routes/dashboard/detail/layout.tsx', [
       index('routes/dashboard/detail/overview.tsx'),
       route('logs', 'routes/dashboard/detail/logs.tsx'),

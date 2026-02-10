@@ -1,7 +1,12 @@
 'use client';
 
 export function appUrl(name: string) {
-  if (typeof window === 'undefined') return `http://${name}.localhost:5050`;
+  if (typeof window === 'undefined') return `http://${name}.local:5173`;
+  const hostname = window.location.hostname;
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname === 'localhost' || hostname.endsWith('.local')) {
+    const port = window.location.port ? `:${window.location.port}` : '';
+    return `${window.location.protocol}//${name}.local${port}`;
+  }
   return `${window.location.protocol}//${name}.${window.location.host}`;
 }
 
@@ -13,6 +18,14 @@ export function getAuth() {
   } catch {
     return null;
   }
+}
+
+export function setAuth(username: string, token: string) {
+  localStorage.setItem('deploy-sh-auth', JSON.stringify({ username, token }));
+}
+
+export function clearAuth() {
+  localStorage.removeItem('deploy-sh-auth');
 }
 
 export interface Deployment {

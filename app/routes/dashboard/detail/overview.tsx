@@ -74,7 +74,7 @@ export default function Component() {
               rel="noopener noreferrer"
               className="text-accent hover:text-accent-hover font-mono text-xs"
             >
-              {deployment.name}.localhost
+              {deployment.name}.local
             </a>
           </InfoRow>
           <InfoRow label="Created">{new Date(deployment.createdAt).toLocaleString()}</InfoRow>

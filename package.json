@@ -7,7 +7,6 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "server": "node server/index.ts",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "oxlint .",
@@ -23,6 +22,7 @@
     "@react-router/dev": "7.13.0",
     "better-sqlite3": "^12.6.2",
     "drizzle-orm": "^0.45.1",
+    "multicast-dns": "^7.2.5",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router": "7.13.0",
@@ -32,6 +32,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.18",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/multicast-dns": "^7.2.4",
     "@types/node": "^25.2.2",
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",

@@ -3,12 +3,14 @@ import { resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 import { type IncomingMessage, type ServerResponse, request as httpRequest } from 'node:http';
 import { startMetricsCollector } from './metrics-collector.ts';
+import { registerHost, unregisterHost, registerAllDeployments } from './mdns.ts';
 import {
   registerUser,
   loginUser,
   authenticate,
   logoutUser,
   getUser,
+  changePassword,
   saveDeployment,
   getDeployment,
   getDeployments,
@@ -64,13 +66,16 @@ function getAuth(req: IncomingMessage) {
   return { username, token };
 }
 
-function requireAuth(req: IncomingMessage, res: ServerResponse): string | null {
+function requireAuth(
+  req: IncomingMessage,
+  res: ServerResponse,
+): { username: string; token: string } | null {
   const { username, token } = getAuth(req);
   if (!authenticate(username, token)) {
     error(res, 'Unauthorized', 401);
     return null;
   }
-  return username!;
+  return { username: username!, token: token! };
 }
 
 // ── Multipart parser (minimal) ──────────────────────────────────────────────
@@ -178,6 +183,8 @@ type NextFn = () => void;
 
 export function apiMiddleware() {
   startMetricsCollector();
+  registerHost('deploy');
+  registerAllDeployments();
   return async (req: IncomingMessage, res: ServerResponse, next: NextFn) => {
     const url = new URL(req.url!, `http://${req.headers.host}`);
     const path = url.pathname;
@@ -194,11 +201,11 @@ export function apiMiddleware() {
       return;
     }
 
-    // ── Subdomain-based app proxy (<name>.localhost:PORT) ─────────────────
+    // ── mDNS-based app proxy (<name>.local:PORT) ──────────────────────────
     const host = req.headers.host || '';
     const hostname = host.split(':')[0];
-    if (hostname.endsWith('.localhost') && hostname !== 'localhost') {
-      const appName = hostname.slice(0, -'.localhost'.length);
+    if (hostname.endsWith('.local') && hostname !== 'deploy.local') {
+      const appName = hostname.slice(0, -'.local'.length);
       const d = getDeployment(appName);
       if (!d) return error(res, 'App not found', 404);
 
@@ -233,24 +240,37 @@ export function apiMiddleware() {
       }
 
       if (path === '/api/logout' && method === 'GET') {
-        const username = requireAuth(req, res);
-        if (!username) return;
-        logoutUser(username);
+        const auth = requireAuth(req, res);
+        if (!auth) return;
+        logoutUser(auth.username, auth.token);
         return json(res, { message: 'Logged out' });
       }
 
       if (path === '/api/user' && method === 'GET') {
-        const username = requireAuth(req, res);
-        if (!username) return;
-        const user = getUser(username);
+        const auth = requireAuth(req, res);
+        if (!auth) return;
+        const user = getUser(auth.username);
         return json(res, user);
+      }
+
+      if (path === '/api/user/password' && method === 'POST') {
+        const auth = requireAuth(req, res);
+        if (!auth) return;
+        const body = JSON.parse((await readBody(req)).toString());
+        if (!body.currentPassword || !body.newPassword) {
+          return error(res, 'Current password and new password required');
+        }
+        const result = changePassword(auth.username, body.currentPassword, body.newPassword);
+        if ('error' in result) return error(res, result.error!, result.status!);
+        return json(res, { message: 'Password changed' });
       }
 
       // ── Upload / Deploy ─────────────────────────────────────────────────
 
       if (path === '/upload' && method === 'POST') {
-        const username = requireAuth(req, res);
-        if (!username) return;
+        const auth = requireAuth(req, res);
+        if (!auth) return;
+        const { username } = auth;
 
         const body = await readBody(req);
         const contentType = req.headers['content-type'] || '';
@@ -310,19 +330,20 @@ export function apiMiddleware() {
         });
 
         addDeployEvent(name, { action: 'deploy', username, type, port, containerId: id });
+        registerHost(name);
 
-        const deployHost = req.headers.host || 'localhost:5050';
-        const deployPort = deployHost.split(':')[1] || '5050';
-        console.log(`Deployed ${name} → http://${name}.localhost:${deployPort}`);
+        const deployHost = req.headers.host || 'localhost:5173';
+        const deployPort = deployHost.split(':')[1] || '5173';
+        console.log(`Deployed ${name} → http://${name}.local:${deployPort}`);
         return json(res, { name, type, port, containerId: id }, 201);
       }
 
       // ── Deployment management ───────────────────────────────────────────
 
       if (path === '/api/deployments' && method === 'GET') {
-        const username = requireAuth(req, res);
-        if (!username) return;
-        const deps = getDeployments(username).map((d) => ({
+        const auth = requireAuth(req, res);
+        if (!auth) return;
+        const deps = getDeployments(auth.username).map((d) => ({
           ...d,
           status: getContainerStatus(d.name),
         }));
@@ -331,32 +352,33 @@ export function apiMiddleware() {
 
       const deploymentMatch = path.match(/^\/api\/deployments\/([^/]+)$/);
       if (deploymentMatch && method === 'GET') {
-        const username = requireAuth(req, res);
-        if (!username) return;
+        const auth = requireAuth(req, res);
+        if (!auth) return;
         const d = getDeployment(deploymentMatch[1]);
-        if (!d || d.username !== username) return error(res, 'Not found', 404);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
         return json(res, { ...d, status: getContainerStatus(d.name) });
       }
 
       if (deploymentMatch && method === 'DELETE') {
-        const username = requireAuth(req, res);
-        if (!username) return;
+        const auth = requireAuth(req, res);
+        if (!auth) return;
         const name = deploymentMatch[1];
         const d = getDeployment(name);
-        if (!d || d.username !== username) return error(res, 'Not found', 404);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
         stopContainer(name);
-        addDeployEvent(name, { action: 'delete', username });
+        unregisterHost(name);
+        addDeployEvent(name, { action: 'delete', username: auth.username });
         deleteDeployment(name);
         return json(res, { message: `Deleted ${name}` });
       }
 
       const logsMatch = path.match(/^\/api\/deployments\/([^/]+)\/logs$/);
       if (logsMatch && method === 'GET') {
-        const username = requireAuth(req, res);
-        if (!username) return;
+        const auth = requireAuth(req, res);
+        if (!auth) return;
         const name = logsMatch[1];
         const d = getDeployment(name);
-        if (!d || d.username !== username) return error(res, 'Not found', 404);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
 
         res.writeHead(200, {
           'Content-Type': 'text/plain',
@@ -376,11 +398,11 @@ export function apiMiddleware() {
 
       const inspectMatch = path.match(/^\/api\/deployments\/([^/]+)\/inspect$/);
       if (inspectMatch && method === 'GET') {
-        const username = requireAuth(req, res);
-        if (!username) return;
+        const auth = requireAuth(req, res);
+        if (!auth) return;
         const name = inspectMatch[1];
         const d = getDeployment(name);
-        if (!d || d.username !== username) return error(res, 'Not found', 404);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
         const info = getContainerInspect(name);
         if (!info) return error(res, 'Container not found', 404);
         return json(res, info);
@@ -388,11 +410,11 @@ export function apiMiddleware() {
 
       const statsMatch = path.match(/^\/api\/deployments\/([^/]+)\/stats$/);
       if (statsMatch && method === 'GET') {
-        const username = requireAuth(req, res);
-        if (!username) return;
+        const auth = requireAuth(req, res);
+        if (!auth) return;
         const name = statsMatch[1];
         const d = getDeployment(name);
-        if (!d || d.username !== username) return error(res, 'Not found', 404);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
         const stats = getContainerStats(name);
         if (!stats) return error(res, 'Container not running', 404);
         return json(res, stats);
@@ -400,23 +422,23 @@ export function apiMiddleware() {
 
       const restartMatch = path.match(/^\/api\/deployments\/([^/]+)\/restart$/);
       if (restartMatch && method === 'POST') {
-        const username = requireAuth(req, res);
-        if (!username) return;
+        const auth = requireAuth(req, res);
+        if (!auth) return;
         const name = restartMatch[1];
         const d = getDeployment(name);
-        if (!d || d.username !== username) return error(res, 'Not found', 404);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
         restartContainer(name);
-        addDeployEvent(name, { action: 'restart', username });
+        addDeployEvent(name, { action: 'restart', username: auth.username });
         return json(res, { message: `Restarted ${name}` });
       }
 
       const historyMatch = path.match(/^\/api\/deployments\/([^/]+)\/history$/);
       if (historyMatch && method === 'GET') {
-        const username = requireAuth(req, res);
-        if (!username) return;
+        const auth = requireAuth(req, res);
+        if (!auth) return;
         const name = historyMatch[1];
         const d = getDeployment(name);
-        if (!d || d.username !== username) return error(res, 'Not found', 404);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
         return json(res, getDeployHistory(name));
       }
 
@@ -424,11 +446,11 @@ export function apiMiddleware() {
 
       const requestLogsMatch = path.match(/^\/api\/deployments\/([^/]+)\/requests$/);
       if (requestLogsMatch && method === 'GET') {
-        const username = requireAuth(req, res);
-        if (!username) return;
+        const auth = requireAuth(req, res);
+        if (!auth) return;
         const name = requestLogsMatch[1];
         const d = getDeployment(name);
-        if (!d || d.username !== username) return error(res, 'Not found', 404);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
         return json(res, {
           logs: getRequestLogs(name),
           summary: getRequestSummary(name),

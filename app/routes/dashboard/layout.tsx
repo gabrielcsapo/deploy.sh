@@ -19,6 +19,14 @@ export default function Component() {
                 Deployments
               </Link>
             </li>
+            <li>
+              <Link
+                to="/dashboard/settings"
+                className="block text-sm text-text-secondary hover:text-text px-2 py-1 rounded-md hover:bg-bg-hover transition-colors"
+              >
+                Settings
+              </Link>
+            </li>
           </ul>
         </nav>
       </aside>

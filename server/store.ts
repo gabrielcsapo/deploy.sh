@@ -3,8 +3,8 @@ import { resolve } from 'node:path';
 import { randomBytes, createHash } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { eq } from 'drizzle-orm';
-import { users, deployments, history, requestLogs, resourceMetrics } from './schema.ts';
+import { eq, and } from 'drizzle-orm';
+import { users, sessions, deployments, history, requestLogs, resourceMetrics } from './schema.ts';
 import type { RawContainerStats } from './docker.ts';
 
 const DATA_DIR = resolve(process.cwd(), '.deploy-data');
@@ -27,9 +27,17 @@ function getDb() {
     CREATE TABLE IF NOT EXISTS users (
       username TEXT PRIMARY KEY,
       password TEXT NOT NULL,
-      token TEXT,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL,
+      token TEXT NOT NULL,
+      label TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_username ON sessions(username);
+    CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
     CREATE TABLE IF NOT EXISTS deployments (
       name TEXT PRIMARY KEY,
       type TEXT,
@@ -88,6 +96,17 @@ function getDb() {
       ON resource_metrics(deployment_name, timestamp);
   `);
 
+  // Migrate: move existing users.token values to sessions table, then drop the column
+  const columns = _sqlite.pragma('table_info(users)') as { name: string }[];
+  if (columns.some((c) => c.name === 'token')) {
+    _sqlite.exec(`
+      INSERT INTO sessions (username, token, label, created_at)
+        SELECT username, token, 'migrated', created_at
+        FROM users WHERE token IS NOT NULL;
+      ALTER TABLE users DROP COLUMN token;
+    `);
+  }
+
   _db = drizzle(_sqlite);
   return _db;
 }
@@ -118,15 +137,16 @@ export function registerUser(username: string, password: string) {
   if (existing) {
     return { error: 'User already exists' as const, status: 409 as const };
   }
-  const token = generateToken();
+  const now = new Date().toISOString();
   db.insert(users)
     .values({
       username,
       password: hashPassword(password),
-      token,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
     })
     .run();
+  const token = generateToken();
+  db.insert(sessions).values({ username, token, createdAt: now }).run();
   return { token };
 }
 
@@ -137,7 +157,9 @@ export function loginUser(username: string, password: string) {
     return { error: 'Invalid credentials' as const, status: 401 as const };
   }
   const token = generateToken();
-  db.update(users).set({ token }).where(eq(users.username, username)).run();
+  db.insert(sessions)
+    .values({ username, token, createdAt: new Date().toISOString() })
+    .run();
   return { token };
 }
 
@@ -147,13 +169,32 @@ export function authenticate(
 ) {
   if (!username || !token) return false;
   const db = getDb();
-  const user = db.select().from(users).where(eq(users.username, username)).get();
-  return user != null && user.token === token;
+  const session = db
+    .select()
+    .from(sessions)
+    .where(and(eq(sessions.username, username), eq(sessions.token, token)))
+    .get();
+  return session != null;
 }
 
-export function logoutUser(username: string) {
+export function logoutUser(username: string, token: string) {
   const db = getDb();
-  db.update(users).set({ token: null }).where(eq(users.username, username)).run();
+  db.delete(sessions)
+    .where(and(eq(sessions.username, username), eq(sessions.token, token)))
+    .run();
+}
+
+export function changePassword(username: string, currentPassword: string, newPassword: string) {
+  const db = getDb();
+  const user = db.select().from(users).where(eq(users.username, username)).get();
+  if (!user || user.password !== hashPassword(currentPassword)) {
+    return { error: 'Invalid current password' as const, status: 401 as const };
+  }
+  db.update(users)
+    .set({ password: hashPassword(newPassword) })
+    .where(eq(users.username, username))
+    .run();
+  return { success: true as const };
 }
 
 export function getUser(username: string) {

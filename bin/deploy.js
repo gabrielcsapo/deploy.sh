@@ -13,6 +13,12 @@ const RC_PATH = resolve(homedir(), '.deployrc');
 
 function appUrl(serverUrl, name) {
   const u = new URL(serverUrl);
+  const hostname = u.hostname;
+  // If server is an IP address or localhost, use .local mDNS domain
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname === 'localhost' || hostname.endsWith('.local')) {
+    const port = u.port ? `:${u.port}` : '';
+    return `${u.protocol}//${name}.local${port}`;
+  }
   return `${u.protocol}//${name}.${u.host}`;
 }
 

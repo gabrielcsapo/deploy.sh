@@ -6,10 +6,7 @@ import {
   fetchDeployments as serverFetchDeployments,
   deleteDeployment as serverDeleteDeployment,
 } from '../../actions/deployments';
-
-function appUrl(name: string) {
-  return `${window.location.protocol}//${name}.${window.location.host}`;
-}
+import { getAuth, setAuth, clearAuth, appUrl } from './detail/shared';
 
 interface Deployment {
   name: string;
@@ -19,24 +16,6 @@ interface Deployment {
   containerId: string;
   createdAt: string;
   updatedAt: string;
-}
-
-function getAuth() {
-  try {
-    const raw = localStorage.getItem('deploy-sh-auth');
-    if (!raw) return null;
-    return JSON.parse(raw) as { username: string; token: string };
-  } catch {
-    return null;
-  }
-}
-
-function setAuth(username: string, token: string) {
-  localStorage.setItem('deploy-sh-auth', JSON.stringify({ username, token }));
-}
-
-function clearAuth() {
-  localStorage.removeItem('deploy-sh-auth');
 }
 
 // ── Login form ──────────────────────────────────────────────────────────────
@@ -178,7 +157,7 @@ function DeploymentList({
                   rel="noopener noreferrer"
                   className="text-accent hover:text-accent-hover font-mono text-xs"
                 >
-                  {d.name}.localhost
+                  {d.name}.local
                 </a>
               </td>
               <td className="px-4 py-3">
@@ -312,7 +291,20 @@ export default function Component() {
     }
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    const auth = getAuth();
+    if (auth) {
+      try {
+        await fetch('/api/logout', {
+          headers: {
+            'x-deploy-username': auth.username,
+            'x-deploy-token': auth.token,
+          },
+        });
+      } catch {
+        // best-effort server-side logout
+      }
+    }
     clearAuth();
     setAuthed(false);
     setDeployments([]);

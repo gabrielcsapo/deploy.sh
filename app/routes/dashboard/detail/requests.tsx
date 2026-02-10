@@ -63,7 +63,7 @@ export default function Component() {
             rel="noopener noreferrer"
             className="text-accent hover:text-accent-hover font-mono"
           >
-            {name}.localhost
+            {name}.local
           </a>
         </p>
         <p className="text-xs text-text-secondary">

@@ -189,6 +189,84 @@ describe('API – auth flow', () => {
     });
     assert.equal(afterStatus, 401);
   });
+
+  it('GET /api/logout only invalidates that session', async () => {
+    const reg = await req(port, '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'logouttest2', password: 'pass' }),
+    });
+    const token1 = reg.body.token;
+
+    const login = await req(port, '/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'logouttest2', password: 'pass' }),
+    });
+    const token2 = login.body.token;
+
+    // Logout session 1
+    await req(port, '/api/logout', {
+      headers: authHeaders('logouttest2', token1),
+    });
+
+    // Token 1 should be invalid
+    const { status: s1 } = await req(port, '/api/user', {
+      headers: authHeaders('logouttest2', token1),
+    });
+    assert.equal(s1, 401);
+
+    // Token 2 should still work
+    const { status: s2 } = await req(port, '/api/user', {
+      headers: authHeaders('logouttest2', token2),
+    });
+    assert.equal(s2, 200);
+  });
+
+  it('POST /api/user/password changes the password', async () => {
+    const reg = await req(port, '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'pwchange', password: 'oldpass' }),
+    });
+
+    const { status } = await req(port, '/api/user/password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders('pwchange', reg.body.token),
+      },
+      body: JSON.stringify({ currentPassword: 'oldpass', newPassword: 'newpass' }),
+    });
+    assert.equal(status, 200);
+
+    // Can login with new password
+    const login = await req(port, '/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'pwchange', password: 'newpass' }),
+    });
+    assert.equal(login.status, 200);
+    assert.ok(login.body.token);
+  });
+
+  it('POST /api/user/password rejects wrong current password', async () => {
+    const reg = await req(port, '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'pwchange2', password: 'oldpass' }),
+    });
+
+    const { status } = await req(port, '/api/user/password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders('pwchange2', reg.body.token),
+      },
+      body: JSON.stringify({ currentPassword: 'wrong', newPassword: 'newpass' }),
+    });
+    assert.equal(status, 401);
+  });
 });
 
 describe('API – deployments', () => {
