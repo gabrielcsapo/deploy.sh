@@ -9,7 +9,7 @@ import {
 import { getAuth, StatusBadge } from './shared';
 import type { Deployment, ContainerInfo, DetailContext } from './shared';
 
-type Tab = 'overview' | 'logs' | 'requests' | 'resources' | 'history';
+type Tab = 'overview' | 'logs' | 'requests' | 'resources' | 'history' | 'backups';
 
 const tabs: { key: Tab; label: string; path: string }[] = [
   { key: 'overview', label: 'Overview', path: '' },
@@ -17,6 +17,7 @@ const tabs: { key: Tab; label: string; path: string }[] = [
   { key: 'requests', label: 'Requests', path: 'requests' },
   { key: 'resources', label: 'Resources', path: 'resources' },
   { key: 'history', label: 'History', path: 'history' },
+  { key: 'backups', label: 'Backups', path: 'backups' },
 ];
 
 function getActiveTab(pathname: string, name: string): Tab {

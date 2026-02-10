@@ -3,8 +3,9 @@ import { resolve } from 'node:path';
 import { randomBytes, createHash } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { eq, and } from 'drizzle-orm';
-import { users, sessions, deployments, history, requestLogs, resourceMetrics } from './schema.ts';
+import { users, sessions, deployments, history, requestLogs, resourceMetrics, backups } from './schema.ts';
 import type { RawContainerStats } from './docker.ts';
 
 const DATA_DIR = resolve(process.cwd(), '.deploy-data');
@@ -23,91 +24,10 @@ function getDb() {
   _sqlite = new Database(DB_FILE);
   _sqlite.pragma('journal_mode = WAL');
 
-  _sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      username TEXT PRIMARY KEY,
-      password TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL,
-      token TEXT NOT NULL,
-      label TEXT,
-      created_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_sessions_username ON sessions(username);
-    CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
-    CREATE TABLE IF NOT EXISTS deployments (
-      name TEXT PRIMARY KEY,
-      type TEXT,
-      username TEXT NOT NULL,
-      port INTEGER,
-      container_id TEXT,
-      container_name TEXT,
-      directory TEXT,
-      created_at TEXT,
-      updated_at TEXT
-    );
-    CREATE TABLE IF NOT EXISTS history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      deployment_name TEXT NOT NULL,
-      action TEXT NOT NULL,
-      username TEXT,
-      type TEXT,
-      port INTEGER,
-      container_id TEXT,
-      timestamp TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS request_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      deployment_name TEXT NOT NULL,
-      method TEXT NOT NULL,
-      path TEXT NOT NULL,
-      status INTEGER NOT NULL,
-      duration INTEGER NOT NULL,
-      timestamp INTEGER NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_request_logs_deployment
-      ON request_logs(deployment_name);
-    CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp
-      ON request_logs(deployment_name, timestamp);
-    CREATE INDEX IF NOT EXISTS idx_history_deployment
-      ON history(deployment_name);
-    CREATE INDEX IF NOT EXISTS idx_deployments_username
-      ON deployments(username);
-    CREATE TABLE IF NOT EXISTS resource_metrics (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      deployment_name TEXT NOT NULL,
-      cpu_percent REAL NOT NULL,
-      mem_usage_bytes INTEGER NOT NULL,
-      mem_limit_bytes INTEGER NOT NULL,
-      mem_percent REAL NOT NULL,
-      net_rx_bytes INTEGER NOT NULL,
-      net_tx_bytes INTEGER NOT NULL,
-      block_read_bytes INTEGER NOT NULL,
-      block_write_bytes INTEGER NOT NULL,
-      pids INTEGER NOT NULL,
-      timestamp INTEGER NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_resource_metrics_deployment
-      ON resource_metrics(deployment_name);
-    CREATE INDEX IF NOT EXISTS idx_resource_metrics_timestamp
-      ON resource_metrics(deployment_name, timestamp);
-  `);
-
-  // Migrate: move existing users.token values to sessions table, then drop the column
-  const columns = _sqlite.pragma('table_info(users)') as { name: string }[];
-  if (columns.some((c) => c.name === 'token')) {
-    _sqlite.exec(`
-      INSERT INTO sessions (username, token, label, created_at)
-        SELECT username, token, 'migrated', created_at
-        FROM users WHERE token IS NOT NULL;
-      ALTER TABLE users DROP COLUMN token;
-    `);
-  }
-
   _db = drizzle(_sqlite);
+
+  migrate(_db, { migrationsFolder: './drizzle' });
+
   return _db;
 }
 
@@ -436,4 +356,49 @@ export function getMetricsHistory(name: string, since: number) {
     .where(eq(resourceMetrics.deploymentName, name))
     .all()
     .filter((r) => r.timestamp >= since);
+}
+
+// ── Backups ─────────────────────────────────────────────────────────────────
+
+export function saveBackup(backup: {
+  deploymentName: string;
+  filename: string;
+  label: string | null;
+  sizeBytes: number;
+  createdBy: string;
+  createdAt: string;
+  volumePaths: string[];
+}) {
+  const db = getDb();
+  db.insert(backups)
+    .values({
+      deploymentName: backup.deploymentName,
+      filename: backup.filename,
+      label: backup.label,
+      sizeBytes: backup.sizeBytes,
+      createdBy: backup.createdBy,
+      createdAt: backup.createdAt,
+      volumePaths: JSON.stringify(backup.volumePaths),
+    })
+    .run();
+}
+
+export function getBackups(deploymentName: string) {
+  const db = getDb();
+  return db
+    .select()
+    .from(backups)
+    .where(eq(backups.deploymentName, deploymentName))
+    .all()
+    .map((b) => ({
+      ...b,
+      volumePaths: JSON.parse(b.volumePaths) as string[],
+    }));
+}
+
+export function deleteBackupRecord(deploymentName: string, filename: string) {
+  const db = getDb();
+  db.delete(backups)
+    .where(and(eq(backups.deploymentName, deploymentName), eq(backups.filename, filename)))
+    .run();
 }

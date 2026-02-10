@@ -1,5 +1,5 @@
 import { execSync, spawn } from 'node:child_process';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createServer, type AddressInfo } from 'node:net';
 
@@ -85,13 +85,49 @@ export function ensureDockerfile(dir: string, type: string) {
 
 // ── Docker build & run ──────────────────────────────────────────────────────
 
-export function buildImage(name: string, dir: string) {
+export function buildImage(name: string, dir: string): Promise<string> {
   const tag = `deploy-sh-${name}`;
-  execSync(`docker build -t ${tag} .`, { cwd: dir, stdio: 'pipe' });
-  return tag;
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn('docker', ['build', '-t', tag, '.'], {
+      cwd: dir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout?.on('data', (data) => {
+      stdout += data.toString();
+      // Log build progress to console
+      process.stdout.write(data);
+    });
+
+    proc.stderr?.on('data', (data) => {
+      stderr += data.toString();
+      process.stderr.write(data);
+    });
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve(tag);
+      } else {
+        reject(new Error(`Docker build failed with code ${code}\n${stderr}`));
+      }
+    });
+
+    proc.on('error', (err) => {
+      reject(new Error(`Failed to start docker build: ${err.message}`));
+    });
+  });
 }
 
-export async function runContainer(imageTag: string, name: string, port: number) {
+export async function runContainer(
+  imageTag: string,
+  name: string,
+  port: number,
+  volumeDir?: string,
+) {
   const containerName = `deploy-sh-${name}`;
 
   // Remove old container with same name if it exists
@@ -101,9 +137,23 @@ export async function runContainer(imageTag: string, name: string, port: number)
     // ignore
   }
 
-  execSync(`docker run -d --name ${containerName} -p ${port}:3000 -e PORT=3000 ${imageTag}`, {
-    stdio: 'pipe',
-  });
+  // Build volume mount flags
+  let volumeFlags = '';
+  if (volumeDir) {
+    const dataVolume = resolve(volumeDir, 'data');
+    const uploadsVolume = resolve(volumeDir, 'uploads');
+
+    // Ensure directories exist
+    mkdirSync(dataVolume, { recursive: true });
+    mkdirSync(uploadsVolume, { recursive: true });
+
+    volumeFlags = `-v ${dataVolume}:/app/data -v ${uploadsVolume}:/app/uploads`;
+  }
+
+  execSync(
+    `docker run -d --name ${containerName} -p ${port}:3000 -e PORT=3000 ${volumeFlags} ${imageTag}`,
+    { stdio: 'pipe' },
+  );
 
   // Get the container ID
   const id = execSync(`docker inspect --format='{{.Id}}' ${containerName}`, { stdio: 'pipe' })

@@ -16,7 +16,11 @@
     "typecheck": "tsc --noEmit",
     "dev:docs": "vite --config vite.docs.config.ts",
     "build:docs": "vite build --config vite.docs.config.ts",
-    "preview:docs": "vite preview --config vite.docs.config.ts"
+    "preview:docs": "vite preview --config vite.docs.config.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@react-router/dev": "7.13.0",

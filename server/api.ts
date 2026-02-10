@@ -21,6 +21,9 @@ import {
   logRequest,
   getRequestLogs,
   getRequestSummary,
+  saveBackup,
+  getBackups,
+  deleteBackupRecord,
 } from './store.ts';
 import {
   classifyProject,
@@ -35,6 +38,14 @@ import {
   getContainerStats,
   restartContainer,
 } from './docker.ts';
+import {
+  getVolumeDir,
+  createBackup,
+  restoreBackup,
+  deleteBackupFile,
+  deleteVolumes,
+  getVolumeSize,
+} from './volumes.ts';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -311,12 +322,35 @@ export function apiMiddleware() {
 
         ensureDockerfile(deployDir, type);
 
+        // Auto-backup existing deployment if it exists
+        const existingDeployment = getDeployment(name);
+        if (existingDeployment) {
+          try {
+            console.log(`Creating auto-backup for ${name}...`);
+            const backup = createBackup(name, 'pre-deploy');
+            saveBackup({
+              deploymentName: name,
+              filename: backup.filename,
+              label: 'pre-deploy',
+              sizeBytes: backup.sizeBytes,
+              createdBy: username,
+              createdAt: backup.timestamp,
+              volumePaths: ['data', 'uploads'],
+            });
+            console.log(`Auto-backup created: ${backup.filename}`);
+          } catch (err) {
+            console.error('Auto-backup failed:', err);
+            // Continue deployment even if backup fails
+          }
+        }
+
         console.log(`Building ${name} (${type})...`);
-        const imageTag = buildImage(name, deployDir);
+        const imageTag = await buildImage(name, deployDir);
 
         const port = await getAvailablePort();
         console.log(`Starting ${name} on port ${port}...`);
-        const { id, containerName } = await runContainer(imageTag, name, port);
+        const volumeDir = getVolumeDir(name);
+        const { id, containerName } = await runContainer(imageTag, name, port, volumeDir);
 
         saveDeployment({
           name,
@@ -367,6 +401,7 @@ export function apiMiddleware() {
         if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
         stopContainer(name);
         unregisterHost(name);
+        deleteVolumes(name);
         addDeployEvent(name, { action: 'delete', username: auth.username });
         deleteDeployment(name);
         return json(res, { message: `Deleted ${name}` });
@@ -455,6 +490,83 @@ export function apiMiddleware() {
           logs: getRequestLogs(name),
           summary: getRequestSummary(name),
         });
+      }
+
+      // ── Backup management ──────────────────────────────────────────────
+
+      // Create backup or list backups
+      const backupsMatch = path.match(/^\/api\/deployments\/([^/]+)\/backups$/);
+      if (backupsMatch && method === 'POST') {
+        const auth = requireAuth(req, res);
+        if (!auth) return;
+        const name = backupsMatch[1];
+        const d = getDeployment(name);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
+
+        const body = JSON.parse((await readBody(req)).toString());
+        const label = body.label || null;
+
+        const result = createBackup(name, label);
+        saveBackup({
+          deploymentName: name,
+          filename: result.filename,
+          label,
+          sizeBytes: result.sizeBytes,
+          createdBy: auth.username,
+          createdAt: result.timestamp,
+          volumePaths: ['data', 'uploads'],
+        });
+
+        addDeployEvent(name, { action: 'backup', username: auth.username });
+        return json(res, result, 201);
+      }
+
+      if (backupsMatch && method === 'GET') {
+        const auth = requireAuth(req, res);
+        if (!auth) return;
+        const name = backupsMatch[1];
+        const d = getDeployment(name);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
+
+        const dbBackups = getBackups(name);
+        const volumeSize = getVolumeSize(name);
+
+        return json(res, { backups: dbBackups, volumeSize });
+      }
+
+      // Restore backup
+      const restoreMatch = path.match(/^\/api\/deployments\/([^/]+)\/backups\/([^/]+)\/restore$/);
+      if (restoreMatch && method === 'POST') {
+        const auth = requireAuth(req, res);
+        if (!auth) return;
+        const name = restoreMatch[1];
+        const filename = decodeURIComponent(restoreMatch[2]);
+        const d = getDeployment(name);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
+
+        restoreBackup(name, filename);
+
+        // Restart container to pick up restored data
+        restartContainer(name);
+
+        addDeployEvent(name, { action: 'restore', username: auth.username });
+        return json(res, { message: 'Backup restored and container restarted' });
+      }
+
+      // Delete backup
+      const deleteBackupMatch = path.match(/^\/api\/deployments\/([^/]+)\/backups\/([^/]+)$/);
+      if (deleteBackupMatch && method === 'DELETE') {
+        const auth = requireAuth(req, res);
+        if (!auth) return;
+        const name = deleteBackupMatch[1];
+        const filename = decodeURIComponent(deleteBackupMatch[2]);
+        const d = getDeployment(name);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
+
+        deleteBackupFile(name, filename);
+        deleteBackupRecord(name, filename);
+
+        return json(res, { message: 'Backup deleted' });
       }
 
       // ── Not an API route — pass to next middleware ─────────────────────

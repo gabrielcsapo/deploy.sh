@@ -17,6 +17,7 @@ export default [
       route('requests', 'routes/dashboard/detail/requests.tsx'),
       route('resources', 'routes/dashboard/detail/resources.tsx'),
       route('history', 'routes/dashboard/detail/history.tsx'),
+      route('backups', 'routes/dashboard/detail/backups.tsx'),
     ]),
   ]),
 ] satisfies RouteConfig;
