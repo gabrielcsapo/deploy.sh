@@ -33,12 +33,12 @@ export default defineConfig({
     exclude: ['better-sqlite3'],
   },
   server: {
+    watch: {
+      ignored: [".deploy-data/**"]
+    },
+    allowedHosts: true,
     // Allow connections from iOS simulator and local network devices
     host: true,
-    // Serve static files from data directory
-    fs: {
-      allow: ['..', './data'],
-    },
   },
   // Public directory for static assets
   publicDir: 'public',

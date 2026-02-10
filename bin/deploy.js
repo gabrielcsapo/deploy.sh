@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
 import { parseArgs } from 'node:util';
-import { createReadStream } from 'node:fs';
+import { createReadStream, statSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { homedir } from 'node:os';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 
 const DEFAULT_URL = 'http://localhost:5050';
 const RC_PATH = resolve(homedir(), '.deployrc');
@@ -94,6 +96,95 @@ async function request(url, options = {}) {
   return body;
 }
 
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+}
+
+async function uploadWithProgress(url, body, headers) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const isHttps = urlObj.protocol === 'https:';
+    const requestFn = isHttps ? httpsRequest : httpRequest;
+
+    const totalBytes = body.length;
+    let uploadedBytes = 0;
+    const startTime = Date.now();
+
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (isHttps ? 443 : 80),
+      path: urlObj.pathname + urlObj.search,
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Length': totalBytes,
+      },
+    };
+
+    const req = requestFn(options, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        process.stdout.write('\n'); // Clear progress line
+        const text = Buffer.concat(chunks).toString();
+        let responseBody;
+        try {
+          responseBody = JSON.parse(text);
+        } catch {
+          responseBody = text;
+        }
+        if (res.statusCode >= 400) {
+          const msg = typeof responseBody === 'object'
+            ? responseBody.message || responseBody.error || text
+            : text;
+          reject(new Error(`${res.statusCode}: ${msg}`));
+        } else {
+          resolve(responseBody);
+        }
+      });
+    });
+
+    req.on('error', reject);
+
+    // Track upload progress
+    const chunkSize = 64 * 1024; // 64KB chunks
+    let offset = 0;
+
+    const writeNextChunk = () => {
+      if (offset >= totalBytes) {
+        req.end();
+        return;
+      }
+
+      const end = Math.min(offset + chunkSize, totalBytes);
+      const chunk = body.subarray(offset, end);
+
+      const canContinue = req.write(chunk);
+      uploadedBytes += chunk.length;
+      offset = end;
+
+      // Update progress
+      const elapsed = (Date.now() - startTime) / 1000;
+      const speed = uploadedBytes / elapsed;
+      const percentage = ((uploadedBytes / totalBytes) * 100).toFixed(1);
+      const progress = `Uploading... ${formatBytes(uploadedBytes)} / ${formatBytes(totalBytes)} (${percentage}%) - ${formatBytes(speed)}/s`;
+      process.stdout.write(`\r${progress}`);
+
+      if (canContinue) {
+        writeNextChunk();
+      } else {
+        req.once('drain', writeNextChunk);
+      }
+    };
+
+    writeNextChunk();
+  });
+}
+
 function authHeaders(config) {
   return {
     'x-deploy-username': config.username || '',
@@ -168,7 +259,6 @@ async function cmdDeploy(serverUrl, appName) {
     stdio: 'pipe',
   });
 
-  console.log(`Uploading to ${serverUrl}...`);
   const boundary = '----DeployBoundary' + Date.now();
   const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${name}.tar.gz"\r\nContent-Type: application/gzip\r\n\r\n`;
   const nameField = `\r\n--${boundary}\r\nContent-Disposition: form-data; name="name"\r\n\r\n${name}\r\n--${boundary}--\r\n`;
@@ -182,13 +272,9 @@ async function cmdDeploy(serverUrl, appName) {
   chunks.push(Buffer.from(nameField));
   const body = Buffer.concat(chunks);
 
-  await request(`${serverUrl}/upload`, {
-    method: 'POST',
-    headers: {
-      ...authHeaders(config),
-      'Content-Type': `multipart/form-data; boundary=${boundary}`,
-    },
-    body,
+  await uploadWithProgress(`${serverUrl}/upload`, body, {
+    ...authHeaders(config),
+    'Content-Type': `multipart/form-data; boundary=${boundary}`,
   });
 
   // Clean up tarball
