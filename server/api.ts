@@ -15,6 +15,7 @@ import {
   getDeployment,
   getDeployments,
   deleteDeployment,
+  updateDeploymentSettings,
   getUploadsDir,
   addDeployEvent,
   getDeployHistory,
@@ -324,12 +325,12 @@ export function apiMiddleware() {
 
         ensureDockerfile(deployDir, type);
 
-        // Auto-backup existing deployment if it exists
+        // Auto-backup existing deployment if autoBackup is enabled
         const existingDeployment = getDeployment(name);
-        if (existingDeployment) {
+        if (existingDeployment && existingDeployment.autoBackup) {
           try {
             console.log(`Creating auto-backup for ${name}...`);
-            const backup = createBackup(name, 'pre-deploy');
+            const backup = await createBackup(name, 'pre-deploy');
             saveBackup({
               deploymentName: name,
               filename: backup.filename,
@@ -339,7 +340,7 @@ export function apiMiddleware() {
               createdAt: backup.timestamp,
               volumePaths: ['data', 'uploads'],
             });
-            console.log(`Auto-backup created: ${backup.filename}`);
+            console.log(`Auto-backup created: ${backup.filename} (${(backup.sizeBytes / 1024 / 1024).toFixed(2)} MB, volume: ${(backup.volumeSizeBytes / 1024 / 1024).toFixed(2)} MB)`);
           } catch (err) {
             console.error('Auto-backup failed:', err);
             // Continue deployment even if backup fails
@@ -420,6 +421,19 @@ export function apiMiddleware() {
         addDeployEvent(name, { action: 'delete', username: auth.username });
         deleteDeployment(name);
         return json(res, { message: `Deleted ${name}` });
+      }
+
+      if (deploymentMatch && method === 'PATCH') {
+        const auth = requireAuth(req, res);
+        if (!auth) return;
+        const name = deploymentMatch[1];
+        const d = getDeployment(name);
+        if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
+
+        const body = JSON.parse((await readBody(req)).toString());
+        updateDeploymentSettings(name, { autoBackup: body.autoBackup });
+
+        return json(res, { message: 'Settings updated' });
       }
 
       const logsMatch = path.match(/^\/api\/deployments\/([^/]+)\/logs$/);
@@ -521,7 +535,7 @@ export function apiMiddleware() {
         const body = JSON.parse((await readBody(req)).toString());
         const label = body.label || null;
 
-        const result = createBackup(name, label);
+        const result = await createBackup(name, label);
         saveBackup({
           deploymentName: name,
           filename: result.filename,

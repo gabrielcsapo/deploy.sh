@@ -31,6 +31,7 @@ export const deployments = sqliteTable(
     containerId: text('container_id'),
     containerName: text('container_name'),
     directory: text('directory'),
+    autoBackup: integer('auto_backup', { mode: 'boolean' }).default(false),
     createdAt: text('created_at'),
     updatedAt: text('updated_at'),
   },

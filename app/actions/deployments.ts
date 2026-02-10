@@ -5,6 +5,7 @@ import {
   getDeployments as _getDeployments,
   getDeployment as _getDeployment,
   deleteDeployment as _deleteDeployment,
+  updateDeploymentSettings as _updateDeploymentSettings,
   addDeployEvent,
   getDeployHistory as _getDeployHistory,
   getRequestLogs as _getRequestLogs,
@@ -56,6 +57,19 @@ export async function deleteDeployment(username: string, token: string, name: st
   addDeployEvent(name, { action: 'delete', username });
   _deleteDeployment(name);
   return { message: `Deleted ${name}` };
+}
+
+export async function updateDeploymentSettings(
+  username: string,
+  token: string,
+  name: string,
+  settings: { autoBackup?: boolean },
+) {
+  requireAuth(username, token);
+  const d = _getDeployment(name);
+  if (!d || d.username !== username) throw new Error('Not found');
+  _updateDeploymentSettings(name, settings);
+  return { message: 'Settings updated' };
 }
 
 export async function fetchContainerInspect(username: string, token: string, name: string) {

@@ -7,6 +7,7 @@ import {
   createBackup as serverCreateBackup,
   restoreBackup as serverRestoreBackup,
   deleteBackup as serverDeleteBackup,
+  updateDeploymentSettings as serverUpdateSettings,
 } from '../../../actions/deployments';
 import { getAuth } from './shared';
 import type { DetailContext } from './shared';
@@ -123,6 +124,19 @@ export default function Component() {
     }
   };
 
+  const handleToggleAutoBackup = async () => {
+    try {
+      const auth = getAuth();
+      if (!auth) return;
+      await serverUpdateSettings(auth.username, auth.token, name, {
+        autoBackup: !deployment.autoBackup,
+      });
+      await fetchDeployment();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
   if (loading) {
     return <div className="text-sm text-text-tertiary text-center py-8">Loading...</div>;
   }
@@ -146,6 +160,39 @@ export default function Component() {
         </div>
       </div>
 
+      {/* Auto-Backup Setting */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold mb-1">Auto-Backup Before Deploy</p>
+            <p className="text-xs text-text-secondary">
+              Automatically create a backup before each deployment
+            </p>
+          </div>
+          <button
+            onClick={handleToggleAutoBackup}
+            className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+              deployment.autoBackup
+                ? 'bg-accent text-white'
+                : 'bg-bg-tertiary border border-border text-text-secondary'
+            }`}
+          >
+            {deployment.autoBackup ? 'Enabled' : 'Disabled'}
+          </button>
+        </div>
+      </div>
+
+      {/* Large Volume Warning */}
+      {volumeSize > 10 * 1024 * 1024 * 1024 && (
+        <div className="card p-4 bg-warning/10 border border-warning/20">
+          <p className="text-sm text-warning font-medium mb-1">⚠️ Large Volume Detected</p>
+          <p className="text-xs text-text-secondary">
+            Your volume is {formatBytes(volumeSize)}. Large volumes may take several minutes to
+            backup and restore. Backups are created asynchronously without blocking your server.
+          </p>
+        </div>
+      )}
+
       {/* Create Backup */}
       <div className="card p-4">
         <h3 className="text-sm font-semibold mb-3">Create Backup</h3>
@@ -163,7 +210,7 @@ export default function Component() {
           </button>
         </div>
         <p className="text-xs text-text-secondary mt-2">
-          Creates a compressed archive of your volume data
+          Creates a gzip-compressed archive of your volume data (non-blocking)
         </p>
       </div>
 

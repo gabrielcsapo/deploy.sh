@@ -185,6 +185,17 @@ export function deleteDeployment(name: string) {
   db.delete(deployments).where(eq(deployments.name, name)).run();
 }
 
+export function updateDeploymentSettings(name: string, settings: { autoBackup?: boolean }) {
+  const db = getDb();
+  db.update(deployments)
+    .set({
+      autoBackup: settings.autoBackup,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(deployments.name, name))
+    .run();
+}
+
 export function getAllDeployments() {
   const db = getDb();
   return db.select().from(deployments).all();

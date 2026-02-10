@@ -1,0 +1,1 @@
+ALTER TABLE `deployments` ADD `auto_backup` integer DEFAULT false;

@@ -1,6 +1,6 @@
 import { mkdirSync, existsSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 
 const DATA_DIR = resolve(process.cwd(), '.deploy-data');
 const VOLUMES_DIR = resolve(DATA_DIR, 'volumes');
@@ -39,28 +39,49 @@ export function getBackupDir(deploymentName: string): string {
 export function createBackup(
   deploymentName: string,
   label?: string,
-): { filename: string; sizeBytes: number; timestamp: string } {
+): Promise<{ filename: string; sizeBytes: number; timestamp: string; volumeSizeBytes: number }> {
   const volumeDir = getVolumeDir(deploymentName);
   const backupDir = getBackupDir(deploymentName);
+  const volumeSizeBytes = getVolumeSize(deploymentName);
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const labelSuffix = label ? `-${label.replace(/[^a-zA-Z0-9-]/g, '_')}` : '';
   const filename = `${timestamp}${labelSuffix}.tar.gz`;
   const backupPath = resolve(backupDir, filename);
 
-  // Create tarball from volume directory
-  execSync(
-    `tar -czf ${JSON.stringify(backupPath)} -C ${JSON.stringify(volumeDir)} data uploads`,
-    { stdio: 'pipe' },
-  );
+  return new Promise((resolve, reject) => {
+    const proc = spawn('tar', ['-czf', backupPath, '-C', volumeDir, 'data', 'uploads'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
-  const stats = statSync(backupPath);
+    let stderr = '';
+    proc.stderr?.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
 
-  return {
-    filename,
-    sizeBytes: stats.size,
-    timestamp: new Date().toISOString(),
-  };
+    proc.on('error', (err) => {
+      reject(new Error(`Backup failed: ${err.message}`));
+    });
+
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Backup failed with code ${code}: ${stderr}`));
+        return;
+      }
+
+      try {
+        const stats = statSync(backupPath);
+        resolve({
+          filename,
+          sizeBytes: stats.size,
+          timestamp: new Date().toISOString(),
+          volumeSizeBytes,
+        });
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
 }
 
 export function restoreBackup(deploymentName: string, filename: string): void {
