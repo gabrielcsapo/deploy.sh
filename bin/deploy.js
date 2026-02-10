@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { parseArgs } from 'node:util';
-import { createReadStream, statSync } from 'node:fs';
+import { createReadStream } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
@@ -129,7 +129,6 @@ async function uploadWithProgress(url, body, headers) {
       const chunks = [];
       res.on('data', (chunk) => chunks.push(chunk));
       res.on('end', () => {
-        process.stdout.write('\n'); // Clear progress line
         const text = Buffer.concat(chunks).toString();
         let responseBody;
         try {
@@ -157,6 +156,20 @@ async function uploadWithProgress(url, body, headers) {
     const writeNextChunk = () => {
       if (offset >= totalBytes) {
         req.end();
+        process.stdout.write('\nUpload complete, building Docker image...');
+        // Add a simple spinner while waiting for server response
+        const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+        let spinnerIndex = 0;
+        const spinnerInterval = setInterval(() => {
+          process.stdout.write(`\r${spinnerFrames[spinnerIndex]} Building Docker image...`);
+          spinnerIndex = (spinnerIndex + 1) % spinnerFrames.length;
+        }, 80);
+
+        // Clear spinner when request completes
+        req.on('close', () => {
+          clearInterval(spinnerInterval);
+          process.stdout.write('\r\x1b[K'); // Clear the spinner line
+        });
         return;
       }
 
