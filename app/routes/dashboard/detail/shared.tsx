@@ -1,15 +1,15 @@
 'use client';
 
 export function appUrl(name: string) {
-  if (typeof window === 'undefined') return `http://${name}.local:5173`;
+  if (typeof window === 'undefined') return `http://${name}.local:5050`;
   const hostname = window.location.hostname;
   if (
     /^\d+\.\d+\.\d+\.\d+$/.test(hostname) ||
     hostname === 'localhost' ||
     hostname.endsWith('.local')
   ) {
-    const port = window.location.port ? `:${window.location.port}` : '';
-    return `${window.location.protocol}//${name}.local${port}`;
+    // Use backend server port (5050) for .local domain routing
+    return `${window.location.protocol}//${name}.local:5050`;
   }
   return `${window.location.protocol}//${name}.${window.location.host}`;
 }

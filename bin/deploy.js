@@ -290,7 +290,7 @@ async function cmdDeploy(serverUrl, appName) {
   chunks.push(Buffer.from(nameField));
   const body = Buffer.concat(chunks);
 
-  await uploadWithProgress(`${serverUrl}/upload`, body, {
+  await uploadWithProgress(`${serverUrl}/api/upload`, body, {
     ...authHeaders(config),
     'Content-Type': `multipart/form-data; boundary=${boundary}`,
   });

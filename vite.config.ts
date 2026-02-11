@@ -23,6 +23,37 @@ export default defineConfig({
       },
     }),
   ],
+  preview: {
+    port: 5173,
+    allowedHosts: true,
+    // Allow connections from iOS simulator and local network devices
+    host: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5050',
+        changeOrigin: true,
+      },
+      '/ws': {
+        target: 'ws://localhost:5050',
+        ws: true,
+      },
+      // Proxy all .local domain requests to backend server
+      '/': {
+        target: 'http://localhost:5050',
+        changeOrigin: true,
+        bypass(req) {
+          const host = req.headers.host || '';
+          const hostname = host.split(':')[0];
+          // Only proxy if hostname ends with .local (but not deploy.local or localhost)
+          if (hostname.endsWith('.local') && hostname !== 'deploy.local' && hostname !== 'localhost') {
+            return null; // null means proxy the request
+          }
+          // Otherwise, let Vite handle it
+          return req.url;
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, './app'),
@@ -39,6 +70,31 @@ export default defineConfig({
     allowedHosts: true,
     // Allow connections from iOS simulator and local network devices
     host: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5050',
+        changeOrigin: true,
+      },
+      '/ws': {
+        target: 'ws://localhost:5050',
+        ws: true,
+      },
+      // Proxy all .local domain requests to backend server
+      '/': {
+        target: 'http://localhost:5050',
+        changeOrigin: true,
+        bypass(req) {
+          const host = req.headers.host || '';
+          const hostname = host.split(':')[0];
+          // Only proxy if hostname ends with .local (but not deploy.local or localhost)
+          if (hostname.endsWith('.local') && hostname !== 'deploy.local' && hostname !== 'localhost') {
+            return null; // null means proxy the request
+          }
+          // Otherwise, let Vite handle it
+          return req.url;
+        },
+      },
+    },
   },
   // Public directory for static assets
   publicDir: 'public',

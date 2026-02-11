@@ -52,7 +52,7 @@ export default function Component() {
         </li>
         <li>
           <strong>Upload</strong> &mdash; The archive is uploaded to the server via a multipart form
-          POST to <code>/upload</code>.
+          POST to <code>/api/upload</code>.
         </li>
         <li>
           <strong>Extract</strong> &mdash; The server extracts the archive into a per-deployment

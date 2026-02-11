@@ -9,34 +9,6 @@ export function reactRouter(): Plugin[] {
 
   return [
     {
-      name: 'deploy:api',
-      async configureServer(server) {
-        const { apiMiddleware } = await import(/* @vite-ignore */ path.resolve('server/api.ts'));
-        server.middlewares.use(apiMiddleware());
-
-        // Attach WebSocket server to Vite's HTTP server
-        const { setupWebSocket } = await import(/* @vite-ignore */ path.resolve('server/ws.ts'));
-        if (server.httpServer) setupWebSocket(server.httpServer);
-
-        // Sync container states and start all containers on startup
-        const { syncContainerStates, startAllContainers, stopAllContainers } = await import(
-          /* @vite-ignore */ path.resolve('server/lifecycle.ts')
-        );
-        syncContainerStates();
-        startAllContainers();
-
-        // Stop all containers when Vite shuts down
-        const cleanup = () => {
-          console.log('\nShutting down deploy.sh...');
-          stopAllContainers();
-        };
-
-        process.on('SIGINT', cleanup);
-        process.on('SIGTERM', cleanup);
-        process.on('exit', cleanup);
-      },
-    },
-    {
       name: 'react-router:config',
       configResolved(config) {
         idResolver = createIdResolver(config);

@@ -37,6 +37,7 @@ import {
   buildImage,
   runContainer,
   stopContainer,
+  removeContainer,
   getContainerStatus,
   streamLogs,
   getAvailablePort,
@@ -353,8 +354,13 @@ export function apiMiddleware() {
     const hostname = host.split(':')[0];
     if (hostname.endsWith('.local') && hostname !== 'deploy.local') {
       const appName = hostname.slice(0, -'.local'.length);
+      console.log(`[mDNS Proxy] Request for ${hostname} -> app name: ${appName}`);
       const d = getDeployment(appName);
-      if (!d) return error(res, 'App not found', 404);
+      if (!d) {
+        console.log(`[mDNS Proxy] Deployment not found: ${appName}`);
+        return error(res, 'App not found', 404);
+      }
+      console.log(`[mDNS Proxy] Found deployment: ${d.name}, port: ${d.port}, status: ${d.status}`);
 
       const proxyReq = proxyToApp(req, res, d, path, url.search, method!);
       // Stream the request body instead of buffering
@@ -365,7 +371,7 @@ export function apiMiddleware() {
     try {
       // ── Auth routes ───────────────────────────────────────────────────────
 
-      if (path === '/register' && method === 'POST') {
+      if (path === '/api/register' && method === 'POST') {
         const body = JSON.parse((await readBody(req)).toString());
         if (!body.username || !body.password) {
           return error(res, 'Username and password required');
@@ -375,7 +381,7 @@ export function apiMiddleware() {
         return json(res, { token: result.token }, 201);
       }
 
-      if (path === '/login' && method === 'POST') {
+      if (path === '/api/login' && method === 'POST') {
         const body = JSON.parse((await readBody(req)).toString());
         if (!body.username || !body.password) {
           return error(res, 'Username and password required');
@@ -413,7 +419,7 @@ export function apiMiddleware() {
 
       // ── Upload / Deploy ─────────────────────────────────────────────────
 
-      if (path === '/upload' && method === 'POST') {
+      if (path === '/api/upload' && method === 'POST') {
         const auth = requireAuth(req, res);
         if (!auth) return;
         const { username } = auth;
@@ -604,7 +610,7 @@ export function apiMiddleware() {
         const name = deploymentMatch[1];
         const d = getDeployment(name);
         if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
-        stopContainer(name);
+        removeContainer(name);
         unregisterHost(name);
         deleteVolumes(name);
         addDeployEvent(name, { action: 'delete', username: auth.username });

@@ -6,9 +6,11 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "server": "tsx server/index.ts",
+    "client": "vite",
+    "dev": "concurrently \"pnpm run server\" \"pnpm run client\" --names \"server,client\" --prefix-colors \"blue,magenta\"",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "concurrently \"pnpm run server\" \"vite preview\" --names \"server,preview\" --prefix-colors \"blue,magenta\"",
     "lint": "oxlint .",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
@@ -44,10 +46,12 @@
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "5.1.3",
     "@vitejs/plugin-rsc": "0.5.19",
+    "concurrently": "^9.2.1",
     "drizzle-kit": "^0.31.8",
     "oxfmt": "0.28.0",
     "oxlint": "1.43.0",
     "tailwindcss": "^4.1.18",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "pnpm": {

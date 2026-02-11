@@ -46,11 +46,17 @@ export function startAllContainers() {
   const deployments = getAllDeployments();
   let started = 0;
 
+  if (deployments.length === 0) {
+    console.log('  No deployments found');
+    return;
+  }
+
   for (const deployment of deployments) {
     try {
       const status = getContainerStatus(deployment.name);
+      console.log(`  ${deployment.name}: status=${status}`);
 
-      if (status === 'exited' || status === 'created') {
+      if (status === 'exited' || status === 'created' || status === 'stopped') {
         console.log(`  Starting ${deployment.name}...`);
 
         // Emit "starting" status immediately
@@ -72,6 +78,8 @@ export function startAllContainers() {
           data: { status: 'running' },
         });
         started++;
+      } else if (status === 'running') {
+        console.log(`  ${deployment.name} already running, skipping`);
       }
     } catch (err) {
       console.error(`  Error starting ${deployment.name}:`, err);
@@ -80,6 +88,8 @@ export function startAllContainers() {
 
   if (started > 0) {
     console.log(`All containers started (${started} total)`);
+  } else {
+    console.log('No containers needed to be started');
   }
 }
 

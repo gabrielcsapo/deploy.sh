@@ -182,7 +182,17 @@ export async function runContainer(
 export function stopContainer(name: string) {
   const containerName = `deploy-sh-${name.toLowerCase()}`;
   try {
-    execSync(`docker rm -f ${containerName}`, { stdio: 'pipe' });
+    // Just stop the container, don't remove it (so we can restart later)
+    execSync(`docker stop ${containerName}`, { stdio: ['pipe', 'pipe', 'ignore'] });
+  } catch {
+    // ignore if already stopped or doesn't exist
+  }
+}
+
+export function removeContainer(name: string) {
+  const containerName = `deploy-sh-${name.toLowerCase()}`;
+  try {
+    execSync(`docker rm -f ${containerName}`, { stdio: ['pipe', 'pipe', 'ignore'] });
   } catch {
     // ignore if already gone
   }
@@ -192,12 +202,13 @@ export function getContainerStatus(name: string): string {
   const containerName = `deploy-sh-${name.toLowerCase()}`;
   try {
     const status = execSync(`docker inspect --format='{{.State.Status}}' ${containerName}`, {
-      stdio: 'pipe',
+      stdio: ['pipe', 'pipe', 'ignore'], // Ignore stderr to suppress "No such container" errors
     })
       .toString()
       .trim();
     return status;
-  } catch {
+  } catch (err) {
+    // Container doesn't exist - silently return stopped
     return 'stopped';
   }
 }
@@ -226,7 +237,7 @@ export function getContainerInspect(name: string): ContainerInspect | null {
   const containerName = `deploy-sh-${name.toLowerCase()}`;
   try {
     const raw = execSync(`docker inspect ${containerName}`, {
-      stdio: 'pipe',
+      stdio: ['pipe', 'pipe', 'ignore'], // Ignore stderr to suppress "No such container" errors
     }).toString();
     const info = JSON.parse(raw)[0];
     return {
@@ -263,7 +274,7 @@ export function getContainerStats(name: string): ContainerStats | null {
   try {
     const raw = execSync(
       `docker stats --no-stream --format '{"cpu":"{{.CPUPerc}}","mem":"{{.MemUsage}}","memPerc":"{{.MemPerc}}","net":"{{.NetIO}}","block":"{{.BlockIO}}","pids":"{{.PIDs}}"}' ${containerName}`,
-      { stdio: 'pipe' },
+      { stdio: ['pipe', 'pipe', 'ignore'] }, // Ignore stderr to suppress "No such container" errors
     )
       .toString()
       .trim();

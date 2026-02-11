@@ -34,7 +34,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
     setError('');
     setLoading(true);
     try {
-      const endpoint = mode === 'register' ? '/register' : '/login';
+      const endpoint = mode === 'register' ? '/api/register' : '/api/login';
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
