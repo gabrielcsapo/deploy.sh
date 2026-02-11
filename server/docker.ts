@@ -109,22 +109,12 @@ export function buildImage(name: string, dir: string): Promise<BuildResult> {
       const str = data.toString();
       stdout += str;
       process.stdout.write(data);
-      if (onLine) {
-        for (const line of str.split('\n')) {
-          if (line) onLine(line);
-        }
-      }
     });
 
     proc.stderr?.on('data', (data) => {
       const str = data.toString();
       stderr += str;
       process.stderr.write(data);
-      if (onLine) {
-        for (const line of str.split('\n')) {
-          if (line) onLine(line);
-        }
-      }
     });
 
     proc.on('close', (code) => {
