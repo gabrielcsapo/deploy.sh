@@ -108,14 +108,23 @@ export function buildImage(name: string, dir: string): Promise<BuildResult> {
     proc.stdout?.on('data', (data) => {
       const str = data.toString();
       stdout += str;
-      // Log build progress to console
       process.stdout.write(data);
+      if (onLine) {
+        for (const line of str.split('\n')) {
+          if (line) onLine(line);
+        }
+      }
     });
 
     proc.stderr?.on('data', (data) => {
       const str = data.toString();
       stderr += str;
       process.stderr.write(data);
+      if (onLine) {
+        for (const line of str.split('\n')) {
+          if (line) onLine(line);
+        }
+      }
     });
 
     proc.on('close', (code) => {
@@ -171,7 +180,9 @@ export async function runContainer(
   );
 
   // Get the container ID
-  const id = execSync(`docker inspect --format='{{.Id}}' ${containerName}`, { stdio: 'pipe' })
+  const id = execSync(`docker inspect --format='{{.Id}}' ${containerName}`, {
+    stdio: 'pipe',
+  })
     .toString()
     .trim();
 
@@ -224,7 +235,9 @@ export interface ContainerInspect {
 export function getContainerInspect(name: string): ContainerInspect | null {
   const containerName = `deploy-sh-${name.toLowerCase()}`;
   try {
-    const raw = execSync(`docker inspect ${containerName}`, { stdio: 'pipe' }).toString();
+    const raw = execSync(`docker inspect ${containerName}`, {
+      stdio: 'pipe',
+    }).toString();
     const info = JSON.parse(raw)[0];
     return {
       id: info.Id,

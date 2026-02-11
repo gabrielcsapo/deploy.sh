@@ -3,7 +3,11 @@
 export function appUrl(name: string) {
   if (typeof window === 'undefined') return `http://${name}.local:5173`;
   const hostname = window.location.hostname;
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname === 'localhost' || hostname.endsWith('.local')) {
+  if (
+    /^\d+\.\d+\.\d+\.\d+$/.test(hostname) ||
+    hostname === 'localhost' ||
+    hostname.endsWith('.local')
+  ) {
     const port = window.location.port ? `:${window.location.port}` : '';
     return `${window.location.protocol}//${name}.local${port}`;
   }
@@ -34,6 +38,7 @@ export interface Deployment {
   port: number;
   status: string;
   containerId: string;
+  autoBackup: boolean;
   createdAt: string;
 }
 
@@ -57,7 +62,11 @@ export interface DetailContext {
 
 export function StatusBadge({ status }: { status: string }) {
   const cls =
-    status === 'running' ? 'badge-success' : status === 'exited' ? 'badge-danger' : 'badge-warning';
+    status === 'running'
+      ? 'badge-success'
+      : status === 'exited' || status === 'failed' || status === 'stopped'
+        ? 'badge-danger'
+        : 'badge-warning';
   return <span className={`badge ${cls}`}>{status}</span>;
 }
 

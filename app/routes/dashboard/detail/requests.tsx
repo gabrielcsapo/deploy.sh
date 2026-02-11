@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useOutletContext } from 'react-router';
 import { fetchRequestData as serverFetchRequests } from '../../../actions/deployments';
 import { appUrl, getAuth, StatCard } from './shared';
 import type { DetailContext } from './shared';
+import { useWebSocket } from '../../../hooks/useWebSocket';
 
 interface RequestLog {
   method: string;
@@ -42,11 +43,39 @@ export default function Component() {
     }
   }, [name]);
 
+  // Initial fetch
   useEffect(() => {
     fetchRequests();
-    const interval = setInterval(fetchRequests, 3000);
-    return () => clearInterval(interval);
   }, [fetchRequests]);
+
+  // WebSocket for real-time request updates
+  const channels = useMemo(() => [`deployment:${name}`], [name]);
+  const handleWsEvent = useCallback((event: { type: string; data: Record<string, unknown> }) => {
+    if (event.type === 'request:logged') {
+      const entry = event.data as unknown as RequestLog;
+      setLogs((prev) => {
+        const updated = [...prev, entry];
+        // Keep only the last 500
+        return updated.slice(-500);
+      });
+      // Update summary incrementally
+      setSummary((prev) => {
+        if (!prev)
+          return {
+            total: 1,
+            statusCodes: { [`${Math.floor(entry.status / 100)}xx`]: 1 },
+            avgDuration: entry.duration,
+            recentRpm: 1,
+          };
+        const group = `${Math.floor(entry.status / 100)}xx`;
+        const statusCodes = { ...prev.statusCodes, [group]: (prev.statusCodes[group] || 0) + 1 };
+        const total = prev.total + 1;
+        const avgDuration = Math.round((prev.avgDuration * prev.total + entry.duration) / total);
+        return { ...prev, total, statusCodes, avgDuration };
+      });
+    }
+  }, []);
+  useWebSocket(channels, handleWsEvent);
 
   if (loading) {
     return <div className="text-sm text-text-tertiary text-center py-8">Loading...</div>;

@@ -13,6 +13,10 @@ export function reactRouter(): Plugin[] {
       async configureServer(server) {
         const { apiMiddleware } = await import(/* @vite-ignore */ path.resolve('server/api.ts'));
         server.middlewares.use(apiMiddleware());
+
+        // Attach WebSocket server to Vite's HTTP server
+        const { setupWebSocket } = await import(/* @vite-ignore */ path.resolve('server/ws.ts'));
+        if (server.httpServer) setupWebSocket(server.httpServer);
       },
     },
     {

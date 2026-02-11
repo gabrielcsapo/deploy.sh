@@ -34,7 +34,7 @@ export default defineConfig({
   },
   server: {
     watch: {
-      ignored: [".deploy-data/**"]
+      ignored: ['.deploy-data/**'],
     },
     allowedHosts: true,
     // Allow connections from iOS simulator and local network devices

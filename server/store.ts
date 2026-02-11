@@ -5,7 +5,16 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { eq, and } from 'drizzle-orm';
-import { users, sessions, deployments, history, requestLogs, resourceMetrics, backups, buildLogs } from './schema.ts';
+import {
+  users,
+  sessions,
+  deployments,
+  history,
+  requestLogs,
+  resourceMetrics,
+  backups,
+  buildLogs,
+} from './schema.ts';
 import type { RawContainerStats } from './docker.ts';
 
 const DATA_DIR = resolve(process.cwd(), '.deploy-data');
@@ -77,9 +86,7 @@ export function loginUser(username: string, password: string) {
     return { error: 'Invalid credentials' as const, status: 401 as const };
   }
   const token = generateToken();
-  db.insert(sessions)
-    .values({ username, token, createdAt: new Date().toISOString() })
-    .run();
+  db.insert(sessions).values({ username, token, createdAt: new Date().toISOString() }).run();
   return { token };
 }
 
@@ -190,6 +197,17 @@ export function updateDeploymentSettings(name: string, settings: { autoBackup?: 
   db.update(deployments)
     .set({
       autoBackup: settings.autoBackup,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(deployments.name, name))
+    .run();
+}
+
+export function updateDeploymentStatus(name: string, status: string) {
+  const db = getDb();
+  db.update(deployments)
+    .set({
+      status,
       updatedAt: new Date().toISOString(),
     })
     .where(eq(deployments.name, name))

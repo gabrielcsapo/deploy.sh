@@ -116,17 +116,12 @@ export async function fetchBackups(username: string, token: string, name: string
   return { backups, volumeSize };
 }
 
-export async function createBackup(
-  username: string,
-  token: string,
-  name: string,
-  label?: string,
-) {
+export async function createBackup(username: string, token: string, name: string, label?: string) {
   requireAuth(username, token);
   const d = _getDeployment(name);
   if (!d || d.username !== username) throw new Error('Not found');
 
-  const result = _createBackup(name, label);
+  const result = await _createBackup(name, label);
   _saveBackup({
     deploymentName: name,
     filename: result.filename,

@@ -16,6 +16,7 @@ import {
   getDeployments,
   deleteDeployment,
   updateDeploymentSettings,
+  updateDeploymentStatus,
   getUploadsDir,
   addDeployEvent,
   getDeployHistory,
@@ -28,6 +29,7 @@ import {
   saveBuildLog,
   getBuildLogs,
 } from './store.ts';
+import { emit } from './events.ts';
 import {
   classifyProject,
   ensureDockerfile,
@@ -148,8 +150,8 @@ function proxyToApp(
   const startTime = Date.now();
   // Get the original host and protocol from the incoming request
   const originalHost = req.headers.host || '';
-  const protocol = req.headers['x-forwarded-proto'] ||
-                   (req.connection as any).encrypted ? 'https' : 'http';
+  const protocol =
+    req.headers['x-forwarded-proto'] || (req.connection as any).encrypted ? 'https' : 'http';
 
   const proxyReq = httpRequest(
     {
@@ -162,19 +164,20 @@ function proxyToApp(
         host: `localhost:${deployment.port}`,
         'x-forwarded-host': originalHost,
         'x-forwarded-proto': protocol,
-        'x-forwarded-for': req.headers['x-forwarded-for'] ||
-                          req.socket.remoteAddress || '',
+        'x-forwarded-for': req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
       },
     },
     (proxyRes) => {
       const duration = Date.now() - startTime;
-      logRequest(deployment.name, {
+      const entry = {
         method,
         path: targetPath,
         status: proxyRes.statusCode!,
         duration,
         timestamp: Date.now(),
-      });
+      };
+      logRequest(deployment.name, entry);
+      emit({ type: 'request:logged', deploymentName: deployment.name, data: entry });
 
       res.writeHead(proxyRes.statusCode!, {
         ...proxyRes.headers,
@@ -186,13 +189,9 @@ function proxyToApp(
 
   proxyReq.on('error', () => {
     const duration = Date.now() - startTime;
-    logRequest(deployment.name, {
-      method,
-      path: targetPath,
-      status: 502,
-      duration,
-      timestamp: Date.now(),
-    });
+    const entry = { method, path: targetPath, status: 502, duration, timestamp: Date.now() };
+    logRequest(deployment.name, entry);
+    emit({ type: 'request:logged', deploymentName: deployment.name, data: entry });
     error(res, 'App unavailable', 502);
   });
 
@@ -333,6 +332,14 @@ export function apiMiddleware() {
 
         ensureDockerfile(deployDir, type);
 
+        // Emit uploading status
+        updateDeploymentStatus(name, 'uploading');
+        emit({
+          type: 'deployment:status',
+          deploymentName: name,
+          data: { status: 'uploading', username },
+        });
+
         // Auto-backup existing deployment if autoBackup is enabled
         const existingDeployment = getDeployment(name);
         if (existingDeployment && existingDeployment.autoBackup) {
@@ -348,15 +355,27 @@ export function apiMiddleware() {
               createdAt: backup.timestamp,
               volumePaths: ['data', 'uploads'],
             });
-            console.log(`Auto-backup created: ${backup.filename} (${(backup.sizeBytes / 1024 / 1024).toFixed(2)} MB, volume: ${(backup.volumeSizeBytes / 1024 / 1024).toFixed(2)} MB)`);
+            console.log(
+              `Auto-backup created: ${backup.filename} (${(backup.sizeBytes / 1024 / 1024).toFixed(2)} MB, volume: ${(backup.volumeSizeBytes / 1024 / 1024).toFixed(2)} MB)`,
+            );
           } catch (err) {
             console.error('Auto-backup failed:', err);
             // Continue deployment even if backup fails
           }
         }
 
+        // Emit building status
+        updateDeploymentStatus(name, 'building');
+        emit({
+          type: 'deployment:status',
+          deploymentName: name,
+          data: { status: 'building', username },
+        });
+
         console.log(`Building ${name} (${type})...`);
-        const buildResult = await buildImage(name, deployDir);
+        const buildResult = await buildImage(name, deployDir, (line) => {
+          emit({ type: 'build:output', deploymentName: name, data: { line } });
+        });
 
         // Save build log
         saveBuildLog({
@@ -366,10 +385,34 @@ export function apiMiddleware() {
           duration: buildResult.duration,
         });
 
+        emit({
+          type: 'build:complete',
+          deploymentName: name,
+          data: { success: buildResult.success, duration: buildResult.duration },
+        });
+
         // If build failed, return error
         if (!buildResult.success) {
-          return error(res, `Build failed after ${buildResult.duration}ms. Check build logs for details.`, 500);
+          updateDeploymentStatus(name, 'failed');
+          emit({
+            type: 'deployment:status',
+            deploymentName: name,
+            data: { status: 'failed', username },
+          });
+          return error(
+            res,
+            `Build failed after ${buildResult.duration}ms. Check build logs for details.`,
+            500,
+          );
         }
+
+        // Emit starting status
+        updateDeploymentStatus(name, 'starting');
+        emit({
+          type: 'deployment:status',
+          deploymentName: name,
+          data: { status: 'starting', username },
+        });
 
         const port = await getAvailablePort();
         console.log(`Starting ${name} on port ${port}...`);
@@ -387,8 +430,21 @@ export function apiMiddleware() {
           createdAt: new Date().toISOString(),
         });
 
+        updateDeploymentStatus(name, 'running');
+
         addDeployEvent(name, { action: 'deploy', username, type, port, containerId: id });
         registerHost(name);
+
+        emit({
+          type: 'deployment:status',
+          deploymentName: name,
+          data: { status: 'running', username, type, port },
+        });
+        emit({
+          type: 'deployment:created',
+          deploymentName: name,
+          data: { name, type, port, containerId: id, username },
+        });
 
         const deployHost = req.headers.host || 'localhost:5173';
         const deployPort = deployHost.split(':')[1] || '5173';
@@ -428,6 +484,11 @@ export function apiMiddleware() {
         deleteVolumes(name);
         addDeployEvent(name, { action: 'delete', username: auth.username });
         deleteDeployment(name);
+        emit({
+          type: 'deployment:deleted',
+          deploymentName: name,
+          data: { username: auth.username },
+        });
         return json(res, { message: `Deleted ${name}` });
       }
 
@@ -501,6 +562,12 @@ export function apiMiddleware() {
         if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
         restartContainer(name);
         addDeployEvent(name, { action: 'restart', username: auth.username });
+        updateDeploymentStatus(name, 'running');
+        emit({
+          type: 'deployment:status',
+          deploymentName: name,
+          data: { status: 'running', username: auth.username },
+        });
         return json(res, { message: `Restarted ${name}` });
       }
 

@@ -7,8 +7,6 @@
       "Bash(sqlite3:*)",
       "Bash(ls:*)"
     ],
-    "additionalDirectories": [
-      "/tmp"
-    ]
+    "additionalDirectories": ["/tmp"]
   }
 }

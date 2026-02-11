@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f89a1a89-b7c3-4c49-8a1b-0327da0ec3ef",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "df61378a-f850-4c0b-8c06-261b0b9185a2",
+  "prevId": "b5a16bf4-2ed1-4170-92fa-26ef3b892ddf",
   "tables": {
     "backups": {
       "name": "backups",
@@ -81,6 +81,69 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "build_logs": {
+      "name": "build_logs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "deployment_name": {
+          "name": "deployment_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "output": {
+          "name": "output",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "success": {
+          "name": "success",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "duration": {
+          "name": "duration",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_build_logs_deployment": {
+          "name": "idx_build_logs_deployment",
+          "columns": ["deployment_name"],
+          "isUnique": false
+        },
+        "idx_build_logs_timestamp": {
+          "name": "idx_build_logs_timestamp",
+          "columns": ["deployment_name", "timestamp"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "deployments": {
       "name": "deployments",
       "columns": {
@@ -132,6 +195,22 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'stopped'"
+        },
+        "auto_backup": {
+          "name": "auto_backup",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

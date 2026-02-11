@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router';
 import {
   fetchDeployments as serverFetchDeployments,
   deleteDeployment as serverDeleteDeployment,
 } from '../../actions/deployments';
 import { getAuth, setAuth, clearAuth, appUrl } from './detail/shared';
+import { useWebSocket } from '../../hooks/useWebSocket';
+import type { WsEvent } from '../../hooks/useWebSocket';
 
 interface Deployment {
   name: string;
@@ -273,12 +275,26 @@ export default function Component() {
     }
   }, [fetchDeployments]);
 
-  // Poll every 5 seconds when authenticated
-  useEffect(() => {
-    if (!authed) return;
-    const interval = setInterval(fetchDeployments, 5000);
-    return () => clearInterval(interval);
-  }, [authed, fetchDeployments]);
+  // WebSocket for real-time deployment updates
+  const channels = useMemo(() => (authed ? ['deployments'] : []), [authed]);
+  const handleWsEvent = useCallback(
+    (event: WsEvent) => {
+      if (event.type === 'deployment:status') {
+        setDeployments((prev) =>
+          prev.map((d) =>
+            d.name === event.deploymentName ? { ...d, status: event.data.status as string } : d,
+          ),
+        );
+      } else if (event.type === 'deployment:created') {
+        // Refetch full list to get complete deployment data
+        fetchDeployments();
+      } else if (event.type === 'deployment:deleted') {
+        setDeployments((prev) => prev.filter((d) => d.name !== event.deploymentName));
+      }
+    },
+    [fetchDeployments],
+  );
+  useWebSocket(channels, handleWsEvent);
 
   async function handleDelete(name: string) {
     try {

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router';
 import { fetchBuildLogs as serverFetchBuildLogs } from '../../../actions/deployments';
 import { getAuth } from './shared';
+import { useWebSocket } from '../../../hooks/useWebSocket';
 
 interface BuildLog {
   id: number;
@@ -25,6 +26,10 @@ export default function Component() {
   const [logs, setLogs] = useState<BuildLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedLog, setSelectedLog] = useState<BuildLog | null>(null);
+  // Live build state
+  const [liveOutput, setLiveOutput] = useState('');
+  const [isBuilding, setIsBuilding] = useState(false);
+  const liveOutputRef = useRef<HTMLPreElement>(null);
 
   useEffect(() => {
     const auth = getAuth();
@@ -33,7 +38,6 @@ export default function Component() {
     serverFetchBuildLogs(auth.username, auth.token, name!)
       .then((data) => {
         setLogs(data as BuildLog[]);
-        // Auto-select the latest build log
         if (data.length > 0) {
           setSelectedLog(data[data.length - 1] as BuildLog);
         }
@@ -41,11 +45,47 @@ export default function Component() {
       .finally(() => setLoading(false));
   }, [name]);
 
+  // WebSocket for real-time build output
+  const channels = useMemo(() => [`deployment:${name}`], [name]);
+  const handleWsEvent = useCallback(
+    (event: { type: string; deploymentName: string; data: Record<string, unknown> }) => {
+      if (event.deploymentName !== name) return;
+
+      if (event.type === 'deployment:status' && event.data.status === 'building') {
+        setIsBuilding(true);
+        setLiveOutput('');
+        setSelectedLog(null);
+      } else if (event.type === 'build:output') {
+        setLiveOutput((prev) => prev + (event.data.line as string) + '\n');
+      } else if (event.type === 'build:complete') {
+        setIsBuilding(false);
+        const auth = getAuth();
+        if (auth) {
+          serverFetchBuildLogs(auth.username, auth.token, name!).then((data) => {
+            setLogs(data as BuildLog[]);
+            if (data.length > 0) {
+              setSelectedLog(data[data.length - 1] as BuildLog);
+            }
+          });
+        }
+      }
+    },
+    [name],
+  );
+  useWebSocket(channels, handleWsEvent);
+
+  // Auto-scroll live output
+  useEffect(() => {
+    if (liveOutputRef.current) {
+      liveOutputRef.current.scrollTop = liveOutputRef.current.scrollHeight;
+    }
+  }, [liveOutput]);
+
   if (loading) {
     return <div className="text-sm text-text-tertiary text-center py-8">Loading...</div>;
   }
 
-  if (logs.length === 0) {
+  if (!isBuilding && logs.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-text-secondary mb-2">No build logs yet</p>
@@ -62,9 +102,27 @@ export default function Component() {
       <div className="col-span-1 card overflow-hidden flex flex-col">
         <div className="px-4 py-3 border-b border-border">
           <h3 className="text-sm font-semibold">Build History</h3>
-          <p className="text-xs text-text-tertiary mt-1">{logs.length} builds</p>
+          <p className="text-xs text-text-tertiary mt-1">
+            {logs.length} build{logs.length !== 1 ? 's' : ''}
+          </p>
         </div>
         <div className="flex-1 overflow-y-auto">
+          {isBuilding && (
+            <button
+              onClick={() => setSelectedLog(null)}
+              className={`w-full px-4 py-3 text-left border-b border-border hover:bg-bg-tertiary transition-colors ${
+                selectedLog === null ? 'bg-bg-tertiary' : ''
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-warning">
+                  <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
+                  Building...
+                </span>
+              </div>
+              <time className="text-xs text-text-secondary">In progress</time>
+            </button>
+          )}
           {logs
             .slice()
             .reverse()
@@ -96,7 +154,27 @@ export default function Component() {
 
       {/* Build output */}
       <div className="col-span-2 card overflow-hidden flex flex-col">
-        {selectedLog ? (
+        {isBuilding && selectedLog === null ? (
+          <>
+            <div className="px-4 py-3 border-b border-border">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Build Output</h3>
+                <span className="flex items-center gap-1.5 text-xs text-warning">
+                  <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
+                  Building...
+                </span>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 bg-bg-tertiary">
+              <pre
+                ref={liveOutputRef}
+                className="text-xs font-mono whitespace-pre-wrap break-words"
+              >
+                {liveOutput || 'Waiting for build output...'}
+              </pre>
+            </div>
+          </>
+        ) : selectedLog ? (
           <>
             <div className="px-4 py-3 border-b border-border">
               <div className="flex items-center justify-between">
@@ -106,9 +184,7 @@ export default function Component() {
                     {formatDuration(selectedLog.duration)}
                   </span>
                   <span
-                    className={`badge ${
-                      selectedLog.success ? 'badge-success' : 'badge-danger'
-                    }`}
+                    className={`badge ${selectedLog.success ? 'badge-success' : 'badge-danger'}`}
                   >
                     {selectedLog.success ? 'Success' : 'Failed'}
                   </span>

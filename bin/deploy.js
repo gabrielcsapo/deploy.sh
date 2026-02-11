@@ -17,7 +17,11 @@ function appUrl(serverUrl, name) {
   const u = new URL(serverUrl);
   const hostname = u.hostname;
   // If server is an IP address or localhost, use .local mDNS domain
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname === 'localhost' || hostname.endsWith('.local')) {
+  if (
+    /^\d+\.\d+\.\d+\.\d+$/.test(hostname) ||
+    hostname === 'localhost' ||
+    hostname.endsWith('.local')
+  ) {
     const port = u.port ? `:${u.port}` : '';
     return `${u.protocol}//${name}.local${port}`;
   }
@@ -137,9 +141,10 @@ async function uploadWithProgress(url, body, headers) {
           responseBody = text;
         }
         if (res.statusCode >= 400) {
-          const msg = typeof responseBody === 'object'
-            ? responseBody.message || responseBody.error || text
-            : text;
+          const msg =
+            typeof responseBody === 'object'
+              ? responseBody.message || responseBody.error || text
+              : text;
           reject(new Error(`${res.statusCode}: ${msg}`));
         } else {
           resolve(responseBody);

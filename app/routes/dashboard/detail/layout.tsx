@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, Outlet, useLocation } from 'react-router';
 import {
   fetchDeployment as serverFetchDeployment,
@@ -8,6 +8,7 @@ import {
 } from '../../../actions/deployments';
 import { getAuth, StatusBadge } from './shared';
 import type { Deployment, ContainerInfo, DetailContext } from './shared';
+import { useWebSocket } from '../../../hooks/useWebSocket';
 
 type Tab = 'overview' | 'logs' | 'requests' | 'resources' | 'history' | 'backups' | 'build';
 
@@ -63,18 +64,27 @@ export default function Component() {
     }
   }, [name]);
 
+  // Initial fetch
   useEffect(() => {
     fetchDeployment();
     fetchInspect();
   }, [fetchDeployment, fetchInspect]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchDeployment();
-      if (activeTab === 'overview') fetchInspect();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [fetchDeployment, fetchInspect, activeTab]);
+  // WebSocket for real-time status updates
+  const channels = useMemo(() => [`deployment:${name}`], [name]);
+  const handleWsEvent = useCallback(
+    (event: { type: string; data: Record<string, unknown> }) => {
+      if (event.type === 'deployment:status') {
+        setDeployment((prev) => (prev ? { ...prev, status: event.data.status as string } : prev));
+        // Refetch inspect when status changes to running
+        if (event.data.status === 'running') {
+          fetchInspect();
+        }
+      }
+    },
+    [fetchInspect],
+  );
+  useWebSocket(channels, handleWsEvent);
 
   if (loading) {
     return <div className="text-sm text-text-tertiary py-12 text-center">Loading...</div>;

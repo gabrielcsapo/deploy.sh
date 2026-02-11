@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { apiMiddleware } from './api.ts';
+import { setupWebSocket } from './ws.ts';
 
 const PORT = parseInt(process.env.PORT || '5050', 10);
 
@@ -11,6 +12,8 @@ const server = createServer((req, res) => {
     res.end(JSON.stringify({ error: 'Not found' }));
   });
 });
+
+setupWebSocket(server);
 
 server.listen(PORT, () => {
   console.log(`deploy.sh server running on http://localhost:${PORT}`);

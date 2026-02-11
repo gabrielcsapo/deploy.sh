@@ -7,3 +7,4 @@ dist-docs/
 .env.local
 .vite/
 .deploy-data/
+.claude

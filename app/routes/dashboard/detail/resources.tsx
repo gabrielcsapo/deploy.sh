@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useOutletContext } from 'react-router';
 import { fetchContainerStats, fetchMetricsHistory } from '../../../actions/metrics';
 import type { DetailContext } from './shared';
+import { useWebSocket } from '../../../hooks/useWebSocket';
 
 interface Stats {
   cpu: string;
@@ -29,6 +30,13 @@ interface MetricPoint {
 
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KiB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MiB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)}GiB`;
 }
 
 function Sparkline({
@@ -178,16 +186,34 @@ export default function Component() {
     }
   }, [name]);
 
+  // Initial fetch of current stats and history
   useEffect(() => {
     fetchStats();
     fetchHistory();
-    const statsInterval = setInterval(fetchStats, 3000);
-    const historyInterval = setInterval(fetchHistory, 30_000);
-    return () => {
-      clearInterval(statsInterval);
-      clearInterval(historyInterval);
-    };
   }, [fetchStats, fetchHistory]);
+
+  // WebSocket for real-time metrics updates
+  const channels = useMemo(() => [`deployment:${name}`], [name]);
+  const handleWsEvent = useCallback((event: { type: string; data: Record<string, unknown> }) => {
+    if (event.type === 'metrics:update') {
+      const point = event.data as unknown as MetricPoint;
+      setMetrics((prev) => {
+        const cutoff = Date.now() - 60 * 60_000;
+        return [...prev.filter((m) => m.timestamp >= cutoff), point];
+      });
+      // Format current stats from the raw metrics
+      setStats({
+        cpu: `${point.cpuPercent.toFixed(2)}%`,
+        mem: formatBytes(point.memUsageBytes) + ' / ' + formatBytes(point.memLimitBytes),
+        memPerc: `${point.memPercent.toFixed(1)}%`,
+        net: formatBytes(point.netRxBytes) + ' / ' + formatBytes(point.netTxBytes),
+        block: formatBytes(point.blockReadBytes) + ' / ' + formatBytes(point.blockWriteBytes),
+        pids: String(point.pids),
+      });
+      setError('');
+    }
+  }, []);
+  useWebSocket(channels, handleWsEvent);
 
   if (error) {
     return (
