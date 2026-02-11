@@ -1,7 +1,8 @@
 import { mkdirSync, createWriteStream, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execSync } from 'node:child_process';
-import { type IncomingMessage, type ServerResponse, request as httpRequest } from 'node:http';
+import { type IncomingMessage, type ServerResponse, request as httpRequest, Agent } from 'node:http';
+import { createGzip } from 'node:zlib';
 import { startMetricsCollector } from './metrics-collector.ts';
 import { registerHost, unregisterHost, registerAllDeployments } from './mdns.ts';
 import {
@@ -51,6 +52,17 @@ import {
   deleteVolumes,
   getVolumeSize,
 } from './volumes.ts';
+
+// ── HTTP Agent with connection pooling ──────────────────────────────────────
+
+const proxyAgent = new Agent({
+  keepAlive: true,
+  keepAliveMsecs: 1000,
+  maxSockets: 256,
+  maxFreeSockets: 256,
+  timeout: 30000,
+  scheduling: 'fifo',
+});
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -155,6 +167,7 @@ function proxyToApp(
 
   const proxyReq = httpRequest(
     {
+      agent: proxyAgent,
       hostname: 'localhost',
       port: deployment.port,
       path: targetPath + (search || ''),
@@ -179,11 +192,30 @@ function proxyToApp(
       logRequest(deployment.name, entry);
       emit({ type: 'request:logged', deploymentName: deployment.name, data: entry });
 
-      res.writeHead(proxyRes.statusCode!, {
+      const headers = {
         ...proxyRes.headers,
         'Access-Control-Allow-Origin': '*',
-      });
-      proxyRes.pipe(res);
+      };
+
+      // Support compression if client accepts it and response isn't already compressed
+      const acceptEncoding = req.headers['accept-encoding'] || '';
+      const contentType = proxyRes.headers['content-type'] || '';
+      const shouldCompress =
+        acceptEncoding.includes('gzip') &&
+        !proxyRes.headers['content-encoding'] &&
+        (contentType.includes('text/') ||
+          contentType.includes('application/json') ||
+          contentType.includes('application/javascript'));
+
+      if (shouldCompress) {
+        headers['content-encoding'] = 'gzip';
+        delete headers['content-length'];
+        res.writeHead(proxyRes.statusCode!, headers);
+        proxyRes.pipe(createGzip()).pipe(res);
+      } else {
+        res.writeHead(proxyRes.statusCode!, headers);
+        proxyRes.pipe(res);
+      }
     },
   );
 
@@ -192,7 +224,101 @@ function proxyToApp(
     const entry = { method, path: targetPath, status: 502, duration, timestamp: Date.now() };
     logRequest(deployment.name, entry);
     emit({ type: 'request:logged', deploymentName: deployment.name, data: entry });
-    error(res, 'App unavailable', 502);
+
+    // Show nice HTML error page instead of JSON
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${deployment.name} - Starting Up</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+    .container {
+      text-align: center;
+      max-width: 500px;
+      padding: 2rem;
+    }
+    .spinner {
+      width: 50px;
+      height: 50px;
+      margin: 0 auto 2rem;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+    p {
+      font-size: 1rem;
+      opacity: 0.9;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 500;
+      transition: background 0.2s;
+      backdrop-filter: blur(10px);
+    }
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    .app-name {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+  <script>
+    // Auto-refresh every 3 seconds to check if app is up
+    setTimeout(() => window.location.reload(), 3000);
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <div class="app-name">${deployment.name}</div>
+    <h1>Starting Up</h1>
+    <p>
+      This app is currently starting. It may take a few moments for the container to boot up.
+      This page will automatically refresh.
+    </p>
+    <a href="http://localhost:5173/dashboard/${deployment.name}" class="btn">View Dashboard</a>
+  </div>
+</body>
+</html>`;
+
+    res.writeHead(502, {
+      'Content-Type': 'text/html',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end(html);
   });
 
   return proxyReq;
@@ -230,10 +356,9 @@ export function apiMiddleware() {
       const d = getDeployment(appName);
       if (!d) return error(res, 'App not found', 404);
 
-      const body = await readBody(req);
       const proxyReq = proxyToApp(req, res, d, path, url.search, method!);
-      if (body.length > 0) proxyReq.write(body);
-      proxyReq.end();
+      // Stream the request body instead of buffering
+      req.pipe(proxyReq);
       return;
     }
 

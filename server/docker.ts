@@ -165,7 +165,7 @@ export async function runContainer(
   }
 
   execSync(
-    `docker run -d --name ${containerName} -p ${port}:3000 -e PORT=3000 ${volumeFlags} ${imageTag}`,
+    `docker run -d -m 4g --name ${containerName} -p ${port}:3000 -e PORT=3000 ${volumeFlags} ${imageTag}`,
     { stdio: 'pipe' },
   );
 
