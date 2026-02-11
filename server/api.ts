@@ -146,6 +146,10 @@ function proxyToApp(
   method: string,
 ) {
   const startTime = Date.now();
+  // Get the original host and protocol from the incoming request
+  const originalHost = req.headers.host || '';
+  const protocol = req.headers['x-forwarded-proto'] ||
+                   (req.connection as any).encrypted ? 'https' : 'http';
 
   const proxyReq = httpRequest(
     {
@@ -156,6 +160,10 @@ function proxyToApp(
       headers: {
         ...req.headers,
         host: `localhost:${deployment.port}`,
+        'x-forwarded-host': originalHost,
+        'x-forwarded-proto': protocol,
+        'x-forwarded-for': req.headers['x-forwarded-for'] ||
+                          req.socket.remoteAddress || '',
       },
     },
     (proxyRes) => {
@@ -294,7 +302,7 @@ export function apiMiddleware() {
           return error(res, 'No file uploaded');
         }
 
-        const name = (typeof parts.name === 'string' ? parts.name : null) || 'app';
+        const name = ((typeof parts.name === 'string' ? parts.name : null) || 'app').toLowerCase();
         const uploadsDir = getUploadsDir();
         const deployDir = resolve(uploadsDir, name);
 

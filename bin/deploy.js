@@ -263,7 +263,7 @@ async function cmdDeploy(serverUrl, appName) {
   }
 
   const dir = process.cwd();
-  const name = appName || basename(dir);
+  const name = (appName || basename(dir)).toLowerCase();
   const tarball = resolve(dir, `${name}.tar.gz`);
 
   console.log(`Bundling ${name}...`);
@@ -422,7 +422,7 @@ if (values.help) {
 
 const command = positionals[0] || 'deploy';
 const serverUrl = values.url;
-const appName = values.application || values.app;
+const appName = (values.application || values.app)?.toLowerCase();
 
 try {
   switch (command) {

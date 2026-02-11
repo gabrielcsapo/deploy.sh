@@ -44,7 +44,7 @@ function ensureMdns() {
 }
 
 export function registerHost(name: string) {
-  const hostname = `${name}.local`;
+  const hostname = `${name.toLowerCase()}.local`;
   if (registeredHosts.has(hostname)) return;
 
   registeredHosts.add(hostname);
@@ -60,7 +60,7 @@ export function registerHost(name: string) {
 }
 
 export function unregisterHost(name: string) {
-  const hostname = `${name}.local`;
+  const hostname = `${name.toLowerCase()}.local`;
   registeredHosts.delete(hostname);
   console.log(`mDNS: unregistered ${hostname}`);
 }

@@ -3,7 +3,12 @@
     "allow": [
       "Bash(npm run typecheck:*)",
       "Bash(npm run lint:*)",
-      "Bash(npm run db:generate:*)"
+      "Bash(npm run db:generate:*)",
+      "Bash(sqlite3:*)",
+      "Bash(ls:*)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
     ]
   }
 }

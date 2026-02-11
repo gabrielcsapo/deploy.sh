@@ -93,7 +93,7 @@ export interface BuildResult {
 }
 
 export function buildImage(name: string, dir: string): Promise<BuildResult> {
-  const tag = `deploy-sh-${name}`;
+  const tag = `deploy-sh-${name.toLowerCase()}`;
   const startTime = Date.now();
 
   return new Promise((resolve) => {
@@ -143,7 +143,7 @@ export async function runContainer(
   port: number,
   volumeDir?: string,
 ) {
-  const containerName = `deploy-sh-${name}`;
+  const containerName = `deploy-sh-${name.toLowerCase()}`;
 
   // Remove old container with same name if it exists
   try {
@@ -179,7 +179,7 @@ export async function runContainer(
 }
 
 export function stopContainer(name: string) {
-  const containerName = `deploy-sh-${name}`;
+  const containerName = `deploy-sh-${name.toLowerCase()}`;
   try {
     execSync(`docker rm -f ${containerName}`, { stdio: 'pipe' });
   } catch {
@@ -188,7 +188,7 @@ export function stopContainer(name: string) {
 }
 
 export function getContainerStatus(name: string): string {
-  const containerName = `deploy-sh-${name}`;
+  const containerName = `deploy-sh-${name.toLowerCase()}`;
   try {
     const status = execSync(`docker inspect --format='{{.State.Status}}' ${containerName}`, {
       stdio: 'pipe',
@@ -202,7 +202,7 @@ export function getContainerStatus(name: string): string {
 }
 
 export function streamLogs(name: string) {
-  const containerName = `deploy-sh-${name}`;
+  const containerName = `deploy-sh-${name.toLowerCase()}`;
   return spawn('docker', ['logs', '-f', containerName], {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -222,7 +222,7 @@ export interface ContainerInspect {
 }
 
 export function getContainerInspect(name: string): ContainerInspect | null {
-  const containerName = `deploy-sh-${name}`;
+  const containerName = `deploy-sh-${name.toLowerCase()}`;
   try {
     const raw = execSync(`docker inspect ${containerName}`, { stdio: 'pipe' }).toString();
     const info = JSON.parse(raw)[0];
@@ -256,7 +256,7 @@ export interface ContainerStats {
 }
 
 export function getContainerStats(name: string): ContainerStats | null {
-  const containerName = `deploy-sh-${name}`;
+  const containerName = `deploy-sh-${name.toLowerCase()}`;
   try {
     const raw = execSync(
       `docker stats --no-stream --format '{"cpu":"{{.CPUPerc}}","mem":"{{.MemUsage}}","memPerc":"{{.MemPerc}}","net":"{{.NetIO}}","block":"{{.BlockIO}}","pids":"{{.PIDs}}"}' ${containerName}`,
@@ -328,6 +328,6 @@ export function getContainerStatsRaw(name: string): RawContainerStats | null {
 }
 
 export function restartContainer(name: string) {
-  const containerName = `deploy-sh-${name}`;
+  const containerName = `deploy-sh-${name.toLowerCase()}`;
   execSync(`docker restart ${containerName}`, { stdio: 'pipe' });
 }
