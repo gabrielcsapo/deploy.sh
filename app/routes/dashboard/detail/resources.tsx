@@ -120,13 +120,21 @@ function Sparkline({
     setHoverIndex(null);
   };
 
-  const hoverData = hoverIndex !== null ? {
-    primary: formatter ? formatter(data[hoverIndex]) : data[hoverIndex].toFixed(2),
-    secondary: secondaryData && formatter ? formatter(secondaryData[hoverIndex]) : secondaryData?.[hoverIndex].toFixed(2),
-    time: timestamps?.[hoverIndex] ? new Date(timestamps[hoverIndex]).toLocaleTimeString() : null,
-    x: pad + (hoverIndex / (data.length - 1)) * (width - pad * 2),
-    y: pad + (1 - (data[hoverIndex] - min) / range) * (height - pad * 2),
-  } : null;
+  const hoverData =
+    hoverIndex !== null
+      ? {
+          primary: formatter ? formatter(data[hoverIndex]) : data[hoverIndex].toFixed(2),
+          secondary:
+            secondaryData && formatter
+              ? formatter(secondaryData[hoverIndex])
+              : secondaryData?.[hoverIndex].toFixed(2),
+          time: timestamps?.[hoverIndex]
+            ? new Date(timestamps[hoverIndex]).toLocaleTimeString()
+            : null,
+          x: pad + (hoverIndex / (data.length - 1)) * (width - pad * 2),
+          y: pad + (1 - (data[hoverIndex] - min) / range) * (height - pad * 2),
+        }
+      : null;
 
   return (
     <div className="card p-4 relative">
@@ -193,9 +201,7 @@ function Sparkline({
           )}
         </svg>
         {hoverData && hoverData.time && (
-          <div
-            className="absolute bottom-0 left-0 right-0 text-center text-[10px] text-text-tertiary bg-bg/90 py-0.5"
-          >
+          <div className="absolute bottom-0 left-0 right-0 text-center text-[10px] text-text-tertiary bg-bg/90 py-0.5">
             {hoverData.time}
             {hoverData.secondary && ` • ${secondaryLabel}: ${hoverData.secondary}`}
           </div>

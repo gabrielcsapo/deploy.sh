@@ -213,9 +213,7 @@ export default function Component() {
             </p>
           </div>
 
-          {maintenanceMessage && (
-            <p className="text-xs text-green-400">{maintenanceMessage}</p>
-          )}
+          {maintenanceMessage && <p className="text-xs text-green-400">{maintenanceMessage}</p>}
           {maintenanceError && <p className="text-xs text-danger">{maintenanceError}</p>}
 
           <div className="border-t border-border pt-4">

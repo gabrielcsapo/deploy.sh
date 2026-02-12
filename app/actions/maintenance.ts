@@ -34,16 +34,29 @@ export async function getMaintenanceStats(username: string, token: string) {
   }
 
   // Get database file size
-  const dbSizeResult = sqlite.prepare("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()").get() as { size: number };
+  const dbSizeResult = sqlite
+    .prepare('SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()')
+    .get() as { size: number };
   const dbSize = dbSizeResult.size;
 
   // Get table row counts
-  const tables = ['request_logs', 'resource_metrics', 'history', 'build_logs', 'backups', 'deployments', 'users', 'sessions'];
+  const tables = [
+    'request_logs',
+    'resource_metrics',
+    'history',
+    'build_logs',
+    'backups',
+    'deployments',
+    'users',
+    'sessions',
+  ];
   const tableCounts: Record<string, number> = {};
 
   for (const table of tables) {
     try {
-      const result = sqlite.prepare(`SELECT COUNT(*) as count FROM ${table}`).get() as { count: number };
+      const result = sqlite.prepare(`SELECT COUNT(*) as count FROM ${table}`).get() as {
+        count: number;
+      };
       tableCounts[table] = result.count;
     } catch {
       tableCounts[table] = 0;

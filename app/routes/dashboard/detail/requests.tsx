@@ -242,7 +242,10 @@ export default function Component() {
 
   // Calculate data transfer by path
   const dataTransferByPath = useMemo<DataTransferStats[]>(() => {
-    const pathMap = new Map<string, { requestBytes: number; responseBytes: number; count: number }>();
+    const pathMap = new Map<
+      string,
+      { requestBytes: number; responseBytes: number; count: number }
+    >();
 
     logs.forEach((log) => {
       if (!pathMap.has(log.path)) {
@@ -360,7 +363,9 @@ export default function Component() {
               title="Click to view detailed data transfer by path"
             >
               <p className="text-xs text-text-tertiary mb-1">Data Transfer</p>
-              <p className="text-lg font-semibold font-mono">{formatBytes(dataTransfer.totalResponseBytes)}</p>
+              <p className="text-lg font-semibold font-mono">
+                {formatBytes(dataTransfer.totalResponseBytes)}
+              </p>
               <p className="text-xs text-text-secondary mt-0.5">
                 ↑ {formatBytes(dataTransfer.totalRequestBytes)} sent
               </p>
@@ -602,7 +607,9 @@ export default function Component() {
                           <td colSpan={9} className="px-4 py-3 bg-bg-hover border-t border-border">
                             <div className="grid grid-cols-2 gap-4 text-xs">
                               <div>
-                                <p className="text-text-tertiary mb-1 font-semibold">Request Details</p>
+                                <p className="text-text-tertiary mb-1 font-semibold">
+                                  Request Details
+                                </p>
                                 <div className="space-y-1">
                                   <p>
                                     <span className="text-text-tertiary">Full Path:</span>{' '}
@@ -629,26 +636,38 @@ export default function Component() {
                                   )}
                                   <p>
                                     <span className="text-text-tertiary">IP Address:</span>{' '}
-                                    <span className="font-mono text-text-secondary">{log.ip || 'N/A'}</span>
+                                    <span className="font-mono text-text-secondary">
+                                      {log.ip || 'N/A'}
+                                    </span>
                                   </p>
                                   {log.username && (
                                     <p>
-                                      <span className="text-text-tertiary">Authenticated User:</span>{' '}
-                                      <span className="font-mono text-text-secondary">{log.username}</span>
+                                      <span className="text-text-tertiary">
+                                        Authenticated User:
+                                      </span>{' '}
+                                      <span className="font-mono text-text-secondary">
+                                        {log.username}
+                                      </span>
                                     </p>
                                   )}
                                 </div>
                               </div>
                               <div>
-                                <p className="text-text-tertiary mb-1 font-semibold">Response Metrics</p>
+                                <p className="text-text-tertiary mb-1 font-semibold">
+                                  Response Metrics
+                                </p>
                                 <div className="space-y-1">
                                   <p>
                                     <span className="text-text-tertiary">Status Code:</span>{' '}
-                                    <span className="font-mono text-text-secondary">{log.status}</span>
+                                    <span className="font-mono text-text-secondary">
+                                      {log.status}
+                                    </span>
                                   </p>
                                   <p>
                                     <span className="text-text-tertiary">Duration:</span>{' '}
-                                    <span className="font-mono text-text-secondary">{log.duration}ms</span>
+                                    <span className="font-mono text-text-secondary">
+                                      {log.duration}ms
+                                    </span>
                                   </p>
                                   <p>
                                     <span className="text-text-tertiary">Request Size:</span>{' '}

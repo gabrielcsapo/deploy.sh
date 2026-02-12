@@ -4,7 +4,7 @@ import { randomBytes, createHash } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { eq, and, like, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import {
   users,
   sessions,
@@ -294,7 +294,14 @@ export function logRequest(name: string, entry: RequestEntry) {
 
 export function getRequestLogs(
   name: string,
-  options?: { page?: number; limit?: number; pathFilter?: string; statusFilter?: string; fromTimestamp?: number; toTimestamp?: number },
+  options?: {
+    page?: number;
+    limit?: number;
+    pathFilter?: string;
+    statusFilter?: string;
+    fromTimestamp?: number;
+    toTimestamp?: number;
+  },
 ) {
   const db = getDb();
   const page = options?.page || 1;
@@ -312,7 +319,9 @@ export function getRequestLogs(
   if (options?.statusFilter) {
     const statusRangeStart = parseInt(options.statusFilter[0]) * 100;
     const statusRangeEnd = statusRangeStart + 99;
-    conditions.push(sql`${requestLogs.status} >= ${statusRangeStart} AND ${requestLogs.status} <= ${statusRangeEnd}`);
+    conditions.push(
+      sql`${requestLogs.status} >= ${statusRangeStart} AND ${requestLogs.status} <= ${statusRangeEnd}`,
+    );
   }
 
   // Add time range filtering if provided
@@ -398,9 +407,7 @@ export function getPathAnalytics(
     .map(([path, stats]) => ({
       path,
       count: stats.durations.length,
-      avgDuration: Math.round(
-        stats.durations.reduce((a, b) => a + b, 0) / stats.durations.length,
-      ),
+      avgDuration: Math.round(stats.durations.reduce((a, b) => a + b, 0) / stats.durations.length),
       errorRate: Math.round((stats.errors / stats.durations.length) * 100),
     }))
     .sort((a, b) => b.count - a.count);

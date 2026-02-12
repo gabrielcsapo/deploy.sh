@@ -1,7 +1,12 @@
 import { mkdirSync, createWriteStream, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execSync } from 'node:child_process';
-import { type IncomingMessage, type ServerResponse, request as httpRequest, Agent } from 'node:http';
+import {
+  type IncomingMessage,
+  type ServerResponse,
+  request as httpRequest,
+  Agent,
+} from 'node:http';
 import { createGzip } from 'node:zlib';
 import { startMetricsCollector } from './metrics-collector.ts';
 import { registerHost, unregisterHost, registerAllDeployments } from './mdns.ts';
@@ -36,7 +41,6 @@ import {
   ensureDockerfile,
   buildImage,
   runContainer,
-  stopContainer,
   removeContainer,
   getContainerStatus,
   streamLogs,
@@ -167,11 +171,14 @@ function proxyToApp(
     req.headers['x-forwarded-proto'] || (req.connection as any).encrypted ? 'https' : 'http';
 
   // Extract metadata for enhanced logging
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+  const ip =
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    req.socket.remoteAddress ||
+    'unknown';
   const userAgent = req.headers['user-agent'] || null;
   const referrer = req.headers['referer'] || null;
   const queryParams = search || null;
-  const username = req.headers['x-deploy-username'] as string | null || null;
+  const username = (req.headers['x-deploy-username'] as string | null) || null;
   const requestSize = parseInt(req.headers['content-length'] as string, 10) || 0;
 
   let responseSize = 0;

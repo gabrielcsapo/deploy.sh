@@ -45,7 +45,11 @@ export default defineConfig({
           const host = req.headers.host || '';
           const hostname = host.split(':')[0];
           // Only proxy if hostname ends with .local (but not deploy.local or localhost)
-          if (hostname.endsWith('.local') && hostname !== 'deploy.local' && hostname !== 'localhost') {
+          if (
+            hostname.endsWith('.local') &&
+            hostname !== 'deploy.local' &&
+            hostname !== 'localhost'
+          ) {
             return null; // null means proxy the request
           }
           // Otherwise, let Vite handle it
@@ -87,7 +91,11 @@ export default defineConfig({
           const host = req.headers.host || '';
           const hostname = host.split(':')[0];
           // Only proxy if hostname ends with .local (but not deploy.local or localhost)
-          if (hostname.endsWith('.local') && hostname !== 'deploy.local' && hostname !== 'localhost') {
+          if (
+            hostname.endsWith('.local') &&
+            hostname !== 'deploy.local' &&
+            hostname !== 'localhost'
+          ) {
             return null; // null means proxy the request
           }
           // Otherwise, let Vite handle it

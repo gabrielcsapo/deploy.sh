@@ -100,7 +100,14 @@ export async function fetchRequestData(
   username: string,
   token: string,
   name: string,
-  options?: { page?: number; limit?: number; pathFilter?: string; statusFilter?: string; fromTimestamp?: number; toTimestamp?: number },
+  options?: {
+    page?: number;
+    limit?: number;
+    pathFilter?: string;
+    statusFilter?: string;
+    fromTimestamp?: number;
+    toTimestamp?: number;
+  },
 ) {
   requireAuth(username, token);
   const d = _getDeployment(name);
