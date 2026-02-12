@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Deploy.sh favicon">
+  <!-- Circular background -->
+  <circle cx="32" cy="32" r="28" fill="#111827"/>
+
+  <!-- > chevron -->
+  <path d="M22 26 L30 32 L22 38"
+        fill="none"
+        stroke="#f9fafb"
+        stroke-width="4"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- underscore -->
+  <path d="M34 40 H46"
+        fill="none"
+        stroke="#f9fafb"
+        stroke-width="4"
+        stroke-linecap="round"/>
+
+  <!-- deploy arrow -->
+  <path d="M44 20 L44 14
+           M44 14 L41 17
+           M44 14 L47 17"
+        fill="none"
+        stroke="#60a5fa"
+        stroke-width="3"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>

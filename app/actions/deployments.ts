@@ -28,6 +28,7 @@ import {
   deleteBackupFile as _deleteBackupFile,
   getVolumeSize as _getVolumeSize,
 } from '../../server/volumes.ts';
+import { getActiveBuild } from '../../server/events.ts';
 
 function requireAuth(username: string, token: string) {
   if (!authenticate(username, token)) {
@@ -35,11 +36,18 @@ function requireAuth(username: string, token: string) {
   }
 }
 
+const PRE_CONTAINER_STATES = new Set(['uploading', 'building', 'starting']);
+
+function resolveStatus(d: { name: string; status: string | null }): string {
+  if (d.status && PRE_CONTAINER_STATES.has(d.status)) return d.status;
+  return getContainerStatus(d.name);
+}
+
 export async function fetchDeployments(username: string, token: string) {
   requireAuth(username, token);
   return _getDeployments(username).map((d) => ({
     ...d,
-    status: getContainerStatus(d.name),
+    status: resolveStatus(d),
   }));
 }
 
@@ -47,7 +55,7 @@ export async function fetchDeployment(username: string, token: string, name: str
   requireAuth(username, token);
   const d = _getDeployment(name);
   if (!d || d.username !== username) throw new Error('Not found');
-  return { ...d, status: getContainerStatus(d.name) };
+  return { ...d, status: resolveStatus(d) };
 }
 
 export async function deleteDeployment(username: string, token: string, name: string) {
@@ -193,10 +201,18 @@ export async function deleteBackup(
   return { message: 'Backup deleted' };
 }
 
-export async function fetchBuildLogs(username: string, token: string, name: string) {
+export async function fetchBuildLogs(username: string, token: string, name: string, page = 1) {
   requireAuth(username, token);
   const d = _getDeployment(name);
   if (!d || d.username !== username) throw new Error('Not found');
 
-  return _getBuildLogs(name);
+  const { rows, total, pageSize } = _getBuildLogs(name, page);
+  const activeBuildOutput = getActiveBuild(name);
+  return {
+    logs: rows,
+    total,
+    page,
+    pageSize,
+    activeBuild: activeBuildOutput !== null ? { output: activeBuildOutput } : null,
+  };
 }

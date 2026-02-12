@@ -15,35 +15,94 @@ interface BuildLog {
   timestamp: string;
 }
 
+interface BuildLogsResponse {
+  logs: BuildLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+  activeBuild: { output: string } | null;
+}
+
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
 }
 
+const TIMESTAMP_RE = /^\[(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\]\s/;
+
+function formatLogTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString(undefined, { hour12: false, fractionalSecondDigits: 3 });
+}
+
+function LogOutput({ output }: { output: string }) {
+  const lines = output.split('\n').filter(Boolean);
+  return (
+    <>
+      {lines.map((line, i) => {
+        const match = line.match(TIMESTAMP_RE);
+        if (match) {
+          const ts = match[1];
+          const content = line.slice(match[0].length);
+          return (
+            <div key={i} className="flex gap-2">
+              <span className="text-text-tertiary select-none shrink-0">{formatLogTime(ts)}</span>
+              <span>{content}</span>
+            </div>
+          );
+        }
+        return <div key={i}>{line}</div>;
+      })}
+    </>
+  );
+}
+
 export default function Component() {
   const { name } = useParams();
   const [logs, setLogs] = useState<BuildLog[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [selectedLog, setSelectedLog] = useState<BuildLog | null>(null);
   // Live build state
   const [liveOutput, setLiveOutput] = useState('');
   const [isBuilding, setIsBuilding] = useState(false);
-  const liveOutputRef = useRef<HTMLPreElement>(null);
+  const liveOutputRef = useRef<HTMLDivElement>(null);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const fetchPage = useCallback(
+    (p: number, selectLatest = false) => {
+      const auth = getAuth();
+      if (!auth) return;
+
+      serverFetchBuildLogs(auth.username, auth.token, name!, p).then(
+        (data: BuildLogsResponse) => {
+          setLogs(data.logs);
+          setTotal(data.total);
+          setPage(data.page);
+          setPageSize(data.pageSize);
+          if (data.activeBuild) {
+            setIsBuilding(true);
+            setLiveOutput(data.activeBuild.output);
+            setSelectedLog(null);
+          } else if (selectLatest && data.logs.length > 0) {
+            // Logs are already sorted newest-first from the server
+            setSelectedLog(data.logs[0]);
+          }
+        },
+      );
+    },
+    [name],
+  );
 
   useEffect(() => {
-    const auth = getAuth();
-    if (!auth) return;
-
-    serverFetchBuildLogs(auth.username, auth.token, name!)
-      .then((data) => {
-        setLogs(data as BuildLog[]);
-        if (data.length > 0) {
-          setSelectedLog(data[data.length - 1] as BuildLog);
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [name]);
+    setLoading(true);
+    fetchPage(1, true);
+    setLoading(false);
+  }, [fetchPage]);
 
   // WebSocket for real-time build output
   const channels = useMemo(() => [`deployment:${name}`], [name]);
@@ -56,21 +115,15 @@ export default function Component() {
         setLiveOutput('');
         setSelectedLog(null);
       } else if (event.type === 'build:output') {
-        setLiveOutput((prev) => prev + (event.data.line as string) + '\n');
+        const ts = (event.data.timestamp as string) || new Date().toISOString();
+        setLiveOutput((prev) => prev + `[${ts}] ${event.data.line as string}\n`);
       } else if (event.type === 'build:complete') {
         setIsBuilding(false);
-        const auth = getAuth();
-        if (auth) {
-          serverFetchBuildLogs(auth.username, auth.token, name!).then((data) => {
-            setLogs(data as BuildLog[]);
-            if (data.length > 0) {
-              setSelectedLog(data[data.length - 1] as BuildLog);
-            }
-          });
-        }
+        // Go back to page 1 and select the newest build
+        fetchPage(1, true);
       }
     },
-    [name],
+    [name, fetchPage],
   );
   useWebSocket(channels, handleWsEvent);
 
@@ -85,7 +138,7 @@ export default function Component() {
     return <div className="text-sm text-text-tertiary text-center py-8">Loading...</div>;
   }
 
-  if (!isBuilding && logs.length === 0) {
+  if (!isBuilding && total === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-text-secondary mb-2">No build logs yet</p>
@@ -103,15 +156,17 @@ export default function Component() {
         <div className="px-4 py-3 border-b border-border">
           <h3 className="text-sm font-semibold">Build History</h3>
           <p className="text-xs text-text-tertiary mt-1">
-            {logs.length} build{logs.length !== 1 ? 's' : ''}
+            {total} build{total !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="flex-1 overflow-y-auto">
           {isBuilding && (
             <button
               onClick={() => setSelectedLog(null)}
-              className={`w-full px-4 py-3 text-left border-b border-border hover:bg-bg-tertiary transition-colors ${
-                selectedLog === null ? 'bg-bg-tertiary' : ''
+              className={`w-full px-4 py-3 text-left border-b border-border border-l-2 transition-colors ${
+                selectedLog === null
+                  ? 'border-l-warning bg-warning/10'
+                  : 'border-l-transparent hover:bg-bg-tertiary'
               }`}
             >
               <div className="flex items-center justify-between mb-1">
@@ -123,33 +178,54 @@ export default function Component() {
               <time className="text-xs text-text-secondary">In progress</time>
             </button>
           )}
-          {logs
-            .slice()
-            .reverse()
-            .map((log) => (
-              <button
-                key={log.id}
-                onClick={() => setSelectedLog(log)}
-                className={`w-full px-4 py-3 text-left border-b border-border hover:bg-bg-tertiary transition-colors ${
-                  selectedLog?.id === log.id ? 'bg-bg-tertiary' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span
-                    className={`text-xs font-medium ${
-                      log.success ? 'text-success' : 'text-danger'
-                    }`}
-                  >
-                    {log.success ? '✓ Success' : '✗ Failed'}
-                  </span>
-                  <span className="text-xs text-text-tertiary">{formatDuration(log.duration)}</span>
-                </div>
-                <time className="text-xs text-text-secondary">
-                  {new Date(log.timestamp).toLocaleString()}
-                </time>
-              </button>
-            ))}
+          {/* Logs arrive newest-first from the server */}
+          {logs.map((log) => (
+            <button
+              key={log.id}
+              onClick={() => setSelectedLog(log)}
+              className={`w-full px-4 py-3 text-left border-b border-border border-l-2 transition-colors ${
+                selectedLog?.id === log.id
+                  ? 'border-l-accent bg-accent/10'
+                  : 'border-l-transparent hover:bg-bg-tertiary'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span
+                  className={`text-xs font-medium ${
+                    log.success ? 'text-success' : 'text-danger'
+                  }`}
+                >
+                  {log.success ? '✓ Success' : '✗ Failed'}
+                </span>
+                <span className="text-xs text-text-tertiary">{formatDuration(log.duration)}</span>
+              </div>
+              <time className="text-xs text-text-secondary">
+                {new Date(log.timestamp).toLocaleString()}
+              </time>
+            </button>
+          ))}
         </div>
+        {totalPages > 1 && (
+          <div className="px-4 py-2 border-t border-border flex items-center justify-between">
+            <button
+              className="btn btn-sm"
+              disabled={page <= 1}
+              onClick={() => fetchPage(page - 1)}
+            >
+              Prev
+            </button>
+            <span className="text-xs text-text-tertiary">
+              {page} / {totalPages}
+            </span>
+            <button
+              className="btn btn-sm"
+              disabled={page >= totalPages}
+              onClick={() => fetchPage(page + 1)}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Build output */}
@@ -165,13 +241,10 @@ export default function Component() {
                 </span>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 bg-bg-tertiary">
-              <pre
-                ref={liveOutputRef}
-                className="text-xs font-mono whitespace-pre-wrap break-words"
-              >
-                {liveOutput || 'Waiting for build output...'}
-              </pre>
+            <div ref={liveOutputRef} className="flex-1 overflow-y-auto p-4 bg-bg-tertiary">
+              <div className="text-xs font-mono whitespace-pre-wrap break-words">
+                {liveOutput ? <LogOutput output={liveOutput} /> : 'Waiting for build output...'}
+              </div>
             </div>
           </>
         ) : selectedLog ? (
@@ -195,9 +268,9 @@ export default function Component() {
               </time>
             </div>
             <div className="flex-1 overflow-y-auto p-4 bg-bg-tertiary">
-              <pre className="text-xs font-mono whitespace-pre-wrap break-words">
-                {selectedLog.output || 'No output captured'}
-              </pre>
+              <div className="text-xs font-mono whitespace-pre-wrap break-words">
+                {selectedLog.output ? <LogOutput output={selectedLog.output} /> : 'No output captured'}
+              </div>
             </div>
           </>
         ) : (

@@ -35,7 +35,7 @@ import {
   saveBuildLog,
   getBuildLogs,
 } from './store.ts';
-import { emit } from './events.ts';
+import { emit, setActiveBuild, appendActiveBuild, clearActiveBuild, getActiveBuild } from './events.ts';
 import {
   classifyProject,
   ensureDockerfile,
@@ -57,6 +57,14 @@ import {
   deleteVolumes,
   getVolumeSize,
 } from './volumes.ts';
+
+// Pre-container states where Docker has no container yet
+const PRE_CONTAINER_STATES = new Set(['uploading', 'building', 'starting']);
+
+function resolveStatus(d: { name: string; status: string | null }): string {
+  if (d.status && PRE_CONTAINER_STATES.has(d.status)) return d.status;
+  return getContainerStatus(d.name);
+}
 
 // ── HTTP Agent with connection pooling ──────────────────────────────────────
 
@@ -552,17 +560,20 @@ export function apiMiddleware() {
         });
 
         console.log(`Building ${name} (${type})...`);
-        const buildResult = await buildImage(name, deployDir, (line) => {
-          emit({ type: 'build:output', deploymentName: name, data: { line } });
+        setActiveBuild(name, '');
+        const buildResult = await buildImage(name, deployDir, (line, timestamp) => {
+          appendActiveBuild(name, line, timestamp);
+          emit({ type: 'build:output', deploymentName: name, data: { line, timestamp } });
         });
 
-        // Save build log
+        // Save build log before clearing active state so refreshes never miss it
         saveBuildLog({
           deploymentName: name,
           output: buildResult.output,
           success: buildResult.success,
           duration: buildResult.duration,
         });
+        clearActiveBuild(name);
 
         emit({
           type: 'build:complete',
@@ -638,7 +649,7 @@ export function apiMiddleware() {
         if (!auth) return;
         const deps = getDeployments(auth.username).map((d) => ({
           ...d,
-          status: getContainerStatus(d.name),
+          status: resolveStatus(d),
         }));
         return json(res, deps);
       }
@@ -649,7 +660,7 @@ export function apiMiddleware() {
         if (!auth) return;
         const d = getDeployment(deploymentMatch[1]);
         if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
-        return json(res, { ...d, status: getContainerStatus(d.name) });
+        return json(res, { ...d, status: resolveStatus(d) });
       }
 
       if (deploymentMatch && method === 'DELETE') {
@@ -862,8 +873,17 @@ export function apiMiddleware() {
         const d = getDeployment(name);
         if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
 
-        const logs = getBuildLogs(name);
-        return json(res, { logs });
+        const url = new URL(req.url!, `http://${req.headers.host}`);
+        const page = parseInt(url.searchParams.get('page') || '1', 10);
+        const { rows, total, pageSize } = getBuildLogs(name, page);
+        const activeBuildOutput = getActiveBuild(name);
+        return json(res, {
+          logs: rows,
+          total,
+          page,
+          pageSize,
+          activeBuild: activeBuildOutput !== null ? { output: activeBuildOutput } : null,
+        });
       }
 
       // ── Not an API route — pass to next middleware ─────────────────────

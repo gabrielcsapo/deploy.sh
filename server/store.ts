@@ -577,6 +577,13 @@ export function saveBuildLog(log: {
   success: boolean;
   duration: number;
 }) {
+  console.log({
+      deploymentName: log.deploymentName,
+      output: log.output,
+      success: log.success,
+      duration: log.duration,
+      timestamp: new Date().toISOString(),
+    })
   const db = getDb();
   db.insert(buildLogs)
     .values({
@@ -589,15 +596,27 @@ export function saveBuildLog(log: {
     .run();
 }
 
-export function getBuildLogs(deploymentName: string, limit = 10) {
+export function getBuildLogs(
+  deploymentName: string,
+  page = 1,
+  pageSize = 20,
+) {
   const db = getDb();
-  return db
+  const offset = (page - 1) * pageSize;
+  const rows = db
     .select()
     .from(buildLogs)
     .where(eq(buildLogs.deploymentName, deploymentName))
-    .orderBy(buildLogs.timestamp)
-    .limit(limit)
+    .orderBy(desc(buildLogs.timestamp))
+    .limit(pageSize)
+    .offset(offset)
     .all();
+  const [{ count: total }] = db
+    .select({ count: sql<number>`count(*)` })
+    .from(buildLogs)
+    .where(eq(buildLogs.deploymentName, deploymentName))
+    .all();
+  return { rows, total, page, pageSize };
 }
 
 export function getLatestBuildLog(deploymentName: string) {
@@ -606,7 +625,7 @@ export function getLatestBuildLog(deploymentName: string) {
     .select()
     .from(buildLogs)
     .where(eq(buildLogs.deploymentName, deploymentName))
-    .orderBy(buildLogs.timestamp)
+    .orderBy(desc(buildLogs.timestamp))
     .limit(1)
     .get();
 }

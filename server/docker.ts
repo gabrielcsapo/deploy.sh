@@ -92,7 +92,11 @@ export interface BuildResult {
   duration: number;
 }
 
-export function buildImage(name: string, dir: string): Promise<BuildResult> {
+export function buildImage(
+  name: string,
+  dir: string,
+  onLine?: (line: string, timestamp: string) => void,
+): Promise<BuildResult> {
   const tag = `deploy-sh-${name.toLowerCase()}`;
   const startTime = Date.now();
 
@@ -102,24 +106,25 @@ export function buildImage(name: string, dir: string): Promise<BuildResult> {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    let stdout = '';
-    let stderr = '';
+    let output = '';
 
-    proc.stdout?.on('data', (data) => {
+    function handleData(data: Buffer) {
       const str = data.toString();
-      stdout += str;
       process.stdout.write(data);
-    });
+      const ts = new Date().toISOString();
+      for (const line of str.split('\n')) {
+        if (line) {
+          output += `[${ts}] ${line}\n`;
+          if (onLine) onLine(line, ts);
+        }
+      }
+    }
 
-    proc.stderr?.on('data', (data) => {
-      const str = data.toString();
-      stderr += str;
-      process.stderr.write(data);
-    });
+    proc.stdout?.on('data', handleData);
+    proc.stderr?.on('data', handleData);
 
     proc.on('close', (code) => {
       const duration = Date.now() - startTime;
-      const output = stdout + stderr;
 
       if (code === 0) {
         resolve({ tag, output, success: true, duration });
@@ -215,7 +220,7 @@ export function getContainerStatus(name: string): string {
 
 export function streamLogs(name: string) {
   const containerName = `deploy-sh-${name.toLowerCase()}`;
-  return spawn('docker', ['logs', '-f', containerName], {
+  return spawn('docker', ['logs', '-f', '--timestamps', containerName], {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 }
