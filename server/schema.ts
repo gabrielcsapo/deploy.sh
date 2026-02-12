@@ -68,6 +68,13 @@ export const requestLogs = sqliteTable(
     status: integer('status').notNull(),
     duration: integer('duration').notNull(),
     timestamp: integer('timestamp').notNull(),
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+    referrer: text('referrer'),
+    requestSize: integer('request_size'),
+    responseSize: integer('response_size'),
+    queryParams: text('query_params'),
+    username: text('username'),
   },
   (table) => ({
     deploymentIdx: index('idx_request_logs_deployment').on(table.deploymentName),

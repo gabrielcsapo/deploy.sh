@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { apiMiddleware } from './api.ts';
 import { setupWebSocket } from './ws.ts';
 import { syncContainerStates, startAllContainers, stopAllContainers } from './lifecycle.ts';
+import { startMaintenance } from './maintenance.ts';
 
 const PORT = parseInt(process.env.PORT || '5050', 10);
 
@@ -41,4 +42,5 @@ server.listen(PORT, () => {
   console.log(`deploy.sh server running on http://localhost:${PORT}`);
   syncContainerStates();
   startAllContainers();
+  startMaintenance();
 });

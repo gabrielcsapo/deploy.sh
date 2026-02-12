@@ -4,7 +4,7 @@ import { randomBytes, createHash } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, like, desc, sql } from 'drizzle-orm';
 import {
   users,
   sessions,
@@ -24,7 +24,7 @@ const UPLOADS_DIR = resolve(DATA_DIR, 'uploads');
 let _sqlite: InstanceType<typeof Database> | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
 
-function getDb() {
+export function getDb() {
   if (_db) return _db;
 
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -38,6 +38,11 @@ function getDb() {
   migrate(_db, { migrationsFolder: './drizzle' });
 
   return _db;
+}
+
+export function getSqlite() {
+  getDb(); // Ensure database is initialized
+  return _sqlite;
 }
 
 export function _resetDb() {
@@ -251,14 +256,19 @@ export function getDeployHistory(name: string) {
 
 // ── Request logs ────────────────────────────────────────────────────────────
 
-const MAX_LOGS_PER_APP = 500;
-
 interface RequestEntry {
   method: string;
   path: string;
   status: number;
   duration: number;
   timestamp: number;
+  ip?: string | null;
+  userAgent?: string | null;
+  referrer?: string | null;
+  requestSize?: number | null;
+  responseSize?: number | null;
+  queryParams?: string | null;
+  username?: string | null;
 }
 
 export function logRequest(name: string, entry: RequestEntry) {
@@ -271,52 +281,185 @@ export function logRequest(name: string, entry: RequestEntry) {
       status: entry.status,
       duration: entry.duration,
       timestamp: entry.timestamp,
+      ip: entry.ip || null,
+      userAgent: entry.userAgent || null,
+      referrer: entry.referrer || null,
+      requestSize: entry.requestSize || null,
+      responseSize: entry.responseSize || null,
+      queryParams: entry.queryParams || null,
+      username: entry.username || null,
     })
     .run();
-
-  // Enforce ring buffer: keep only the most recent MAX_LOGS_PER_APP entries
-  _sqlite!
-    .prepare(
-      `
-    DELETE FROM request_logs
-    WHERE deployment_name = ? AND id NOT IN (
-      SELECT id FROM request_logs
-      WHERE deployment_name = ?
-      ORDER BY id DESC
-      LIMIT ?
-    )
-  `,
-    )
-    .run(name, name, MAX_LOGS_PER_APP);
 }
 
-export function getRequestLogs(name: string) {
+export function getRequestLogs(
+  name: string,
+  options?: { page?: number; limit?: number; pathFilter?: string; statusFilter?: string; fromTimestamp?: number; toTimestamp?: number },
+) {
   const db = getDb();
-  return db
+  const page = options?.page || 1;
+  const limit = options?.limit || 100;
+  const offset = (page - 1) * limit;
+
+  let conditions = [eq(requestLogs.deploymentName, name)];
+
+  // Add path filtering if provided
+  if (options?.pathFilter) {
+    conditions.push(sql`${requestLogs.path} LIKE ${options.pathFilter}`);
+  }
+
+  // Add status code filtering if provided (e.g., "2xx", "4xx", "5xx")
+  if (options?.statusFilter) {
+    const statusRangeStart = parseInt(options.statusFilter[0]) * 100;
+    const statusRangeEnd = statusRangeStart + 99;
+    conditions.push(sql`${requestLogs.status} >= ${statusRangeStart} AND ${requestLogs.status} <= ${statusRangeEnd}`);
+  }
+
+  // Add time range filtering if provided
+  if (options?.fromTimestamp) {
+    conditions.push(sql`${requestLogs.timestamp} >= ${options.fromTimestamp}`);
+  }
+  if (options?.toTimestamp) {
+    conditions.push(sql`${requestLogs.timestamp} <= ${options.toTimestamp}`);
+  }
+
+  const query = db
     .select({
       method: requestLogs.method,
       path: requestLogs.path,
       status: requestLogs.status,
       duration: requestLogs.duration,
       timestamp: requestLogs.timestamp,
+      ip: requestLogs.ip,
+      userAgent: requestLogs.userAgent,
+      referrer: requestLogs.referrer,
+      requestSize: requestLogs.requestSize,
+      responseSize: requestLogs.responseSize,
+      queryParams: requestLogs.queryParams,
+      username: requestLogs.username,
     })
     .from(requestLogs)
-    .where(eq(requestLogs.deploymentName, name))
-    .all();
+    .where(and(...conditions));
+
+  // Sort by timestamp descending (latest first)
+  const allLogs = query.orderBy(desc(requestLogs.timestamp)).all();
+  const total = allLogs.length;
+  const logs = allLogs.slice(offset, offset + limit);
+
+  return {
+    logs,
+    total,
+    page,
+    totalPages: Math.ceil(total / limit),
+  };
 }
 
-export function getRequestSummary(name: string) {
-  const logs = getRequestLogs(name);
+export function getPathAnalytics(
+  name: string,
+  options?: { fromTimestamp?: number; toTimestamp?: number },
+) {
+  const db = getDb();
+
+  let conditions = [eq(requestLogs.deploymentName, name)];
+
+  // Add time range filtering if provided
+  if (options?.fromTimestamp) {
+    conditions.push(sql`${requestLogs.timestamp} >= ${options.fromTimestamp}`);
+  }
+  if (options?.toTimestamp) {
+    conditions.push(sql`${requestLogs.timestamp} <= ${options.toTimestamp}`);
+  }
+
+  // Get all logs for this deployment
+  const allLogs = db
+    .select({
+      path: requestLogs.path,
+      status: requestLogs.status,
+      duration: requestLogs.duration,
+    })
+    .from(requestLogs)
+    .where(and(...conditions))
+    .all();
+
+  // Group by path
+  const pathMap = new Map<string, { durations: number[]; errors: number }>();
+
+  for (const log of allLogs) {
+    if (!pathMap.has(log.path)) {
+      pathMap.set(log.path, { durations: [], errors: 0 });
+    }
+    const stats = pathMap.get(log.path)!;
+    stats.durations.push(log.duration);
+    if (log.status >= 400) stats.errors++;
+  }
+
+  // Convert to array and calculate stats
+  return Array.from(pathMap.entries())
+    .map(([path, stats]) => ({
+      path,
+      count: stats.durations.length,
+      avgDuration: Math.round(
+        stats.durations.reduce((a, b) => a + b, 0) / stats.durations.length,
+      ),
+      errorRate: Math.round((stats.errors / stats.durations.length) * 100),
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+export function getRequestSummary(
+  name: string,
+  options?: { fromTimestamp?: number; toTimestamp?: number },
+) {
+  const db = getDb();
+
+  let conditions = [eq(requestLogs.deploymentName, name)];
+
+  // Add time range filtering if provided
+  if (options?.fromTimestamp) {
+    conditions.push(sql`${requestLogs.timestamp} >= ${options.fromTimestamp}`);
+  }
+  if (options?.toTimestamp) {
+    conditions.push(sql`${requestLogs.timestamp} <= ${options.toTimestamp}`);
+  }
+
+  // Get ALL logs for this deployment (not paginated) for accurate summary
+  const logs = db
+    .select({
+      status: requestLogs.status,
+      duration: requestLogs.duration,
+      timestamp: requestLogs.timestamp,
+    })
+    .from(requestLogs)
+    .where(and(...conditions))
+    .all();
+
   if (logs.length === 0)
-    return { total: 0, statusCodes: {} as Record<string, number>, avgDuration: 0, recentRpm: 0 };
+    return {
+      total: 0,
+      statusCodes: {} as Record<string, number>,
+      avgDuration: 0,
+      recentRpm: 0,
+      p50: 0,
+      p95: 0,
+      p99: 0,
+    };
 
   const statusCodes: Record<string, number> = {};
   let totalDuration = 0;
+  const durations: number[] = [];
+
   for (const log of logs) {
     const group = `${Math.floor(log.status / 100)}xx`;
     statusCodes[group] = (statusCodes[group] || 0) + 1;
     totalDuration += log.duration;
+    durations.push(log.duration);
   }
+
+  // Calculate percentiles
+  durations.sort((a, b) => a - b);
+  const p50 = durations[Math.floor(durations.length * 0.5)] || 0;
+  const p95 = durations[Math.floor(durations.length * 0.95)] || 0;
+  const p99 = durations[Math.floor(durations.length * 0.99)] || 0;
 
   const oneMinAgo = Date.now() - 60_000;
   const recentCount = logs.filter((l) => l.timestamp > oneMinAgo).length;
@@ -326,12 +469,13 @@ export function getRequestSummary(name: string) {
     statusCodes,
     avgDuration: Math.round(totalDuration / logs.length),
     recentRpm: recentCount,
+    p50,
+    p95,
+    p99,
   };
 }
 
 // ── Resource metrics ───────────────────────────────────────────────────────
-
-const MAX_METRICS_PER_APP = 2880; // ~24h at 30s intervals
 
 export function logMetrics(name: string, metrics: RawContainerStats) {
   const db = getDb();
@@ -350,20 +494,6 @@ export function logMetrics(name: string, metrics: RawContainerStats) {
       timestamp: metrics.timestamp,
     })
     .run();
-
-  _sqlite!
-    .prepare(
-      `
-    DELETE FROM resource_metrics
-    WHERE deployment_name = ? AND id NOT IN (
-      SELECT id FROM resource_metrics
-      WHERE deployment_name = ?
-      ORDER BY id DESC
-      LIMIT ?
-    )
-  `,
-    )
-    .run(name, name, MAX_METRICS_PER_APP);
 }
 
 export function getMetricsHistory(name: string, since: number) {

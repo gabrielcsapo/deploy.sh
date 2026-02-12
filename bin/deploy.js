@@ -362,8 +362,7 @@ async function cmdDelete(serverUrl, appName) {
 
 async function cmdServer(port) {
   const { spawn } = await import('node:child_process');
-  const viteBin = resolve(import.meta.dirname, '..', 'node_modules', '.bin', 'vite');
-  const child = spawn(viteBin, ['--port', String(port)], {
+  const child = spawn('pnpm', ['run', 'preview', '--', '--port', String(port)], {
     stdio: 'inherit',
     cwd: resolve(import.meta.dirname, '..'),
   });

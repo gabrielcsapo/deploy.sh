@@ -10,6 +10,7 @@ import {
   getDeployHistory as _getDeployHistory,
   getRequestLogs as _getRequestLogs,
   getRequestSummary as _getRequestSummary,
+  getPathAnalytics as _getPathAnalytics,
   getBackups as _getBackups,
   saveBackup as _saveBackup,
   deleteBackupRecord as _deleteBackupRecord,
@@ -95,13 +96,29 @@ export async function fetchDeployHistory(username: string, token: string, name: 
   return _getDeployHistory(name);
 }
 
-export async function fetchRequestData(username: string, token: string, name: string) {
+export async function fetchRequestData(
+  username: string,
+  token: string,
+  name: string,
+  options?: { page?: number; limit?: number; pathFilter?: string; statusFilter?: string; fromTimestamp?: number; toTimestamp?: number },
+) {
   requireAuth(username, token);
   const d = _getDeployment(name);
   if (!d || d.username !== username) throw new Error('Not found');
+  const logsResult = _getRequestLogs(name, options);
   return {
-    logs: _getRequestLogs(name),
-    summary: _getRequestSummary(name),
+    logs: logsResult.logs,
+    total: logsResult.total,
+    page: logsResult.page,
+    totalPages: logsResult.totalPages,
+    summary: _getRequestSummary(name, {
+      fromTimestamp: options?.fromTimestamp,
+      toTimestamp: options?.toTimestamp,
+    }),
+    pathAnalytics: _getPathAnalytics(name, {
+      fromTimestamp: options?.fromTimestamp,
+      toTimestamp: options?.toTimestamp,
+    }),
   };
 }
 

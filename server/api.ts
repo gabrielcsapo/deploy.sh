@@ -166,6 +166,16 @@ function proxyToApp(
   const protocol =
     req.headers['x-forwarded-proto'] || (req.connection as any).encrypted ? 'https' : 'http';
 
+  // Extract metadata for enhanced logging
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+  const userAgent = req.headers['user-agent'] || null;
+  const referrer = req.headers['referer'] || null;
+  const queryParams = search || null;
+  const username = req.headers['x-deploy-username'] as string | null || null;
+  const requestSize = parseInt(req.headers['content-length'] as string, 10) || 0;
+
+  let responseSize = 0;
+
   const proxyReq = httpRequest(
     {
       agent: proxyAgent,
@@ -183,15 +193,33 @@ function proxyToApp(
     },
     (proxyRes) => {
       const duration = Date.now() - startTime;
-      const entry = {
-        method,
-        path: targetPath,
-        status: proxyRes.statusCode!,
-        duration,
-        timestamp: Date.now(),
-      };
-      logRequest(deployment.name, entry);
-      emit({ type: 'request:logged', deploymentName: deployment.name, data: entry });
+
+      // Count actual bytes in response stream
+      let bytesReceived = 0;
+      proxyRes.on('data', (chunk) => {
+        bytesReceived += chunk.length;
+      });
+
+      // Log the request when response is complete
+      proxyRes.on('end', () => {
+        responseSize = bytesReceived;
+        const entry = {
+          method,
+          path: targetPath,
+          status: proxyRes.statusCode!,
+          duration,
+          timestamp: Date.now(),
+          ip,
+          userAgent,
+          referrer,
+          requestSize,
+          responseSize,
+          queryParams,
+          username,
+        };
+        logRequest(deployment.name, entry);
+        emit({ type: 'request:logged', deploymentName: deployment.name, data: entry });
+      });
 
       const headers = {
         ...proxyRes.headers,
@@ -222,7 +250,20 @@ function proxyToApp(
 
   proxyReq.on('error', () => {
     const duration = Date.now() - startTime;
-    const entry = { method, path: targetPath, status: 502, duration, timestamp: Date.now() };
+    const entry = {
+      method,
+      path: targetPath,
+      status: 502,
+      duration,
+      timestamp: Date.now(),
+      ip,
+      userAgent,
+      referrer,
+      requestSize,
+      responseSize: 0,
+      queryParams,
+      username,
+    };
     logRequest(deployment.name, entry);
     emit({ type: 'request:logged', deploymentName: deployment.name, data: entry });
 

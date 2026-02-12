@@ -103,12 +103,12 @@ export default function Component() {
           application.
         </li>
         <li>
-          <strong>request_logs</strong> &mdash; HTTP request log per deployment (ring buffer of 500
-          entries).
+          <strong>request_logs</strong> &mdash; HTTP request log per deployment (all data preserved
+          indefinitely).
         </li>
         <li>
           <strong>resource_metrics</strong> &mdash; CPU, memory, network, and disk I/O samples per
-          container (ring buffer of ~24 hours).
+          container (all data preserved indefinitely).
         </li>
       </ul>
       <p>

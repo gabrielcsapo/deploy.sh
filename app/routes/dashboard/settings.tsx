@@ -3,10 +3,16 @@
 import { useState, useEffect } from 'react';
 import { getAuth } from './detail/shared';
 import { fetchUser, updatePassword } from '../../actions/user';
+import { runVacuum, getMaintenanceStats } from '../../actions/maintenance';
 
 interface UserInfo {
   username: string;
   createdAt: string;
+}
+
+interface MaintenanceStats {
+  dbSize: number;
+  tableCounts: Record<string, number>;
 }
 
 export default function Component() {
@@ -20,6 +26,12 @@ export default function Component() {
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Maintenance state
+  const [maintenanceStats, setMaintenanceStats] = useState<MaintenanceStats | null>(null);
+  const [maintenanceMessage, setMaintenanceMessage] = useState('');
+  const [maintenanceError, setMaintenanceError] = useState('');
+  const [vacuumRunning, setVacuumRunning] = useState(false);
+
   useEffect(() => {
     async function load() {
       const auth = getAuth();
@@ -27,6 +39,10 @@ export default function Component() {
       try {
         const data = await fetchUser(auth.username, auth.token);
         setUser(data as UserInfo);
+
+        // Load maintenance stats
+        const stats = await getMaintenanceStats(auth.username, auth.token);
+        setMaintenanceStats(stats as MaintenanceStats);
       } catch {
         // ignore
       } finally {
@@ -66,6 +82,34 @@ export default function Component() {
     }
   }
 
+  async function handleVacuum() {
+    setMaintenanceMessage('');
+    setMaintenanceError('');
+    setVacuumRunning(true);
+
+    try {
+      const auth = getAuth();
+      if (!auth) return;
+      const result = await runVacuum(auth.username, auth.token);
+      setMaintenanceMessage(result.message);
+
+      // Reload stats after vacuum
+      const stats = await getMaintenanceStats(auth.username, auth.token);
+      setMaintenanceStats(stats as MaintenanceStats);
+    } catch (err) {
+      setMaintenanceError((err as Error).message);
+    } finally {
+      setVacuumRunning(false);
+    }
+  }
+
+  function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GiB`;
+  }
+
   if (loading) {
     return <div className="text-sm text-text-tertiary py-12 text-center">Loading...</div>;
   }
@@ -92,7 +136,7 @@ export default function Component() {
         </div>
       </div>
 
-      <div className="card p-6">
+      <div className="card p-6 mb-6">
         <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-4">
           Change Password
         </h2>
@@ -127,6 +171,61 @@ export default function Component() {
             {saving ? 'Saving...' : 'Change Password'}
           </button>
         </form>
+      </div>
+
+      <div className="card p-6">
+        <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-4">
+          Database Maintenance
+        </h2>
+
+        {maintenanceStats && (
+          <div className="mb-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-text-secondary">Database Size</span>
+              <span className="text-sm font-mono">{formatBytes(maintenanceStats.dbSize)}</span>
+            </div>
+
+            <div className="border-t border-border pt-3">
+              <p className="text-xs text-text-tertiary mb-2">Table Row Counts</p>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(maintenanceStats.tableCounts).map(([table, count]) => (
+                  <div key={table} className="flex items-center justify-between">
+                    <span className="text-xs text-text-secondary font-mono">{table}</span>
+                    <span className="text-xs font-mono">{count.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-4 max-w-sm">
+          <div>
+            <button
+              onClick={handleVacuum}
+              disabled={vacuumRunning}
+              className="btn btn-primary w-full"
+            >
+              {vacuumRunning ? 'Running VACUUM...' : 'Run Database VACUUM'}
+            </button>
+            <p className="text-xs text-text-tertiary mt-1">
+              Reclaims disk space from deleted records by rebuilding the database file.
+            </p>
+          </div>
+
+          {maintenanceMessage && (
+            <p className="text-xs text-green-400">{maintenanceMessage}</p>
+          )}
+          {maintenanceError && <p className="text-xs text-danger">{maintenanceError}</p>}
+
+          <div className="border-t border-border pt-4">
+            <p className="text-xs text-text-tertiary">
+              <strong>Automated Maintenance:</strong> VACUUM runs every 6 hours automatically to
+              keep the database optimized. All data is preserved indefinitely - you can delete old
+              data manually if needed.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
