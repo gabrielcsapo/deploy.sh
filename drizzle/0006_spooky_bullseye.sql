@@ -1,0 +1,1 @@
+ALTER TABLE `deployments` ADD `discoverable` integer DEFAULT false;

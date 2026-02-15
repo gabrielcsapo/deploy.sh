@@ -3,15 +3,15 @@ import { apiMiddleware } from './api.ts';
 import { setupWebSocket } from './ws.ts';
 import { syncContainerStates, startAllContainers, stopAllContainers } from './lifecycle.ts';
 import { startMaintenance } from './maintenance.ts';
+import { notFoundPage } from './error-page.ts';
 
-const PORT = parseInt(process.env.PORT || '5050', 10);
+const PORT = parseInt(process.env.PORT || '80', 10);
 
 const handler = apiMiddleware();
 
 const server = createServer((req, res) => {
   handler(req, res, () => {
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Not found' }));
+    notFoundPage(res);
   });
 });
 

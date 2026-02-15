@@ -33,10 +33,13 @@ export function getDb() {
   _sqlite = new Database(DB_FILE);
   _sqlite.pragma('journal_mode = WAL');
 
-  _db = drizzle(_sqlite);
+  const db = drizzle(_sqlite);
 
-  migrate(_db, { migrationsFolder: './drizzle' });
+  // Run migrations before setting _db so a failed migration
+  // doesn't leave _db in an un-migrated state
+  migrate(db, { migrationsFolder: './drizzle' });
 
+  _db = db;
   return _db;
 }
 
@@ -149,6 +152,7 @@ interface DeploymentInput {
   containerId?: string;
   containerName?: string;
   directory?: string;
+  extraPorts?: string | null;
   createdAt?: string;
 }
 
@@ -164,6 +168,7 @@ export function saveDeployment(deployment: DeploymentInput) {
       containerId: deployment.containerId || null,
       containerName: deployment.containerName || null,
       directory: deployment.directory || null,
+      extraPorts: deployment.extraPorts || null,
       createdAt: deployment.createdAt || now,
       updatedAt: now,
     })
@@ -176,6 +181,7 @@ export function saveDeployment(deployment: DeploymentInput) {
         containerId: deployment.containerId || null,
         containerName: deployment.containerName || null,
         directory: deployment.directory || null,
+        extraPorts: deployment.extraPorts || null,
         updatedAt: now,
       },
     })
@@ -197,13 +203,13 @@ export function deleteDeployment(name: string) {
   db.delete(deployments).where(eq(deployments.name, name)).run();
 }
 
-export function updateDeploymentSettings(name: string, settings: { autoBackup?: boolean }) {
+export function updateDeploymentSettings(name: string, settings: { autoBackup?: boolean; discoverable?: boolean }) {
   const db = getDb();
+  const set: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+  if (settings.autoBackup !== undefined) set.autoBackup = settings.autoBackup;
+  if (settings.discoverable !== undefined) set.discoverable = settings.discoverable;
   db.update(deployments)
-    .set({
-      autoBackup: settings.autoBackup,
-      updatedAt: new Date().toISOString(),
-    })
+    .set(set)
     .where(eq(deployments.name, name))
     .run();
 }
@@ -222,6 +228,11 @@ export function updateDeploymentStatus(name: string, status: string) {
 export function getAllDeployments() {
   const db = getDb();
   return db.select().from(deployments).all();
+}
+
+export function getDiscoverableDeployments() {
+  const db = getDb();
+  return db.select().from(deployments).where(eq(deployments.discoverable, true)).all();
 }
 
 // ── Deployment history ───────────────────────────────────────────────────────

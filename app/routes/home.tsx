@@ -113,7 +113,7 @@ export default function Component() {
                   <span className="text-text">npm run server</span>
                   {'\n'}
                   <span className="text-success">&#10003;</span>{' '}
-                  <span className="text-text-tertiary">API running at http://localhost:5050</span>
+                  <span className="text-text-tertiary">API running at http://localhost</span>
                   {'\n'}
                   {'\n'}
                   <span className="text-text-tertiary">$</span>{' '}

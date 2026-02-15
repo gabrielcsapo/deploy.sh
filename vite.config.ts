@@ -30,16 +30,16 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5050',
+        target: 'http://localhost:80',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://localhost:5050',
+        target: 'ws://localhost:80',
         ws: true,
       },
       // Proxy all .local domain requests to backend server
       '/': {
-        target: 'http://localhost:5050',
+        target: 'http://localhost:80',
         changeOrigin: true,
         bypass(req) {
           const host = req.headers.host || '';
@@ -76,16 +76,16 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5050',
+        target: 'http://localhost:80',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://localhost:5050',
+        target: 'ws://localhost:80',
         ws: true,
       },
       // Proxy all .local domain requests to backend server
       '/': {
-        target: 'http://localhost:5050',
+        target: 'http://localhost:80',
         changeOrigin: true,
         bypass(req) {
           const host = req.headers.host || '';

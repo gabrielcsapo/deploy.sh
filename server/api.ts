@@ -10,6 +10,7 @@ import {
 import { createGzip } from 'node:zlib';
 import { startMetricsCollector } from './metrics-collector.ts';
 import { registerHost, unregisterHost, registerAllDeployments } from './mdns.ts';
+import { appNotFoundPage, appStartingPage } from './error-page.ts';
 import {
   registerUser,
   loginUser,
@@ -23,6 +24,7 @@ import {
   deleteDeployment,
   updateDeploymentSettings,
   updateDeploymentStatus,
+  getDiscoverableDeployments,
   getUploadsDir,
   addDeployEvent,
   getDeployHistory,
@@ -57,6 +59,7 @@ import {
   deleteVolumes,
   getVolumeSize,
 } from './volumes.ts';
+import { readDeployConfig } from './deploy-config.ts';
 
 // Pre-container states where Docker has no container yet
 const PRE_CONTAINER_STATES = new Set(['uploading', 'building', 'starting']);
@@ -282,103 +285,164 @@ function proxyToApp(
     logRequest(deployment.name, entry);
     emit({ type: 'request:logged', deploymentName: deployment.name, data: entry });
 
-    // Show nice HTML error page instead of JSON
-    const html = `<!DOCTYPE html>
+    appStartingPage(res, deployment.name);
+  });
+
+  return proxyReq;
+}
+
+// ── Discover page ───────────────────────────────────────────────────────────
+
+function serveDiscoverPage(res: ServerResponse, host: string) {
+  const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${deployment.name} - Starting Up</title>
+  <title>Discover Apps</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #0a0a0b;
+      color: #e4e4e7;
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-    }
-    .container {
-      text-align: center;
-      max-width: 500px;
       padding: 2rem;
     }
-    .spinner {
-      width: 50px;
-      height: 50px;
-      margin: 0 auto 2rem;
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    h1 {
-      font-size: 2rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-    }
-    p {
-      font-size: 1rem;
-      opacity: 0.9;
+    .header {
+      text-align: center;
       margin-bottom: 2rem;
-      line-height: 1.6;
     }
-    .btn {
-      display: inline-block;
-      padding: 0.75rem 1.5rem;
-      background: rgba(255, 255, 255, 0.2);
-      color: #fff;
-      text-decoration: none;
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    .header p {
+      font-size: 0.875rem;
+      color: #71717a;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #18181b;
+      border: 1px solid #27272a;
       border-radius: 8px;
+      padding: 1.25rem;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: #3f3f46; }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+    .card-name {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fafafa;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.675rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+    .badge-running { background: #052e16; color: #4ade80; }
+    .badge-stopped, .badge-exited, .badge-failed { background: #450a0a; color: #f87171; }
+    .badge-other { background: #422006; color: #fbbf24; }
+    .card-type {
+      font-size: 0.75rem;
+      color: #a1a1aa;
+      margin-bottom: 0.75rem;
+    }
+    .card-link {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: #27272a;
+      color: #e4e4e7;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 0.8125rem;
       font-weight: 500;
       transition: background 0.2s;
-      backdrop-filter: blur(10px);
+      width: 100%;
+      text-align: center;
     }
-    .btn:hover {
-      background: rgba(255, 255, 255, 0.3);
-    }
-    .app-name {
-      display: inline-block;
-      padding: 0.25rem 0.75rem;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
-      font-family: 'Monaco', 'Courier New', monospace;
+    .card-link:hover { background: #3f3f46; }
+    .empty {
+      text-align: center;
+      color: #71717a;
+      padding: 3rem 1rem;
       font-size: 0.875rem;
-      margin-bottom: 1rem;
     }
   </style>
-  <script>
-    // Auto-refresh every 3 seconds to check if app is up
-    setTimeout(() => window.location.reload(), 3000);
-  </script>
 </head>
 <body>
-  <div class="container">
-    <div class="spinner"></div>
-    <div class="app-name">${deployment.name}</div>
-    <h1>Starting Up</h1>
-    <p>
-      This app is currently starting. It may take a few moments for the container to boot up.
-      This page will automatically refresh.
-    </p>
-    <a href="http://localhost:5173/dashboard/${deployment.name}" class="btn">View Dashboard</a>
+  <div class="header">
+    <h1>Discover Apps</h1>
+    <p>Apps available on this network</p>
   </div>
+  <div id="apps" class="grid"></div>
+  <div id="empty" class="empty" style="display:none">No discoverable apps right now.</div>
+  <script>
+    const host = ${JSON.stringify(host)};
+    const port = host.split(':')[1] || '';
+    const portSuffix = port && port !== '80' && port !== '443' ? ':' + port : '';
+
+    function badgeClass(status) {
+      if (status === 'running') return 'badge-running';
+      if (['stopped','exited','failed'].includes(status)) return 'badge-stopped';
+      return 'badge-other';
+    }
+
+    async function load() {
+      try {
+        const res = await fetch('/api/discover');
+        const apps = await res.json();
+        const container = document.getElementById('apps');
+        const empty = document.getElementById('empty');
+        if (apps.length === 0) {
+          container.innerHTML = '';
+          empty.style.display = 'block';
+          return;
+        }
+        empty.style.display = 'none';
+        container.innerHTML = apps.map(function(app) {
+          const url = location.protocol + '//' + app.name + '.local' + portSuffix;
+          return '<div class="card">' +
+            '<div class="card-header">' +
+              '<span class="card-name">' + app.name + '</span>' +
+              '<span class="badge ' + badgeClass(app.status) + '">' + app.status + '</span>' +
+            '</div>' +
+            '<div class="card-type">' + (app.type || 'unknown') + '</div>' +
+            '<a class="card-link" href="' + url + '" target="_blank">Open</a>' +
+          '</div>';
+        }).join('');
+      } catch (e) {
+        console.error('Failed to load apps:', e);
+      }
+    }
+
+    load();
+    setInterval(load, 10000);
+  </script>
 </body>
 </html>`;
-
-    res.writeHead(502, {
-      'Content-Type': 'text/html',
-      'Access-Control-Allow-Origin': '*',
-    });
-    res.end(html);
+  res.writeHead(200, {
+    'Content-Type': 'text/html',
+    'Access-Control-Allow-Origin': '*',
   });
-
-  return proxyReq;
+  res.end(html);
 }
 
 // ── Middleware ───────────────────────────────────────────────────────────────
@@ -388,6 +452,7 @@ type NextFn = () => void;
 export function apiMiddleware() {
   startMetricsCollector();
   registerHost('deploy');
+  registerHost('discover');
   registerAllDeployments();
   return async (req: IncomingMessage, res: ServerResponse, next: NextFn) => {
     const url = new URL(req.url!, `http://${req.headers.host}`);
@@ -405,16 +470,29 @@ export function apiMiddleware() {
       return;
     }
 
-    // ── mDNS-based app proxy (<name>.local:PORT) ──────────────────────────
+    // ── discover.local — serve discovery page ─────────────────────────────
     const host = req.headers.host || '';
     const hostname = host.split(':')[0];
+    if (hostname === 'discover.local') {
+      if (path === '/api/discover') {
+        const apps = getDiscoverableDeployments().map((d) => ({
+          name: d.name,
+          type: d.type,
+          status: resolveStatus(d),
+        }));
+        return json(res, apps);
+      }
+      return serveDiscoverPage(res, host);
+    }
+
+    // ── mDNS-based app proxy (<name>.local:PORT) ──────────────────────────
     if (hostname.endsWith('.local') && hostname !== 'deploy.local') {
       const appName = hostname.slice(0, -'.local'.length);
       console.log(`[mDNS Proxy] Request for ${hostname} -> app name: ${appName}`);
       const d = getDeployment(appName);
       if (!d) {
         console.log(`[mDNS Proxy] Deployment not found: ${appName}`);
-        return error(res, 'App not found', 404);
+        return appNotFoundPage(res, appName);
       }
       console.log(`[mDNS Proxy] Found deployment: ${d.name}, port: ${d.port}, status: ${d.status}`);
 
@@ -425,6 +503,17 @@ export function apiMiddleware() {
     }
 
     try {
+      // ── Public discover API ──────────────────────────────────────────────
+
+      if (path === '/api/discover' && method === 'GET') {
+        const apps = getDiscoverableDeployments().map((d) => ({
+          name: d.name,
+          type: d.type,
+          status: resolveStatus(d),
+        }));
+        return json(res, apps);
+      }
+
       // ── Auth routes ───────────────────────────────────────────────────────
 
       if (path === '/api/register' && method === 'POST') {
@@ -507,6 +596,14 @@ export function apiMiddleware() {
 
         execSync(`tar -xzf upload.tar.gz`, { cwd: deployDir, stdio: 'pipe' });
         execSync(`rm upload.tar.gz`, { cwd: deployDir, stdio: 'pipe' });
+
+        // Read deploy.json config (if present)
+        let deployConfig;
+        try {
+          deployConfig = readDeployConfig(deployDir);
+        } catch (err: any) {
+          return error(res, err.message);
+        }
 
         // Classify and build
         const type = classifyProject(deployDir);
@@ -607,7 +704,8 @@ export function apiMiddleware() {
         const port = await getAvailablePort();
         console.log(`Starting ${name} on port ${port}...`);
         const volumeDir = getVolumeDir(name);
-        const { id, containerName } = await runContainer(buildResult.tag, name, port, volumeDir);
+        const { id, containerName, extraPorts } = await runContainer(buildResult.tag, name, port, volumeDir, deployConfig);
+        const extraPortsJson = extraPorts.length > 0 ? JSON.stringify(extraPorts) : null;
 
         saveDeployment({
           name,
@@ -617,10 +715,15 @@ export function apiMiddleware() {
           containerId: id,
           containerName,
           directory: deployDir,
+          extraPorts: extraPortsJson,
           createdAt: new Date().toISOString(),
         });
 
         updateDeploymentStatus(name, 'running');
+
+        if (deployConfig.discoverable !== undefined) {
+          updateDeploymentSettings(name, { discoverable: deployConfig.discoverable });
+        }
 
         addDeployEvent(name, { action: 'deploy', username, type, port, containerId: id });
         registerHost(name);
@@ -636,10 +739,8 @@ export function apiMiddleware() {
           data: { name, type, port, containerId: id, username },
         });
 
-        const deployHost = req.headers.host || 'localhost:5173';
-        const deployPort = deployHost.split(':')[1] || '5173';
-        console.log(`Deployed ${name} → http://${name}.local:${deployPort}`);
-        return json(res, { name, type, port, containerId: id }, 201);
+        console.log(`Deployed ${name} → http://${name}.local`);
+        return json(res, { name, type, port, containerId: id, extraPorts }, 201);
       }
 
       // ── Deployment management ───────────────────────────────────────────
@@ -690,7 +791,10 @@ export function apiMiddleware() {
         if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
 
         const body = JSON.parse((await readBody(req)).toString());
-        updateDeploymentSettings(name, { autoBackup: body.autoBackup });
+        const settings: { autoBackup?: boolean; discoverable?: boolean } = {};
+        if (body.autoBackup !== undefined) settings.autoBackup = body.autoBackup;
+        if (body.discoverable !== undefined) settings.discoverable = body.discoverable;
+        updateDeploymentSettings(name, settings);
 
         return json(res, { message: 'Settings updated' });
       }

@@ -25,6 +25,14 @@ export default function Component() {
                 Deploying Apps
               </Link>
             </li>
+            <li>
+              <Link
+                to="/docs/configuration"
+                className="block text-sm text-text-secondary hover:text-text px-2 py-1 rounded-md hover:bg-bg-hover transition-colors"
+              >
+                Configuration
+              </Link>
+            </li>
           </ul>
 
           <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">

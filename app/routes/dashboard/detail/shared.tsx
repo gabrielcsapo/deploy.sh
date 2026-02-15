@@ -1,15 +1,16 @@
 'use client';
 
 export function appUrl(name: string) {
-  if (typeof window === 'undefined') return `http://${name}.local:5050`;
+  if (typeof window === 'undefined') return `http://${name}.local`;
   const hostname = window.location.hostname;
   if (
     /^\d+\.\d+\.\d+\.\d+$/.test(hostname) ||
     hostname === 'localhost' ||
     hostname.endsWith('.local')
   ) {
-    // Use backend server port (5050) for .local domain routing
-    return `${window.location.protocol}//${name}.local:5050`;
+    const port = window.location.port;
+    const portSuffix = port && port !== '80' && port !== '443' ? `:${port}` : '';
+    return `${window.location.protocol}//${name}.local${portSuffix}`;
   }
   return `${window.location.protocol}//${name}.${window.location.host}`;
 }
@@ -32,6 +33,12 @@ export function clearAuth() {
   localStorage.removeItem('deploy-sh-auth');
 }
 
+export interface ExtraPort {
+  container: number;
+  host: number;
+  protocol: string;
+}
+
 export interface Deployment {
   name: string;
   type: string;
@@ -39,7 +46,18 @@ export interface Deployment {
   status: string;
   containerId: string;
   autoBackup: boolean;
+  discoverable: boolean;
+  extraPorts: string | null;
   createdAt: string;
+}
+
+export function parseExtraPorts(deployment: Deployment): ExtraPort[] {
+  if (!deployment.extraPorts) return [];
+  try {
+    return JSON.parse(deployment.extraPorts);
+  } catch {
+    return [];
+  }
 }
 
 export interface ContainerInfo {

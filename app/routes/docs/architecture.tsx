@@ -24,7 +24,7 @@ export default function Component() {
 
       <h2>Server</h2>
       <p>
-        The server is a Node.js HTTP server that runs on port 5050 by default. It handles user
+        The server is a Node.js HTTP server that runs on port 80 by default. It handles user
         authentication, receives deployment uploads, builds Docker images, manages containers, and
         collects resource metrics.
       </p>
@@ -63,6 +63,10 @@ export default function Component() {
           project type (Docker, Node.js, or static).
         </li>
         <li>
+          <strong>Configure</strong> &mdash; If a <code>deploy.json</code> exists, port
+          configuration is read from it (custom app port, extra ports).
+        </li>
+        <li>
           <strong>Build</strong> &mdash; A Dockerfile is generated (if needed), and a Docker image
           is built.
         </li>
@@ -95,8 +99,8 @@ export default function Component() {
           <strong>users</strong> &mdash; username, hashed password (SHA-256), and auth token.
         </li>
         <li>
-          <strong>deployments</strong> &mdash; container ID, name, port, type, directory path, owner
-          username, and timestamps.
+          <strong>deployments</strong> &mdash; container ID, name, port, extra port mappings, type,
+          directory path, owner username, and timestamps.
         </li>
         <li>
           <strong>history</strong> &mdash; audit trail of deploy, restart, and delete events per

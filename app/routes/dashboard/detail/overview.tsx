@@ -1,8 +1,11 @@
 'use client';
 
 import { useOutletContext } from 'react-router';
-import { restartDeployment as serverRestart } from '../../../actions/deployments';
-import { appUrl, getAuth, StatusBadge } from './shared';
+import {
+  restartDeployment as serverRestart,
+  updateDeploymentSettings as serverUpdateSettings,
+} from '../../../actions/deployments';
+import { appUrl, getAuth, StatusBadge, parseExtraPorts } from './shared';
 import type { DetailContext } from './shared';
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -30,6 +33,7 @@ export default function Component() {
 
   const started = inspect?.started ? new Date(inspect.started) : null;
   const uptime = started ? formatUptime(Date.now() - started.getTime()) : 'N/A';
+  const extraPorts = parseExtraPorts(deployment);
 
   async function handleRestart() {
     const auth = getAuth();
@@ -37,6 +41,15 @@ export default function Component() {
     await serverRestart(auth.username, auth.token, deployment.name);
     fetchDeployment();
     fetchInspect();
+  }
+
+  async function handleToggleDiscoverable() {
+    const auth = getAuth();
+    if (!auth) return;
+    await serverUpdateSettings(auth.username, auth.token, deployment.name, {
+      discoverable: !deployment.discoverable,
+    });
+    fetchDeployment();
   }
 
   return (
@@ -78,6 +91,18 @@ export default function Component() {
             </a>
           </InfoRow>
           <InfoRow label="Created">{new Date(deployment.createdAt).toLocaleString()}</InfoRow>
+          {extraPorts.length > 0 && (
+            <InfoRow label="Extra Ports">
+              <span className="font-mono text-xs">
+                {extraPorts.map((p, i) => (
+                  <span key={i}>
+                    {i > 0 && ', '}
+                    {p.host}:{p.container}/{p.protocol}
+                  </span>
+                ))}
+              </span>
+            </InfoRow>
+          )}
         </div>
       </div>
 
@@ -100,6 +125,28 @@ export default function Component() {
           </div>
         </div>
       )}
+
+      {/* Discoverable Setting */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold mb-1">Discoverable</p>
+            <p className="text-xs text-text-secondary">
+              Show this app on the discover.local network directory
+            </p>
+          </div>
+          <button
+            onClick={handleToggleDiscoverable}
+            className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+              deployment.discoverable
+                ? 'bg-accent text-white'
+                : 'bg-bg-tertiary border border-border text-text-secondary'
+            }`}
+          >
+            {deployment.discoverable ? 'Enabled' : 'Disabled'}
+          </button>
+        </div>
+      </div>
 
       <div className="flex gap-2">
         <a

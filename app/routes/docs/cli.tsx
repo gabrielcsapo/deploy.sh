@@ -5,7 +5,7 @@ export default function Component() {
       <p>
         The deploy.sh CLI lets you deploy and manage applications from your terminal. All commands
         accept a <code>-u</code> flag to specify the server URL (defaults to{' '}
-        <code>http://localhost:5050</code>).
+        <code>http://localhost</code>).
       </p>
 
       <h2>deploy</h2>
@@ -113,7 +113,7 @@ deploy server -p 3000`}
             <td>
               <code>-p, --port</code>
             </td>
-            <td>Port to listen on (default: 5050).</td>
+            <td>Port to listen on (default: 80).</td>
           </tr>
         </tbody>
       </table>

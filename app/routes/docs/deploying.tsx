@@ -7,7 +7,11 @@ export default function Component() {
       <p>
         deploy.sh auto-detects your project type based on the files in your project root. No
         configuration file is required&mdash;just run <code>deploy</code> and it figures out the
-        rest.
+        rest. If you need to customize port mappings, you can add a{' '}
+        <Link to="/docs/configuration">
+          <code>deploy.json</code>
+        </Link>{' '}
+        file to your project root.
       </p>
 
       <h2>Node.js applications</h2>

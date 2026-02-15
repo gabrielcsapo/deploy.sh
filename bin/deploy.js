@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 
-const DEFAULT_URL = 'http://localhost:5050';
+const DEFAULT_URL = 'http://localhost';
 const RC_PATH = resolve(homedir(), '.deployrc');
 
 function appUrl(serverUrl, name) {
@@ -401,9 +401,9 @@ Usage:
   deploy whoami              Show current user
 
 Options:
-  -u, --url <url>            Server URL (default: http://localhost:5050)
+  -u, --url <url>            Server URL (default: http://localhost)
   -app, --application <name> Application name
-  -p, --port <port>          Server port (default: 5050)
+  -p, --port <port>          Server port (default: 80)
   -h, --help                 Show this help
 `.trim();
 
@@ -413,7 +413,7 @@ const { values, positionals } = parseArgs({
     url: { type: 'string', short: 'u', default: DEFAULT_URL },
     application: { type: 'string', short: 'a' },
     app: { type: 'string' },
-    port: { type: 'string', short: 'p', default: '5050' },
+    port: { type: 'string', short: 'p', default: '80' },
     help: { type: 'boolean', short: 'h', default: false },
   },
   strict: false,

@@ -60,7 +60,7 @@ export default function Component() {
         <code>deploy server</code>
       </pre>
       <p>
-        This starts deploy.sh on <code>http://localhost:5050</code> where you can monitor and manage
+        This starts deploy.sh on <code>http://localhost</code> where you can monitor and manage
         your deployments. Use <code>-p</code> to pick a different port.
       </p>
 

@@ -2,17 +2,30 @@ import { execSync, spawn } from 'node:child_process';
 import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createServer, type AddressInfo } from 'node:net';
+import type { DeployConfig } from './deploy-config.ts';
 
 // ── Port allocation ─────────────────────────────────────────────────────────
 
-export function getAvailablePort(): Promise<number> {
+export function getAvailablePort(preferred?: number): Promise<number> {
   return new Promise((resolve, reject) => {
     const srv = createServer();
-    srv.listen(0, () => {
+    srv.listen(preferred ?? 0, () => {
       const port = (srv.address() as AddressInfo).port;
       srv.close(() => resolve(port));
     });
-    srv.on('error', reject);
+    srv.on('error', () => {
+      if (preferred) {
+        // Preferred port taken, fall back to random
+        const srv2 = createServer();
+        srv2.listen(0, () => {
+          const port = (srv2.address() as AddressInfo).port;
+          srv2.close(() => resolve(port));
+        });
+        srv2.on('error', reject);
+      } else {
+        reject(new Error('Failed to find available port'));
+      }
+    });
   });
 }
 
@@ -141,13 +154,21 @@ export function buildImage(
   });
 }
 
+export interface ExtraPortMapping {
+  container: number;
+  host: number;
+  protocol: string;
+}
+
 export async function runContainer(
   imageTag: string,
   name: string,
   port: number,
   volumeDir?: string,
+  config?: DeployConfig,
 ) {
   const containerName = `deploy-sh-${name.toLowerCase()}`;
+  const appPort = config?.port ?? 3000;
 
   // Remove old container with same name if it exists
   try {
@@ -169,8 +190,20 @@ export async function runContainer(
     volumeFlags = `-v ${dataVolume}:/app/data -v ${uploadsVolume}:/app/uploads`;
   }
 
+  // Build extra port flags
+  const extraPorts: ExtraPortMapping[] = [];
+  let extraPortFlags = '';
+  if (config?.ports?.length) {
+    for (const p of config.ports) {
+      const hostPort = await getAvailablePort(p.container);
+      const protocol = p.protocol || 'tcp';
+      extraPortFlags += ` -p ${hostPort}:${p.container}/${protocol}`;
+      extraPorts.push({ container: p.container, host: hostPort, protocol });
+    }
+  }
+
   execSync(
-    `docker run -d -m 4g --name ${containerName} -p ${port}:3000 -e PORT=3000 ${volumeFlags} ${imageTag}`,
+    `docker run -d -m 4g --name ${containerName} -p ${port}:${appPort} -e PORT=${appPort}${extraPortFlags} ${volumeFlags} ${imageTag}`,
     { stdio: 'pipe' },
   );
 
@@ -181,7 +214,7 @@ export async function runContainer(
     .toString()
     .trim();
 
-  return { id, containerName };
+  return { id, containerName, extraPorts };
 }
 
 export function stopContainer(name: string) {

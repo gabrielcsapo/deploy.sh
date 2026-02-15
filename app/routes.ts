@@ -5,6 +5,7 @@ export default [
   route('docs', 'routes/docs/layout.tsx', [
     index('routes/docs/index.tsx'),
     route('deploying', 'routes/docs/deploying.tsx'),
+    route('configuration', 'routes/docs/configuration.tsx'),
     route('cli', 'routes/docs/cli.tsx'),
     route('architecture', 'routes/docs/architecture.tsx'),
   ]),

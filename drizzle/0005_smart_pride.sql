@@ -1,0 +1,1 @@
+ALTER TABLE `deployments` ADD `extra_ports` text;

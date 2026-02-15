@@ -118,7 +118,7 @@ export default function Home() {
                   <span className="text-text">deploy server</span>
                   {'\n'}
                   <span className="text-success">&#10003;</span>{' '}
-                  <span className="text-text-tertiary">Running at http://localhost:5050</span>
+                  <span className="text-text-tertiary">Running at http://localhost</span>
                 </code>
               </pre>
             </div>

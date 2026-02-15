@@ -72,7 +72,7 @@ export async function updateDeploymentSettings(
   username: string,
   token: string,
   name: string,
-  settings: { autoBackup?: boolean },
+  settings: { autoBackup?: boolean; discoverable?: boolean },
 ) {
   requireAuth(username, token);
   const d = _getDeployment(name);

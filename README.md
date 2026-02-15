@@ -39,7 +39,7 @@ Or with a custom port:
 deploy server -p 3000
 ```
 
-This starts the dashboard and API on `http://localhost:5050` (or your chosen port). The server handles deployments, auth, Docker builds, and subdomain proxying.
+This starts the dashboard and API on `http://localhost` (or your chosen port). The server handles deployments, auth, Docker builds, and subdomain proxying.
 
 ## Create an account
 
@@ -57,7 +57,7 @@ From any project directory:
 npx deploy
 ```
 
-Your app will be bundled, uploaded, built into a Docker image, and started. Visit `http://<name>.local:5173` to see it running.
+Your app will be bundled, uploaded, built into a Docker image, and started. Visit `http://<name>.local` to see it running.
 
 ## CLI commands
 
@@ -76,9 +76,9 @@ deploy whoami              Show current user
 
 | Flag                         | Description                                   |
 | ---------------------------- | --------------------------------------------- |
-| `-u, --url <url>`            | Server URL (default: `http://localhost:5050`) |
-| `-app, --application <name>` | Application name                              |
-| `-p, --port <port>`          | Server port (default: `5050`)                 |
+| `-u, --url <url>`            | Server URL (default: `http://localhost`) |
+| `-app, --application <name>` | Application name                         |
+| `-p, --port <port>`          | Server port (default: `80`)              |
 
 ## Supported project types
 
