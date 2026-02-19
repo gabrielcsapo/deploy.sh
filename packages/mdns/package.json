@@ -1,0 +1,12 @@
+{
+  "name": "@deploy.sh/mdns",
+  "version": "1.0.0",
+  "description": "Low level multicast-dns implementation in pure TypeScript (vendored from multicast-dns)",
+  "type": "module",
+  "main": "index.ts",
+  "dependencies": {
+    "dns-packet": "^5.6.1",
+    "@types/dns-packet": "^5.6.5"
+  },
+  "license": "MIT"
+}
