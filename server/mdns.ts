@@ -23,23 +23,7 @@ let mdns: ReturnType<typeof multicastDns> | null = null;
 
 function ensureMdns() {
   if (mdns) return mdns;
-  const ip = getLocalIPv4();
   mdns = multicastDns();
-
-  mdns.on('query', (query) => {
-    const answers: Array<{ name: string; type: 'A'; ttl: number; data: string }> = [];
-
-    for (const q of query.questions) {
-      if ((q.type === 'A' || (q.type as string) === 'ANY') && registeredHosts.has(q.name)) {
-        answers.push({ name: q.name, type: 'A', ttl: 120, data: ip });
-      }
-    }
-
-    if (answers.length > 0) {
-      mdns!.respond({ answers });
-    }
-  });
-
   return mdns;
 }
 
@@ -51,9 +35,12 @@ export function registerHost(name: string) {
   const m = ensureMdns();
   const ip = getLocalIPv4();
 
+  // Pre-encode the response buffer for instant cache replies
+  m.registerResponse(hostname, ip, 120);
+
   // Proactive announcement so clients discover it immediately
   m.respond({
-    answers: [{ name: hostname, type: 'A', ttl: 120, data: ip }],
+    answers: [{ name: hostname, type: 'A', data: ip, ttl: 120 }],
   });
 
   console.log(`mDNS: registered ${hostname} → ${ip}`);
@@ -62,6 +49,7 @@ export function registerHost(name: string) {
 export function unregisterHost(name: string) {
   const hostname = `${name.toLowerCase()}.local`;
   registeredHosts.delete(hostname);
+  if (mdns) mdns.unregisterResponse(hostname);
   console.log(`mDNS: unregistered ${hostname}`);
 }
 
