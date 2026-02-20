@@ -28,7 +28,7 @@ import {
   deleteBackupFile as _deleteBackupFile,
   getVolumeSize as _getVolumeSize,
 } from '../../server/volumes.ts';
-import { getActiveBuild } from '../../server/events.ts';
+import { getActiveBuildLog } from '../../server/store.ts';
 
 function requireAuth(username: string, token: string) {
   if (!authenticate(username, token)) {
@@ -207,12 +207,12 @@ export async function fetchBuildLogs(username: string, token: string, name: stri
   if (!d || d.username !== username) throw new Error('Not found');
 
   const { rows, total, pageSize } = _getBuildLogs(name, page);
-  const activeBuildOutput = getActiveBuild(name);
+  const activeBuild = getActiveBuildLog(name);
   return {
     logs: rows,
     total,
     page,
     pageSize,
-    activeBuild: activeBuildOutput !== null ? { output: activeBuildOutput } : null,
+    activeBuild: activeBuild ? { output: activeBuild.output } : null,
   };
 }

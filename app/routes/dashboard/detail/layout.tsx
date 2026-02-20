@@ -10,12 +10,13 @@ import { getAuth, StatusBadge } from './shared';
 import type { Deployment, ContainerInfo, DetailContext } from './shared';
 import { useWebSocket } from '../../../hooks/useWebSocket';
 
-type Tab = 'overview' | 'logs' | 'requests' | 'resources' | 'history' | 'backups' | 'build';
+type Tab = 'overview' | 'logs' | 'requests' | 'resources' | 'history' | 'backups' | 'build' | 'terminal';
 
 const tabs: { key: Tab; label: string; path: string }[] = [
   { key: 'overview', label: 'Overview', path: '' },
   { key: 'build', label: 'Build', path: 'build' },
   { key: 'logs', label: 'Logs', path: 'logs' },
+  { key: 'terminal', label: 'Terminal', path: 'terminal' },
   { key: 'requests', label: 'Requests', path: 'requests' },
   { key: 'resources', label: 'Resources', path: 'resources' },
   { key: 'history', label: 'History', path: 'history' },

@@ -110,6 +110,15 @@ function removeHandler(handler: EventHandler) {
 }
 
 /**
+ * Send a raw JSON message through the shared WebSocket.
+ */
+export function sendWsMessage(msg: Record<string, unknown>) {
+  if (globalWs?.readyState === WebSocket.OPEN) {
+    globalWs.send(JSON.stringify(msg));
+  }
+}
+
+/**
  * Subscribe to WebSocket events for given channels.
  * Returns the current connection status.
  */

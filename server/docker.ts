@@ -258,6 +258,18 @@ export function streamLogs(name: string) {
   });
 }
 
+export function captureContainerLogs(name: string): string {
+  const containerName = `deploy-sh-${name.toLowerCase()}`;
+  try {
+    return execSync(`docker logs --timestamps --tail 50000 ${containerName}`, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 50 * 1024 * 1024,
+    }).toString();
+  } catch {
+    return '';
+  }
+}
+
 export interface ContainerInspect {
   id: string;
   image: string;
@@ -382,4 +394,16 @@ export function getContainerStatsRaw(name: string): RawContainerStats | null {
 export function restartContainer(name: string) {
   const containerName = `deploy-sh-${name.toLowerCase()}`;
   execSync(`docker restart ${containerName}`, { stdio: 'pipe' });
+}
+
+export function execContainer(name: string) {
+  const containerName = `deploy-sh-${name.toLowerCase()}`;
+  // Use script(1) with -c flag (portable across GNU and BusyBox) to allocate
+  // a PTY so the shell behaves interactively. Falls back to sh -i if unavailable.
+  return spawn(
+    'docker',
+    ['exec', '-i', '-e', 'TERM=xterm-256color', containerName, '/bin/sh', '-c',
+     'script -q -c /bin/sh /dev/null 2>/dev/null || exec /bin/sh -i'],
+    { stdio: ['pipe', 'pipe', 'pipe'] },
+  );
 }

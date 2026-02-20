@@ -582,29 +582,52 @@ export function deleteBackupRecord(deploymentName: string, filename: string) {
 
 // ── Build Logs ──────────────────────────────────────────────────────────────
 
-export function saveBuildLog(log: {
-  deploymentName: string;
-  output: string;
-  success: boolean;
-  duration: number;
-}) {
-  console.log({
-      deploymentName: log.deploymentName,
-      output: log.output,
-      success: log.success,
-      duration: log.duration,
-      timestamp: new Date().toISOString(),
-    })
+export function createBuildLog(deploymentName: string): number {
   const db = getDb();
-  db.insert(buildLogs)
+  const result = db.insert(buildLogs)
     .values({
-      deploymentName: log.deploymentName,
+      deploymentName,
+      output: '',
+      success: null,
+      duration: null,
+      status: 'building',
+      timestamp: new Date().toISOString(),
+    })
+    .returning({ id: buildLogs.id })
+    .get();
+  return result.id;
+}
+
+export function updateBuildOutput(id: number, output: string) {
+  const db = getDb();
+  db.update(buildLogs)
+    .set({ output })
+    .where(eq(buildLogs.id, id))
+    .run();
+}
+
+export function completeBuildLog(id: number, log: { output: string; success: boolean; duration: number }) {
+  const db = getDb();
+  db.update(buildLogs)
+    .set({
       output: log.output,
       success: log.success,
       duration: log.duration,
-      timestamp: new Date().toISOString(),
+      status: log.success ? 'complete' : 'failed',
     })
+    .where(eq(buildLogs.id, id))
     .run();
+}
+
+export function getActiveBuildLog(deploymentName: string) {
+  const db = getDb();
+  return db
+    .select()
+    .from(buildLogs)
+    .where(and(eq(buildLogs.deploymentName, deploymentName), eq(buildLogs.status, 'building')))
+    .orderBy(desc(buildLogs.timestamp))
+    .limit(1)
+    .get() ?? null;
 }
 
 export function getBuildLogs(
@@ -639,4 +662,20 @@ export function getLatestBuildLog(deploymentName: string) {
     .orderBy(desc(buildLogs.timestamp))
     .limit(1)
     .get();
+}
+
+export function saveRuntimeLogs(buildLogId: number, logs: string) {
+  const db = getDb();
+  db.update(buildLogs)
+    .set({ runtimeLogs: logs })
+    .where(eq(buildLogs.id, buildLogId))
+    .run();
+}
+
+export function updateCurrentBuildLogId(name: string, buildLogId: number) {
+  const db = getDb();
+  db.update(deployments)
+    .set({ currentBuildLogId: buildLogId, updatedAt: new Date().toISOString() })
+    .where(eq(deployments.name, name))
+    .run();
 }

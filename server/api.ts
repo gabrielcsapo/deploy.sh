@@ -34,10 +34,15 @@ import {
   saveBackup,
   getBackups,
   deleteBackupRecord,
-  saveBuildLog,
+  createBuildLog,
+  updateBuildOutput,
+  completeBuildLog,
   getBuildLogs,
+  getActiveBuildLog,
+  saveRuntimeLogs,
+  updateCurrentBuildLogId,
 } from './store.ts';
-import { emit, setActiveBuild, appendActiveBuild, clearActiveBuild, getActiveBuild } from './events.ts';
+import { emit } from './events.ts';
 import {
   classifyProject,
   ensureDockerfile,
@@ -45,6 +50,7 @@ import {
   runContainer,
   removeContainer,
   getContainerStatus,
+  captureContainerLogs,
   streamLogs,
   getAvailablePort,
   getContainerInspect,
@@ -657,20 +663,24 @@ export function apiMiddleware() {
         });
 
         console.log(`Building ${name} (${type})...`);
-        setActiveBuild(name, '');
+        const buildLogId = createBuildLog(name);
+        let accumulatedOutput = '';
+        let lastFlush = Date.now();
         const buildResult = await buildImage(name, deployDir, (line, timestamp) => {
-          appendActiveBuild(name, line, timestamp);
+          accumulatedOutput += `[${timestamp}] ${line}\n`;
           emit({ type: 'build:output', deploymentName: name, data: { line, timestamp } });
+          const now = Date.now();
+          if (now - lastFlush > 2000) {
+            updateBuildOutput(buildLogId, accumulatedOutput);
+            lastFlush = now;
+          }
         });
 
-        // Save build log before clearing active state so refreshes never miss it
-        saveBuildLog({
-          deploymentName: name,
+        completeBuildLog(buildLogId, {
           output: buildResult.output,
           success: buildResult.success,
           duration: buildResult.duration,
         });
-        clearActiveBuild(name);
 
         emit({
           type: 'build:complete',
@@ -691,6 +701,15 @@ export function apiMiddleware() {
             `Build failed after ${buildResult.duration}ms. Check build logs for details.`,
             500,
           );
+        }
+
+        // Capture runtime logs from the current container before it's replaced
+        const currentDeploy = getDeployment(name);
+        if (currentDeploy?.currentBuildLogId) {
+          const runtimeLogs = captureContainerLogs(name);
+          if (runtimeLogs) {
+            saveRuntimeLogs(currentDeploy.currentBuildLogId, runtimeLogs);
+          }
         }
 
         // Emit starting status
@@ -720,6 +739,7 @@ export function apiMiddleware() {
         });
 
         updateDeploymentStatus(name, 'running');
+        updateCurrentBuildLogId(name, buildLogId);
 
         if (deployConfig.discoverable !== undefined) {
           updateDeploymentSettings(name, { discoverable: deployConfig.discoverable });
@@ -980,13 +1000,13 @@ export function apiMiddleware() {
         const url = new URL(req.url!, `http://${req.headers.host}`);
         const page = parseInt(url.searchParams.get('page') || '1', 10);
         const { rows, total, pageSize } = getBuildLogs(name, page);
-        const activeBuildOutput = getActiveBuild(name);
+        const activeBuild = getActiveBuildLog(name);
         return json(res, {
           logs: rows,
           total,
           page,
           pageSize,
-          activeBuild: activeBuildOutput !== null ? { output: activeBuildOutput } : null,
+          activeBuild: activeBuild ? { output: activeBuild.output } : null,
         });
       }
 

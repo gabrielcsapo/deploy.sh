@@ -25,10 +25,12 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@deploy.sh/mdns": "workspace:*",
     "@react-router/dev": "7.13.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "better-sqlite3": "^12.6.2",
     "drizzle-orm": "^0.45.1",
-    "@deploy.sh/mdns": "workspace:*",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router": "7.13.0",

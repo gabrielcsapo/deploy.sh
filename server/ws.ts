@@ -1,7 +1,7 @@
 import type { Server as HttpServer, IncomingMessage } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { authenticate } from './store.ts';
-import { streamLogs } from './docker.ts';
+import { streamLogs, execContainer } from './docker.ts';
 import { on as onEvent } from './events.ts';
 import type { ChildProcess } from 'node:child_process';
 
@@ -9,6 +9,7 @@ interface AuthedSocket extends WebSocket {
   username: string;
   subscriptions: Set<string>;
   logProcess?: ChildProcess;
+  execProcess?: ChildProcess;
 }
 
 // Shared log streams — one docker logs process per deployment
@@ -61,12 +62,26 @@ export function setupWebSocket(server: HttpServer) {
             stopLogStream(name, ws);
           }
         }
+        // Exec session: start
+        if (msg.exec) {
+          startExecSession(msg.exec, ws);
+        }
+        // Exec session: input
+        if (msg['exec:input'] != null) {
+          ws.execProcess?.stdin?.write(msg['exec:input']);
+        }
+        // Exec session: end
+        if (msg['exec:end']) {
+          cleanupExecSession(ws);
+        }
       } catch {
         // ignore malformed messages
       }
     });
 
     ws.on('close', () => {
+      // Clean up exec session
+      cleanupExecSession(ws);
       // Clean up log streams for this client
       for (const [name, stream] of logStreams) {
         stream.clients.delete(ws);
@@ -142,5 +157,49 @@ function stopLogStream(name: string, ws: AuthedSocket) {
   if (stream.clients.size === 0) {
     stream.proc.kill();
     logStreams.delete(name);
+  }
+}
+
+function startExecSession(deploymentName: string, ws: AuthedSocket) {
+  // Kill any existing exec session
+  cleanupExecSession(ws);
+
+  try {
+    const proc = execContainer(deploymentName);
+    ws.execProcess = proc;
+
+    function send(data: Buffer) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'exec:output', data: { output: data.toString() } }));
+      }
+    }
+
+    proc.stdout?.on('data', send);
+    proc.stderr?.on('data', send);
+
+    proc.on('close', (code) => {
+      ws.execProcess = undefined;
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'exec:exit', data: { code } }));
+      }
+    });
+
+    proc.on('error', (err) => {
+      ws.execProcess = undefined;
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'exec:exit', data: { code: 1, error: err.message } }));
+      }
+    });
+  } catch {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'exec:exit', data: { code: 1, error: 'Failed to start exec session' } }));
+    }
+  }
+}
+
+function cleanupExecSession(ws: AuthedSocket) {
+  if (ws.execProcess) {
+    ws.execProcess.kill();
+    ws.execProcess = undefined;
   }
 }

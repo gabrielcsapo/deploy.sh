@@ -16,6 +16,7 @@ export default [
       index('routes/dashboard/detail/overview.tsx'),
       route('build', 'routes/dashboard/detail/build.tsx'),
       route('logs', 'routes/dashboard/detail/logs.tsx'),
+      route('terminal', 'routes/dashboard/detail/terminal.tsx'),
       route('requests', 'routes/dashboard/detail/requests.tsx'),
       route('resources', 'routes/dashboard/detail/resources.tsx'),
       route('history', 'routes/dashboard/detail/history.tsx'),

@@ -161,20 +161,7 @@ async function uploadWithProgress(url, body, headers) {
     const writeNextChunk = () => {
       if (offset >= totalBytes) {
         req.end();
-        process.stdout.write('\nUpload complete, building Docker image...');
-        // Add a simple spinner while waiting for server response
-        const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-        let spinnerIndex = 0;
-        const spinnerInterval = setInterval(() => {
-          process.stdout.write(`\r${spinnerFrames[spinnerIndex]} Building Docker image...`);
-          spinnerIndex = (spinnerIndex + 1) % spinnerFrames.length;
-        }, 80);
-
-        // Clear spinner when request completes
-        req.on('close', () => {
-          clearInterval(spinnerInterval);
-          process.stdout.write('\r\x1b[K'); // Clear the spinner line
-        });
+        process.stdout.write('\n');
         return;
       }
 
@@ -290,10 +277,56 @@ async function cmdDeploy(serverUrl, appName) {
   chunks.push(Buffer.from(nameField));
   const body = Buffer.concat(chunks);
 
+  // Open WebSocket before upload to stream build logs in real-time
+  let ws;
+  try {
+    const u = new URL(serverUrl);
+    const wsProto = u.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProto}//${u.host}/ws?username=${encodeURIComponent(config.username)}&token=${encodeURIComponent(config.token)}`;
+    ws = new WebSocket(wsUrl);
+
+    await new Promise((resolve) => {
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ subscribe: `deployment:${name}` }));
+        resolve();
+      };
+      ws.onerror = () => resolve();
+      setTimeout(resolve, 3000);
+    });
+
+    ws.onmessage = (e) => {
+      try {
+        const event = JSON.parse(typeof e.data === 'string' ? e.data : e.data.toString());
+        if (event.deploymentName !== name) return;
+
+        if (event.type === 'deployment:status') {
+          const status = event.data.status;
+          if (status === 'building') {
+            process.stdout.write('Building...\n');
+          } else if (status === 'starting') {
+            process.stdout.write('Starting container...\n');
+          }
+        } else if (event.type === 'build:output') {
+          process.stdout.write(`${event.data.line}\n`);
+        } else if (event.type === 'build:complete') {
+          const label = event.data.success ? '\x1b[32mSuccess\x1b[0m' : '\x1b[31mFailed\x1b[0m';
+          process.stdout.write(`\nBuild ${label} (${(event.data.duration / 1000).toFixed(1)}s)\n`);
+        }
+      } catch { /* ignore */ }
+    };
+  } catch {
+    // WebSocket not available — upload still works, just no streaming
+  }
+
   await uploadWithProgress(`${serverUrl}/api/upload`, body, {
     ...authHeaders(config),
     'Content-Type': `multipart/form-data; boundary=${boundary}`,
   });
+
+  // Close WebSocket
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.close();
+  }
 
   // Clean up tarball
   try {

@@ -1,6 +1,8 @@
 import './styles.css';
 import { Link, Outlet } from 'react-router';
 import { DumpError, GlobalNavigationLoadingBar } from './routes/root.client';
+import { Toaster } from './components/Toaster';
+import { DeployNotifications } from './components/DeployNotifications';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -50,7 +52,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        {children}
+        <Toaster>
+          {children}
+          <DeployNotifications />
+        </Toaster>
       </body>
     </html>
   );
