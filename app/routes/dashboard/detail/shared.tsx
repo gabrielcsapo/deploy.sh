@@ -47,6 +47,7 @@ export interface Deployment {
   containerId: string;
   autoBackup: boolean;
   discoverable: boolean;
+  envVars: string | null;
   extraPorts: string | null;
   currentBuildLogId: number | null;
   createdAt: string;

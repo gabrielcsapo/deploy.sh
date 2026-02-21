@@ -7,6 +7,7 @@ import {
   getDiscoverableDeployments,
   deleteDeployment as _deleteDeployment,
   updateDeploymentSettings as _updateDeploymentSettings,
+  saveDeployment as _saveDeployment,
   addDeployEvent,
   getDeployHistory as _getDeployHistory,
   getRequestLogs as _getRequestLogs,
@@ -22,8 +23,10 @@ import {
   getContainerInspect as _getContainerInspect,
   stopContainer,
   restartContainer as _restartContainer,
+  recreateContainer as _recreateContainer,
 } from '../../server/docker.ts';
 import {
+  getVolumeDir,
   createBackup as _createBackup,
   restoreBackup as _restoreBackup,
   deleteBackupFile as _deleteBackupFile,
@@ -73,12 +76,30 @@ export async function updateDeploymentSettings(
   username: string,
   token: string,
   name: string,
-  settings: { autoBackup?: boolean; discoverable?: boolean },
+  settings: { autoBackup?: boolean; discoverable?: boolean; envVars?: Record<string, string> },
 ) {
   requireAuth(username, token);
   const d = _getDeployment(name);
   if (!d || d.username !== username) throw new Error('Not found');
   _updateDeploymentSettings(name, settings);
+
+  // If env vars changed, recreate the container so they take effect
+  if (settings.envVars !== undefined && d.port && resolveStatus(d) === 'running') {
+    const volumeDir = getVolumeDir(name);
+    const { id, containerName } = await _recreateContainer(name, d.port, volumeDir, d.directory, settings.envVars);
+    _saveDeployment({
+      name,
+      type: d.type || undefined,
+      username: d.username,
+      port: d.port,
+      containerId: id,
+      containerName,
+      directory: d.directory || undefined,
+      extraPorts: d.extraPorts,
+    });
+    addDeployEvent(name, { action: 'env-update', username });
+  }
+
   return { message: 'Settings updated' };
 }
 

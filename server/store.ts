@@ -203,15 +203,22 @@ export function deleteDeployment(name: string) {
   db.delete(deployments).where(eq(deployments.name, name)).run();
 }
 
-export function updateDeploymentSettings(name: string, settings: { autoBackup?: boolean; discoverable?: boolean }) {
+export function updateDeploymentSettings(name: string, settings: { autoBackup?: boolean; discoverable?: boolean; envVars?: Record<string, string> }) {
   const db = getDb();
   const set: Record<string, unknown> = { updatedAt: new Date().toISOString() };
   if (settings.autoBackup !== undefined) set.autoBackup = settings.autoBackup;
   if (settings.discoverable !== undefined) set.discoverable = settings.discoverable;
+  if (settings.envVars !== undefined) set.envVars = JSON.stringify(settings.envVars);
   db.update(deployments)
     .set(set)
     .where(eq(deployments.name, name))
     .run();
+}
+
+export function getDeploymentEnvVars(name: string): Record<string, string> {
+  const d = getDeployment(name);
+  if (!d?.envVars) return {};
+  return JSON.parse(d.envVars);
 }
 
 export function updateDeploymentStatus(name: string, status: string) {

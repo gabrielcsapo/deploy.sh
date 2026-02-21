@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router';
 import {
   restartDeployment as serverRestart,
@@ -28,12 +29,147 @@ function formatUptime(ms: number) {
   return `${days}d ${hours % 24}h`;
 }
 
+function parseEnvVars(deployment: { envVars: string | null }): Array<{ key: string; value: string }> {
+  if (!deployment.envVars) return [];
+  try {
+    const obj = JSON.parse(deployment.envVars) as Record<string, string>;
+    return Object.entries(obj).map(([key, value]) => ({ key, value }));
+  } catch {
+    return [];
+  }
+}
+
+// System env vars injected by the runtime (shown read-only)
+const SYSTEM_ENV_PREFIXES = ['PORT=', 'PATH=', 'NODE_VERSION=', 'YARN_', 'HOSTNAME=', 'HOME='];
+
+function isSystemEnv(envStr: string): boolean {
+  return SYSTEM_ENV_PREFIXES.some((p) => envStr.startsWith(p));
+}
+
+function EnvVarEditor({ deployment, fetchDeployment, fetchInspect }: {
+  deployment: DetailContext['deployment'];
+  fetchDeployment: () => void;
+  fetchInspect: () => void;
+}) {
+  const [rows, setRows] = useState<Array<{ key: string; value: string }>>(parseEnvVars(deployment));
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    setRows(parseEnvVars(deployment));
+    setDirty(false);
+  }, [deployment.envVars]);
+
+  function updateRow(index: number, field: 'key' | 'value', val: string) {
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: val } : r)));
+    setDirty(true);
+  }
+
+  function removeRow(index: number) {
+    setRows((prev) => prev.filter((_, i) => i !== index));
+    setDirty(true);
+  }
+
+  function addRow() {
+    setRows((prev) => [...prev, { key: '', value: '' }]);
+    setDirty(true);
+  }
+
+  async function handleSave() {
+    const auth = getAuth();
+    if (!auth) return;
+
+    // Build the env vars object, filtering out empty keys
+    const envVars: Record<string, string> = {};
+    for (const row of rows) {
+      const key = row.key.trim();
+      if (key) envVars[key] = row.value;
+    }
+
+    setSaving(true);
+    try {
+      await serverUpdateSettings(auth.username, auth.token, deployment.name, { envVars });
+      fetchDeployment();
+      fetchInspect();
+      setDirty(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">
+          Environment Variables
+        </h3>
+        <div className="flex gap-2">
+          <button onClick={addRow} className="btn btn-sm text-xs">
+            Add Variable
+          </button>
+          {dirty && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="btn btn-primary btn-sm text-xs"
+            >
+              {saving ? 'Saving...' : 'Save & Restart'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="text-xs text-text-tertiary">No environment variables configured.</p>
+      ) : (
+        <div className="space-y-2">
+          {rows.map((row, i) => (
+            <div key={i} className="flex gap-2 items-center">
+              <input
+                type="text"
+                value={row.key}
+                onChange={(e) => updateRow(i, 'key', e.target.value)}
+                placeholder="KEY"
+                className="input input-sm font-mono text-xs flex-1 max-w-[200px]"
+              />
+              <span className="text-text-tertiary text-xs">=</span>
+              <input
+                type="text"
+                value={row.value}
+                onChange={(e) => updateRow(i, 'value', e.target.value)}
+                placeholder="value"
+                className="input input-sm font-mono text-xs flex-[2]"
+              />
+              <button
+                onClick={() => removeRow(i)}
+                className="text-text-tertiary hover:text-red-400 text-xs px-1"
+                title="Remove"
+              >
+                x
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {dirty && (
+        <p className="text-xs text-text-tertiary mt-2">
+          Saving will restart the container to apply changes.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function Component() {
   const { deployment, inspect, fetchDeployment, fetchInspect } = useOutletContext<DetailContext>();
 
   const started = inspect?.started ? new Date(inspect.started) : null;
   const uptime = started ? formatUptime(Date.now() - started.getTime()) : 'N/A';
   const extraPorts = parseExtraPorts(deployment);
+
+  // System env vars from the running container (read-only)
+  const systemEnvVars = (inspect?.env || []).filter(isSystemEnv);
 
   async function handleRestart() {
     const auth = getAuth();
@@ -106,19 +242,25 @@ export default function Component() {
         </div>
       </div>
 
-      {inspect?.env && inspect.env.length > 0 && (
+      <EnvVarEditor
+        deployment={deployment}
+        fetchDeployment={fetchDeployment}
+        fetchInspect={fetchInspect}
+      />
+
+      {systemEnvVars.length > 0 && (
         <div className="card p-4">
           <h3 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">
-            Environment Variables
+            System Variables
           </h3>
           <div className="space-y-1">
-            {inspect.env.map((e, i) => {
+            {systemEnvVars.map((e, i) => {
               const [key, ...rest] = e.split('=');
               return (
                 <div key={i} className="flex gap-2 text-xs font-mono">
-                  <span className="text-accent">{key}</span>
+                  <span className="text-text-tertiary">{key}</span>
                   <span className="text-text-tertiary">=</span>
-                  <span className="text-text-secondary">{rest.join('=')}</span>
+                  <span className="text-text-tertiary">{rest.join('=')}</span>
                 </div>
               );
             })}

@@ -1,8 +1,9 @@
-import { execSync, spawn } from 'node:child_process';
+import { execSync, execFileSync, spawn } from 'node:child_process';
 import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createServer, type AddressInfo } from 'node:net';
 import type { DeployConfig } from './deploy-config.ts';
+import { readDeployConfig } from './deploy-config.ts';
 
 // Enable BuildKit by default for all Docker operations
 process.env.DOCKER_BUILDKIT = '1';
@@ -170,12 +171,22 @@ export interface ExtraPortMapping {
   protocol: string;
 }
 
+function buildEnvFlags(envVars?: Record<string, string>): string[] {
+  if (!envVars) return [];
+  const flags: string[] = [];
+  for (const [k, v] of Object.entries(envVars)) {
+    flags.push('-e', `${k}=${v}`);
+  }
+  return flags;
+}
+
 export async function runContainer(
   imageTag: string,
   name: string,
   port: number,
   volumeDir?: string,
   config?: DeployConfig,
+  envVars?: Record<string, string>,
 ) {
   const containerName = `deploy-sh-${name.toLowerCase()}`;
   const appPort = config?.port ?? 3000;
@@ -188,7 +199,7 @@ export async function runContainer(
   }
 
   // Build volume mount flags
-  let volumeFlags = '';
+  const volumeArgs: string[] = [];
   if (volumeDir) {
     const dataVolume = resolve(volumeDir, 'data');
     const uploadsVolume = resolve(volumeDir, 'uploads');
@@ -197,25 +208,36 @@ export async function runContainer(
     mkdirSync(dataVolume, { recursive: true });
     mkdirSync(uploadsVolume, { recursive: true });
 
-    volumeFlags = `-v ${dataVolume}:/app/data -v ${uploadsVolume}:/app/uploads`;
+    volumeArgs.push('-v', `${dataVolume}:/app/data`, '-v', `${uploadsVolume}:/app/uploads`);
   }
 
   // Build extra port flags
   const extraPorts: ExtraPortMapping[] = [];
-  let extraPortFlags = '';
+  const extraPortArgs: string[] = [];
   if (config?.ports?.length) {
     for (const p of config.ports) {
       const hostPort = await getAvailablePort(p.container);
       const protocol = p.protocol || 'tcp';
-      extraPortFlags += ` -p ${hostPort}:${p.container}/${protocol}`;
+      extraPortArgs.push('-p', `${hostPort}:${p.container}/${protocol}`);
       extraPorts.push({ container: p.container, host: hostPort, protocol });
     }
   }
 
-  execSync(
-    `docker run -d -m 4g --name ${containerName} -p ${port}:${appPort} -e PORT=${appPort}${extraPortFlags} ${volumeFlags} ${imageTag}`,
-    { stdio: 'pipe' },
-  );
+  // Build user env var flags
+  const envFlags = buildEnvFlags(envVars);
+
+  const args = [
+    'run', '-d', '-m', '4g',
+    '--name', containerName,
+    '-p', `${port}:${appPort}`,
+    '-e', `PORT=${appPort}`,
+    ...envFlags,
+    ...extraPortArgs,
+    ...volumeArgs,
+    imageTag,
+  ];
+
+  execFileSync('docker', args, { stdio: 'pipe' });
 
   // Get the container ID
   const id = execSync(`docker inspect --format='{{.Id}}' ${containerName}`, {
@@ -404,6 +426,25 @@ export function getContainerStatsRaw(name: string): RawContainerStats | null {
 export function restartContainer(name: string) {
   const containerName = `deploy-sh-${name.toLowerCase()}`;
   execSync(`docker restart ${containerName}`, { stdio: 'pipe' });
+}
+
+export async function recreateContainer(
+  name: string,
+  port: number,
+  volumeDir: string | null,
+  directory: string | null,
+  envVars: Record<string, string>,
+) {
+  const imageTag = `deploy-sh-${name.toLowerCase()}`;
+  let config: DeployConfig = {};
+  if (directory) {
+    try {
+      config = readDeployConfig(directory);
+    } catch {
+      // ignore missing config
+    }
+  }
+  return runContainer(imageTag, name, port, volumeDir || undefined, config, envVars);
 }
 
 export function execContainer(name: string) {

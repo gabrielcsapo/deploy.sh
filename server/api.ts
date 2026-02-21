@@ -41,6 +41,7 @@ import {
   getActiveBuildLog,
   saveRuntimeLogs,
   updateCurrentBuildLogId,
+  getDeploymentEnvVars,
 } from './store.ts';
 import { emit } from './events.ts';
 import {
@@ -56,6 +57,7 @@ import {
   getContainerInspect,
   getContainerStats,
   restartContainer,
+  recreateContainer,
 } from './docker.ts';
 import {
   getVolumeDir,
@@ -564,7 +566,8 @@ export function apiMiddleware() {
         const port = await getAvailablePort();
         console.log(`Starting ${name} on port ${port}...`);
         const volumeDir = getVolumeDir(name);
-        const { id, containerName, extraPorts } = await runContainer(buildResult.tag, name, port, volumeDir, deployConfig);
+        const storedEnvVars = getDeploymentEnvVars(name);
+        const { id, containerName, extraPorts } = await runContainer(buildResult.tag, name, port, volumeDir, deployConfig, storedEnvVars);
         const extraPortsJson = extraPorts.length > 0 ? JSON.stringify(extraPorts) : null;
 
         saveDeployment({
@@ -652,10 +655,33 @@ export function apiMiddleware() {
         if (!d || d.username !== auth.username) return error(res, 'Not found', 404);
 
         const body = JSON.parse((await readBody(req)).toString());
-        const settings: { autoBackup?: boolean; discoverable?: boolean } = {};
+        const settings: { autoBackup?: boolean; discoverable?: boolean; envVars?: Record<string, string> } = {};
         if (body.autoBackup !== undefined) settings.autoBackup = body.autoBackup;
         if (body.discoverable !== undefined) settings.discoverable = body.discoverable;
+        if (body.envVars !== undefined) settings.envVars = body.envVars;
         updateDeploymentSettings(name, settings);
+
+        // If env vars changed, recreate the container so they take effect
+        if (body.envVars !== undefined && d.port && d.status === 'running') {
+          const volumeDir = getVolumeDir(name);
+          const { id, containerName } = await recreateContainer(name, d.port, volumeDir, d.directory, body.envVars);
+          saveDeployment({
+            name,
+            type: d.type || undefined,
+            username: d.username,
+            port: d.port,
+            containerId: id,
+            containerName,
+            directory: d.directory || undefined,
+            extraPorts: d.extraPorts,
+          });
+          addDeployEvent(name, { action: 'env-update', username: auth.username });
+          emit({
+            type: 'deployment:status',
+            deploymentName: name,
+            data: { status: 'running', username: auth.username },
+          });
+        }
 
         return json(res, { message: 'Settings updated' });
       }
