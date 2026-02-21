@@ -4,6 +4,9 @@ import { resolve } from 'node:path';
 import { createServer, type AddressInfo } from 'node:net';
 import type { DeployConfig } from './deploy-config.ts';
 
+// Enable BuildKit by default for all Docker operations
+process.env.DOCKER_BUILDKIT = '1';
+
 // ── Port allocation ─────────────────────────────────────────────────────────
 
 export function getAvailablePort(preferred?: number): Promise<number> {
@@ -43,8 +46,9 @@ export function classifyProject(dir: string): string | null {
 function generateNodeDockerfile(dir: string) {
   const content = `FROM node:22-alpine
 WORKDIR /app
-COPY . .
+COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
 RUN npm install --production
+COPY . .
 CMD ["npm", "start"]
 `;
   writeFileSync(resolve(dir, 'Dockerfile'), content);
@@ -90,10 +94,16 @@ CMD ["node", "/app/_static_server.js"]
   writeFileSync(resolve(dir, 'Dockerfile'), content);
 }
 
+function ensureDockerignore(dir: string) {
+  if (existsSync(resolve(dir, '.dockerignore'))) return;
+  writeFileSync(resolve(dir, '.dockerignore'), `node_modules\n.git\n*.tar.gz\n.env\n`);
+}
+
 export function ensureDockerfile(dir: string, type: string) {
   if (existsSync(resolve(dir, 'Dockerfile'))) return;
   if (type === 'node') generateNodeDockerfile(dir);
   if (type === 'static') generateStaticDockerfile(dir);
+  ensureDockerignore(dir);
 }
 
 // ── Docker build & run ──────────────────────────────────────────────────────
@@ -114,7 +124,7 @@ export function buildImage(
   const startTime = Date.now();
 
   return new Promise((resolve) => {
-    const proc = spawn('docker', ['build', '-t', tag, '.'], {
+    const proc = spawn('docker', ['build', '--cache-from', tag, '-t', tag, '.'], {
       cwd: dir,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
