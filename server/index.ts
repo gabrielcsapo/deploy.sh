@@ -1,4 +1,4 @@
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
 import { apiMiddleware } from './api.ts';
 import { setupWebSocket } from './ws.ts';
 import { syncContainerStates, startAllContainers, stopAllContainers } from './lifecycle.ts';
@@ -6,12 +6,30 @@ import { startMaintenance } from './maintenance.ts';
 import { notFoundPage } from './error-page.ts';
 
 const PORT = parseInt(process.env.PORT || '80', 10);
+const VITE_PORT = parseInt(process.env.VITE_PORT || '5173', 10);
 
 const handler = apiMiddleware();
 
 const server = createServer((req, res) => {
   handler(req, res, () => {
-    notFoundPage(res);
+    // Proxy non-API requests to Vite dev server
+    const proxyReq = httpRequest(
+      {
+        hostname: 'localhost',
+        port: VITE_PORT,
+        path: req.url,
+        method: req.method,
+        headers: req.headers,
+      },
+      (proxyRes) => {
+        res.writeHead(proxyRes.statusCode!, proxyRes.headers);
+        proxyRes.pipe(res);
+      },
+    );
+    proxyReq.on('error', () => {
+      notFoundPage(res);
+    });
+    req.pipe(proxyReq);
   });
 });
 

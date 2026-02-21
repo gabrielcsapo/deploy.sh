@@ -33,6 +33,7 @@ export default function Component() {
   const name = deployment.name;
   const [logs, setLogs] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showTimestamps, setShowTimestamps] = useState(true);
 
   const channels = useMemo(() => [`deployment:${name}:logs`], [name]);
 
@@ -64,6 +65,17 @@ export default function Component() {
           Container Logs
         </h3>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowTimestamps((v) => !v)}
+            className={`px-2 py-1 text-xs rounded transition-colors ${
+              showTimestamps
+                ? 'bg-bg-active text-text'
+                : 'text-text-tertiary hover:text-text-secondary'
+            }`}
+            title={showTimestamps ? 'Hide timestamps' : 'Show timestamps'}
+          >
+            Timestamps
+          </button>
           {connected && (
             <span className="flex items-center gap-1.5 text-xs text-success">
               <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
@@ -79,7 +91,7 @@ export default function Component() {
         {parsedLines.length > 0 ? (
           parsedLines.map((line, i) => (
             <div key={i} className="flex gap-2">
-              {line.timestamp ? (
+              {line.timestamp && showTimestamps ? (
                 <>
                   <span className="text-text-tertiary select-none shrink-0">
                     {formatLogTime(line.timestamp)}

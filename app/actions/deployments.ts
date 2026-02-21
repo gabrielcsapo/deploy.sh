@@ -4,6 +4,7 @@ import {
   authenticate,
   getDeployments as _getDeployments,
   getDeployment as _getDeployment,
+  getDiscoverableDeployments,
   deleteDeployment as _deleteDeployment,
   updateDeploymentSettings as _updateDeploymentSettings,
   addDeployEvent,
@@ -213,6 +214,14 @@ export async function fetchBuildLogs(username: string, token: string, name: stri
     total,
     page,
     pageSize,
-    activeBuild: activeBuild ? { output: activeBuild.output } : null,
+    activeBuild: activeBuild ? { output: activeBuild.output, timestamp: activeBuild.timestamp } : null,
   };
+}
+
+export async function fetchDiscoverableApps() {
+  return getDiscoverableDeployments().map((d) => ({
+    name: d.name,
+    type: d.type,
+    status: resolveStatus(d),
+  }));
 }

@@ -48,6 +48,7 @@ export default defineConfig({
           if (
             hostname.endsWith('.local') &&
             hostname !== 'deploy.local' &&
+            hostname !== 'discover.local' &&
             hostname !== 'localhost'
           ) {
             return null; // null means proxy the request
@@ -94,6 +95,7 @@ export default defineConfig({
           if (
             hostname.endsWith('.local') &&
             hostname !== 'deploy.local' &&
+            hostname !== 'discover.local' &&
             hostname !== 'localhost'
           ) {
             return null; // null means proxy the request

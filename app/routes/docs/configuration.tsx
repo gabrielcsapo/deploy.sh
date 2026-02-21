@@ -49,6 +49,18 @@ export default function Component() {
               auto-assigned host port.
             </td>
           </tr>
+          <tr>
+            <td>
+              <code>ignore</code>
+            </td>
+            <td>string[]</td>
+            <td>[]</td>
+            <td>
+              Additional directories or files to exclude from the upload bundle.{' '}
+              <code>node_modules</code> and <code>.git</code> are always excluded. In git
+              repositories, <code>.gitignore</code> patterns are also respected automatically.
+            </td>
+          </tr>
         </tbody>
       </table>
 
@@ -121,6 +133,24 @@ export default function Component() {
       <p>
         The extra port is assigned an available host port automatically. You can see the assigned
         ports in the <Link to="/dashboard">dashboard</Link> under each deployment&apos;s overview.
+      </p>
+
+      <h3>Ignoring files and directories</h3>
+      <p>
+        In git repositories, your <code>.gitignore</code> is respected automatically &mdash; anything
+        git ignores is excluded from the upload bundle. To exclude additional paths beyond{' '}
+        <code>.gitignore</code>, use the <code>ignore</code> field:
+      </p>
+      <pre>
+        <code>
+          {`{
+  "ignore": ["test", "docs", ".vscode"]
+}`}
+        </code>
+      </pre>
+      <p>
+        For non-git projects, <code>node_modules</code> and <code>.git</code> are always excluded,
+        and the <code>ignore</code> entries are applied on top.
       </p>
 
       <h3>Multiple extra ports</h3>

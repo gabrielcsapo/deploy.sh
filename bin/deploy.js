@@ -6,7 +6,7 @@ import { basename, resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { homedir } from 'node:os';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 
@@ -258,11 +258,58 @@ async function cmdDeploy(serverUrl, appName) {
   const name = (appName || basename(dir)).toLowerCase();
   const tarball = resolve(dir, `${name}.tar.gz`);
 
+  // Read deploy.json for ignore patterns
+  const ignorePatterns = [];
+  const deployJsonPath = resolve(dir, 'deploy.json');
+  if (existsSync(deployJsonPath)) {
+    try {
+      const deployConfig = JSON.parse(readFileSync(deployJsonPath, 'utf-8'));
+      if (Array.isArray(deployConfig.ignore)) {
+        for (const entry of deployConfig.ignore) {
+          if (typeof entry === 'string' && entry.length > 0) {
+            ignorePatterns.push(entry);
+          }
+        }
+      }
+    } catch {
+      // If deploy.json is invalid, let the server validate and report the error
+    }
+  }
+
   console.log(`Bundling ${name}...`);
-  execSync(`tar -czf ${JSON.stringify(tarball)} --exclude=node_modules --exclude=.git .`, {
-    cwd: dir,
-    stdio: 'pipe',
-  });
+
+  // Check if we're in a git repo — if so, use git ls-files to respect .gitignore
+  let isGitRepo = false;
+  try {
+    execSync('git rev-parse --is-inside-work-tree', { cwd: dir, stdio: 'pipe' });
+    isGitRepo = true;
+  } catch {}
+
+  if (isGitRepo) {
+    // List tracked + untracked-but-not-ignored files (respects .gitignore)
+    const allFiles = execSync('git ls-files -co --exclude-standard -z', { cwd: dir, encoding: 'utf-8' })
+      .split('\0')
+      .filter(Boolean);
+
+    // Always exclude node_modules, plus deploy.json ignore patterns
+    const excludes = ['node_modules', ...ignorePatterns];
+    const filtered = allFiles.filter((f) => {
+      return !excludes.some((p) => f === p || f.startsWith(p + '/'));
+    });
+
+    const listFile = resolve(dir, '.deploy-tar-list');
+    writeFileSync(listFile, filtered.join('\0'));
+    execSync(`tar -czf ${JSON.stringify(tarball)} --null -T ${JSON.stringify(listFile)}`, { cwd: dir, stdio: 'pipe' });
+    try { unlinkSync(listFile); } catch {}
+  } else {
+    const extraExcludes = ignorePatterns
+      .map((entry) => ` --exclude=${JSON.stringify(entry)}`)
+      .join('');
+    execSync(`tar -czf ${JSON.stringify(tarball)} --exclude=node_modules --exclude=.git${extraExcludes} .`, {
+      cwd: dir,
+      stdio: 'pipe',
+    });
+  }
 
   const boundary = '----DeployBoundary' + Date.now();
   const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${name}.tar.gz"\r\nContent-Type: application/gzip\r\n\r\n`;

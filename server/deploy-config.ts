@@ -10,9 +10,10 @@ export interface DeployConfig {
   port?: number;
   ports?: PortMapping[];
   discoverable?: boolean;
+  ignore?: string[];
 }
 
-const ALLOWED_KEYS = new Set(['port', 'ports', 'discoverable']);
+const ALLOWED_KEYS = new Set(['port', 'ports', 'discoverable', 'ignore']);
 const ALLOWED_PORT_KEYS = new Set(['container', 'protocol']);
 const VALID_PROTOCOLS = new Set(['tcp', 'udp']);
 
@@ -73,6 +74,18 @@ export function readDeployConfig(dir: string): DeployConfig {
       throw new Error('deploy.json: "discoverable" must be a boolean');
     }
     config.discoverable = raw.discoverable;
+  }
+
+  if (raw.ignore !== undefined) {
+    if (!Array.isArray(raw.ignore)) {
+      throw new Error('deploy.json: "ignore" must be an array of strings');
+    }
+    for (let i = 0; i < raw.ignore.length; i++) {
+      if (typeof raw.ignore[i] !== 'string' || raw.ignore[i].length === 0) {
+        throw new Error(`deploy.json: ignore[${i}] must be a non-empty string`);
+      }
+    }
+    config.ignore = raw.ignore;
   }
 
   return config;

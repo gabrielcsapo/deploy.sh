@@ -23,7 +23,7 @@ interface BuildLogsResponse {
   total: number;
   page: number;
   pageSize: number;
-  activeBuild: { output: string } | null;
+  activeBuild: { output: string; timestamp: string } | null;
 }
 
 function formatDuration(ms: number): string {
@@ -40,7 +40,7 @@ function formatLogTime(iso: string): string {
   return d.toLocaleTimeString(undefined, { hour12: false, fractionalSecondDigits: 3 });
 }
 
-function LogOutput({ output }: { output: string }) {
+function LogOutput({ output, showTimestamps }: { output: string; showTimestamps: boolean }) {
   const lines = output.split('\n').filter(Boolean);
   return (
     <>
@@ -51,7 +51,9 @@ function LogOutput({ output }: { output: string }) {
           const content = line.slice(match[0].length);
           return (
             <div key={i} className="flex gap-2">
-              <span className="text-text-tertiary select-none shrink-0">{formatLogTime(ts)}</span>
+              {showTimestamps && (
+                <span className="text-text-tertiary select-none shrink-0">{formatLogTime(ts)}</span>
+              )}
               <span>{content}</span>
             </div>
           );
@@ -62,7 +64,7 @@ function LogOutput({ output }: { output: string }) {
   );
 }
 
-function RuntimeLogOutput({ output }: { output: string }) {
+function RuntimeLogOutput({ output, showTimestamps }: { output: string; showTimestamps: boolean }) {
   const lines = output.split('\n').filter(Boolean);
   return (
     <>
@@ -71,9 +73,11 @@ function RuntimeLogOutput({ output }: { output: string }) {
         if (match) {
           return (
             <div key={i} className="flex gap-2">
-              <span className="text-text-tertiary select-none shrink-0">
-                {formatLogTime(match[1])}
-              </span>
+              {showTimestamps && (
+                <span className="text-text-tertiary select-none shrink-0">
+                  {formatLogTime(match[1])}
+                </span>
+              )}
               <span>{line.slice(match[0].length)}</span>
             </div>
           );
@@ -81,6 +85,22 @@ function RuntimeLogOutput({ output }: { output: string }) {
         return <div key={i}>{line}</div>;
       })}
     </>
+  );
+}
+
+function TimestampToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className={`px-2 py-1 text-xs rounded transition-colors ${
+        enabled
+          ? 'bg-bg-active text-text'
+          : 'text-text-tertiary hover:text-text-secondary'
+      }`}
+      title={enabled ? 'Hide timestamps' : 'Show timestamps'}
+    >
+      Timestamps
+    </button>
   );
 }
 
@@ -104,6 +124,11 @@ export default function Component() {
   // Live runtime logs (for current build)
   const [liveRuntimeLogs, setLiveRuntimeLogs] = useState('');
   const runtimeLogsRef = useRef<HTMLDivElement>(null);
+  // Timestamp toggle
+  const [showTimestamps, setShowTimestamps] = useState(true);
+  // Build start time for elapsed timer
+  const [buildStartTime, setBuildStartTime] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -125,6 +150,7 @@ export default function Component() {
           if (data.activeBuild) {
             setIsBuilding(true);
             setLiveOutput(data.activeBuild.output);
+            setBuildStartTime(data.activeBuild.timestamp);
             setSelectedLog(null);
           } else if (selectLatest && data.logs.length > 0) {
             // Logs are already sorted newest-first from the server
@@ -159,6 +185,7 @@ export default function Component() {
       if (event.type === 'deployment:status' && event.data.status === 'building') {
         setIsBuilding(true);
         setLiveOutput('');
+        setBuildStartTime(new Date().toISOString());
         setSelectedLog(null);
         setActiveTab('build');
       } else if (event.type === 'build:output') {
@@ -194,6 +221,20 @@ export default function Component() {
   useEffect(() => {
     setLiveRuntimeLogs('');
   }, [selectedLog?.id]);
+
+  // Live elapsed time counter for in-progress builds
+  useEffect(() => {
+    if (!isBuilding || !buildStartTime) {
+      setElapsed(0);
+      return;
+    }
+    const start = new Date(buildStartTime).getTime();
+    setElapsed(Date.now() - start);
+    const interval = setInterval(() => {
+      setElapsed(Date.now() - start);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isBuilding, buildStartTime]);
 
   if (loading) {
     return <div className="text-sm text-text-tertiary text-center py-8">Loading...</div>;
@@ -307,15 +348,21 @@ export default function Component() {
             <div className="px-4 py-3 border-b border-border">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Build Output</h3>
-                <span className="flex items-center gap-1.5 text-xs text-warning">
-                  <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
-                  Building...
-                </span>
+                <div className="flex items-center gap-3">
+                  <TimestampToggle enabled={showTimestamps} onToggle={() => setShowTimestamps((v) => !v)} />
+                  {elapsed > 0 && (
+                    <span className="text-xs text-text-tertiary">{formatDuration(elapsed)}</span>
+                  )}
+                  <span className="flex items-center gap-1.5 text-xs text-warning">
+                    <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
+                    Building...
+                  </span>
+                </div>
               </div>
             </div>
             <div ref={liveOutputRef} className="flex-1 overflow-y-auto p-4 bg-bg-tertiary">
               <div className="text-xs font-mono whitespace-pre-wrap break-words">
-                {liveOutput ? <LogOutput output={liveOutput} /> : 'Waiting for build output...'}
+                {liveOutput ? <LogOutput output={liveOutput} showTimestamps={showTimestamps} /> : 'Waiting for build output...'}
               </div>
             </div>
           </>
@@ -349,6 +396,7 @@ export default function Component() {
                   </button>
                 </div>
                 <div className="flex items-center gap-3">
+                  <TimestampToggle enabled={showTimestamps} onToggle={() => setShowTimestamps((v) => !v)} />
                   <span className="text-xs text-text-tertiary">
                     {selectedLog.duration != null ? formatDuration(selectedLog.duration) : '...'}
                   </span>
@@ -366,7 +414,7 @@ export default function Component() {
             {activeTab === 'build' ? (
               <div className="flex-1 overflow-y-auto p-4 bg-bg-tertiary">
                 <div className="text-xs font-mono whitespace-pre-wrap break-words">
-                  {selectedLog.output ? <LogOutput output={selectedLog.output} /> : 'No output captured'}
+                  {selectedLog.output ? <LogOutput output={selectedLog.output} showTimestamps={showTimestamps} /> : 'No output captured'}
                 </div>
               </div>
             ) : (
@@ -374,12 +422,12 @@ export default function Component() {
                 <div className="text-xs font-mono whitespace-pre-wrap break-words">
                   {isCurrentBuild ? (
                     liveRuntimeLogs ? (
-                      <RuntimeLogOutput output={liveRuntimeLogs} />
+                      <RuntimeLogOutput output={liveRuntimeLogs} showTimestamps={showTimestamps} />
                     ) : (
                       <span className="text-text-tertiary">Waiting for logs...</span>
                     )
                   ) : selectedLog.runtimeLogs ? (
-                    <RuntimeLogOutput output={selectedLog.runtimeLogs} />
+                    <RuntimeLogOutput output={selectedLog.runtimeLogs} showTimestamps={showTimestamps} />
                   ) : (
                     <span className="text-text-tertiary">No runtime logs captured for this build</span>
                   )}
