@@ -139,16 +139,44 @@ deploy register            Create a new account
 deploy login               Log in to an existing account
 deploy logout              Log out
 deploy whoami              Show current user
+deploy version             Show the installed build
+deploy upgrade             Update the CLI to the build the server serves
 ```
 
-| Flag                         | Description                                  |
-| ---------------------------- | -------------------------------------------- |
-| `-u, --url <url>`            | Server URL (default: `https://deploy.local`) |
-| `-app, --application <name>` | Application name                             |
-| `-p, --port <port>`          | Server port (default: `443`)                 |
-| `-h, --help`                 | Show help                                    |
+| Flag                         | Description                                       |
+| ---------------------------- | ------------------------------------------------- |
+| `-u, --url <url>`            | Server URL (default: `https://deploy.local`)      |
+| `-app, --application <name>` | Application name                                  |
+| `-p, --port <port>`          | Server port (default: `443`)                      |
+| `--check`                    | Report an available upgrade without installing it |
+| `--force`                    | Reinstall even when the versions match            |
+| `--json`                     | Machine-readable output (`version`)               |
+| `-v, --version`              | Show the installed build                          |
+| `-h, --help`                 | Show help                                         |
 
-**Aliases:** `d` (deploy), `ls` (list), `l` (logs), `rm` (delete), `o` (open), `f` (files), `r` (register), `who`/`me` (whoami), `start` (server).
+**Aliases:** `d` (deploy), `ls` (list), `l` (logs), `rm` (delete), `o` (open), `f` (files), `r` (register), `who`/`me` (whoami), `start` (server), `update` (upgrade).
+
+### Versions and upgrading
+
+A CLI build is stamped with the commit it was built from and the time it was
+built — `0.0.1+c4d1a04.20260724T173839Z` — so rebuilding the same commit still
+produces a distinct version.
+
+```
+deploy version          # what's installed here
+deploy upgrade          # replace it with the build this server serves
+deploy upgrade --check  # exits 1 if the server has a different build
+```
+
+`deploy upgrade` downloads the binary for your platform from the server, checks
+it against the SHA-256 in the server's manifest, runs it once, and only then
+swaps it over the installed binary. Versions are compared for equality, not
+order: the CLI's job is to match its server, so a server rolled back to an older
+build pulls the CLI back with it.
+
+The server publishes what it serves at `GET /cli/version`. Both come from
+`pnpm build:cli` — until that has run on the server, upgrades report that no
+build is available.
 
 ## Supported project types
 

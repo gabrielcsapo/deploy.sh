@@ -2,16 +2,81 @@
 
 import { parseArgs } from 'node:util';
 import { createReadStream } from 'node:fs';
-import { basename, resolve } from 'node:path';
+import { basename, resolve, dirname } from 'node:path';
 import { execSync, execFileSync, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { homedir } from 'node:os';
-import { existsSync, readFileSync, writeFileSync, unlinkSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  unlinkSync,
+  statSync,
+  renameSync,
+  chmodSync,
+  realpathSync,
+  accessSync,
+  constants as fsConstants,
+} from 'node:fs';
+import { createHash } from 'node:crypto';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 
 const DEFAULT_URL = 'https://deploy.local';
 const RC_PATH = resolve(homedir(), '.deployrc');
+
+// ── Build identity ──────────────────────────────────────────────────────────
+
+// scripts/build-cli.mjs bakes the build stamp in as a JSON string at bundle
+// time. Run from source there is no stamp, so read the checkout instead.
+const BUILD_INFO = (() => {
+  if (typeof __DEPLOY_BUILD_INFO__ === 'string') {
+    try {
+      return JSON.parse(__DEPLOY_BUILD_INFO__);
+    } catch {
+      /* fall through to the source stamp */
+    }
+  }
+  return sourceBuildInfo();
+})();
+
+function sourceBuildInfo() {
+  let commit = 'unknown';
+  let dirty = false;
+  try {
+    const opts = { cwd: import.meta.dirname, stdio: ['ignore', 'pipe', 'ignore'] };
+    commit = execSync('git rev-parse HEAD', opts).toString().trim() || 'unknown';
+    dirty = execSync('git status --porcelain', opts).toString().trim() !== '';
+  } catch {
+    /* not a git checkout */
+  }
+  const commitShort = commit === 'unknown' ? 'unknown' : commit.slice(0, 7);
+  return {
+    version: `source.${commitShort}${dirty ? '.dirty' : ''}`,
+    commit,
+    commitShort,
+    dirty,
+    buildTime: null,
+    runtime: process.version,
+    source: true,
+  };
+}
+
+/** The build target this machine needs: linux-x64, darwin-arm64, … */
+function platformTarget() {
+  return `${process.platform}-${process.arch}`;
+}
+
+/** True when running as the packaged SEA binary rather than from source. */
+async function isPackagedBinary() {
+  try {
+    const sea = await import('node:sea');
+    if (typeof sea.isSea === 'function') return sea.isSea();
+  } catch {
+    /* node:sea unavailable — fall back to inspecting the executable */
+  }
+  return !/[/\\]node(\.exe)?$/.test(process.execPath);
+}
 
 // Trust self-signed certs when connecting to .local domains over HTTPS.
 // This only affects this CLI process, not the server.
@@ -863,6 +928,128 @@ async function cmdSsh(serverUrl, appName) {
   ws.onclose = () => finish(1, exited ? undefined : 'Connection closed');
 }
 
+// ── Version & self-upgrade ──────────────────────────────────────────────────
+
+function cmdVersion({ json = false } = {}) {
+  const info = { ...BUILD_INFO, platform: platformTarget() };
+
+  if (json) {
+    console.log(JSON.stringify(info, null, 2));
+    return;
+  }
+
+  console.log(`deploy ${info.version}`);
+  console.log(`  commit:   ${info.commit}${info.dirty ? ' (dirty working tree)' : ''}`);
+  console.log(`  built:    ${info.buildTime ?? 'running from source (unpackaged)'}`);
+  console.log(`  platform: ${info.platform}`);
+  console.log(`  runtime:  node ${(info.runtime ?? process.version).replace(/^v/, '')}`);
+}
+
+// Replace the installed binary with the build this server serves. Version
+// equality — not ordering — decides: the CLI's job is to match its server, so
+// a server rolled back to an older build should pull the CLI back with it.
+async function cmdUpgrade(serverUrl, { check = false, force = false } = {}) {
+  const target = platformTarget();
+
+  let manifest;
+  try {
+    manifest = await request(`${serverUrl}/cli/version`);
+  } catch (err) {
+    throw new Error(`Update check against ${serverUrl} failed: ${err.message}`, { cause: err });
+  }
+  if (!manifest || typeof manifest !== 'object' || !manifest.version) {
+    throw new Error(
+      `${serverUrl} returned no CLI build manifest. Run 'pnpm build:cli' on the server.`,
+    );
+  }
+
+  console.log(`Installed: ${BUILD_INFO.version}`);
+  console.log(`Server:    ${manifest.version}`);
+
+  if (manifest.version === BUILD_INFO.version && !force) {
+    console.log('\nAlready running the build this server serves.');
+    return;
+  }
+  if (check) {
+    console.log('\nA different build is available. Run: deploy upgrade');
+    process.exit(1);
+  }
+
+  const expected = manifest.targets?.[target];
+  if (!expected) {
+    const available = Object.keys(manifest.targets ?? {}).join(', ') || 'none';
+    throw new Error(`Server has no CLI binary for ${target} (available: ${available})`);
+  }
+
+  if (!(await isPackagedBinary())) {
+    console.error('\nNot a packaged binary — upgrade can only replace an installed deploy binary.');
+    console.error('Running from source? Rebuild with: pnpm build:cli');
+    console.error(`Otherwise reinstall with: curl -fsSL ${serverUrl}/install | sh`);
+    process.exit(1);
+  }
+
+  // Resolve symlinks so we replace the real binary, not a link to it.
+  const installPath = realpathSync(process.execPath);
+  const installDir = dirname(installPath);
+  try {
+    accessSync(installDir, fsConstants.W_OK);
+  } catch {
+    console.error(`\nNo write access to ${installDir}.`);
+    console.error(`Retry with: sudo ${installPath} upgrade`);
+    process.exit(1);
+  }
+
+  console.log(`\nDownloading ${manifest.version} for ${target}...`);
+  const res = await fetch(`${serverUrl}/cli?os=${process.platform}&arch=${process.arch}`);
+  if (!res.ok) throw new Error(`Download failed: ${res.status} ${res.statusText}`);
+  const bytes = Buffer.from(await res.arrayBuffer());
+
+  const digest = createHash('sha256').update(bytes).digest('hex');
+  if (digest !== expected.sha256) {
+    throw new Error(
+      `Checksum mismatch — expected ${expected.sha256}, got ${digest}. Nothing was replaced.`,
+    );
+  }
+  console.log(`Downloaded ${formatBytes(bytes.length)}, sha256 verified`);
+
+  // Stage beside the target so the swap is a same-filesystem rename: the
+  // running process keeps its old inode, and a failure never leaves a
+  // half-written `deploy` behind.
+  const stagePath = `${installPath}.upgrade-${process.pid}`;
+  try {
+    writeFileSync(stagePath, bytes);
+    chmodSync(stagePath, 0o755);
+
+    // The binary is cross-built on the server, where codesign is unavailable,
+    // and postject's blob injection invalidates the Mach-O signature. Apple
+    // Silicon SIGKILLs binaries with a broken signature, so re-sign ad-hoc.
+    if (process.platform === 'darwin') {
+      const signed = spawnSync('codesign', ['--sign', '-', '--force', stagePath], {
+        stdio: 'ignore',
+      });
+      if (signed.status !== 0) {
+        console.warn('WARNING: could not code-sign the new binary; it may be killed on launch.');
+      }
+      spawnSync('xattr', ['-d', 'com.apple.quarantine', stagePath], { stdio: 'ignore' });
+    }
+
+    const smoke = spawnSync(stagePath, ['--help'], { stdio: 'ignore' });
+    if (smoke.error || smoke.status !== 0) {
+      throw new Error(
+        `Downloaded binary failed to run (${smoke.error?.message ?? `exit ${smoke.status}`}) — keeping the current one.`,
+      );
+    }
+
+    renameSync(stagePath, installPath);
+  } finally {
+    if (existsSync(stagePath)) unlinkSync(stagePath);
+  }
+
+  console.log(`\nUpgraded ${installPath}`);
+  const installed = spawnSync(installPath, ['version'], { encoding: 'utf-8' });
+  console.log(installed.stdout?.trim() || `deploy ${manifest.version}`);
+}
+
 // ── CLI entry ───────────────────────────────────────────────────────────────
 
 const HELP = `
@@ -882,11 +1069,17 @@ Usage:
   deploy login               Authenticate with the server
   deploy logout              Log out
   deploy whoami              Show current user
+  deploy version             Show the installed build (commit + build time)
+  deploy upgrade             Replace this CLI with the build the server serves
 
 Options:
   -u, --url <url>            Server URL (default: https://deploy.local)
   -app, --application <name> Application name
   -p, --port <port>          Server port (default: 80)
+      --check                Report whether a different build is available and
+                             exit 1 if so, without installing (upgrade only)
+      --force                Reinstall even when versions match (upgrade only)
+      --json                 Machine-readable output (version only)
       --no-cache             Build without using cached layers (deploy only).
                              Use when a previous build cached a bad layer
                              (e.g. truncated lockfile) and you need to force
@@ -903,6 +1096,10 @@ const { values, positionals } = parseArgs({
     app: { type: 'string' },
     port: { type: 'string', short: 'p', default: '80' },
     help: { type: 'boolean', short: 'h', default: false },
+    version: { type: 'boolean', short: 'v', default: false },
+    check: { type: 'boolean', default: false },
+    force: { type: 'boolean', default: false },
+    json: { type: 'boolean', default: false },
     'no-cache': { type: 'boolean', default: false },
   },
   strict: false,
@@ -910,6 +1107,11 @@ const { values, positionals } = parseArgs({
 
 if (values.help) {
   console.log(HELP);
+  process.exit(0);
+}
+
+if (values.version && !positionals.length) {
+  cmdVersion({ json: !!values.json });
   process.exit(0);
 }
 
@@ -970,6 +1172,14 @@ try {
     case 'who':
     case 'me':
       await cmdWhoami();
+      break;
+    case 'version':
+    case 'v':
+      cmdVersion({ json: !!values.json });
+      break;
+    case 'upgrade':
+    case 'update':
+      await cmdUpgrade(serverUrl, { check: !!values.check, force: !!values.force });
       break;
     default:
       console.error(`Unknown command: ${command}`);

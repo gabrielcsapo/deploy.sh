@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { AnimatedTerminal, DashboardPreview } from '../app/routes/home.client';
+import { CopyCommand } from '../app/components/CopyCommand.client';
 
 declare const __APP_VERSION__: string;
 
@@ -77,6 +78,28 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Install — first thing after the hero, because it's the first thing
+          anyone actually needs from this page. */}
+      <section className="relative max-w-4xl mx-auto px-6 pt-4 pb-4 sm:pt-6">
+        <div className="card-hero p-6 sm:p-8">
+          <p className="eyebrow mb-2">Install</p>
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight mb-2">
+            One command on the machine you want to host on.
+          </h2>
+          <p className="text-sm text-text-secondary max-w-[60ch] mb-5">
+            Downloads the CLI for your platform and points{' '}
+            <code className="font-mono text-text">~/.deployrc</code> at this server. Run it on the
+            Linux box you're hosting on — not your laptop.
+          </p>
+          <CopyCommand command="curl -fsSL deploy.local/install | sh" />
+          <ol className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+            <InstallStep n={1} command="deploy register" hint="Create your account" />
+            <InstallStep n={2} command="deploy" hint="Ship the current directory" />
+            <InstallStep n={3} command="deploy upgrade" hint="Update the CLI later" />
+          </ol>
+        </div>
+      </section>
+
       {/* Feature grid */}
       <section className="relative max-w-6xl mx-auto px-6 py-20 sm:py-24">
         <div className="mb-12">
@@ -120,12 +143,10 @@ export default function Home() {
             Install the CLI, point it at any project, and watch it appear on your dashboard. Free,
             MIT-licensed, self-contained.
           </p>
-          <pre className="inline-block text-left rounded-lg border border-white/[0.06] bg-bg/80 px-4 py-3 text-sm font-mono text-text-secondary mb-3 backdrop-blur-sm">
-            <code>
-              <span className="text-text-tertiary">$ </span>
-              <span className="text-text">curl -fsSL deploy.local/install | sh</span>
-            </code>
-          </pre>
+          <CopyCommand
+            command="curl -fsSL deploy.local/install | sh"
+            className="max-w-md mx-auto mb-3"
+          />
           <p className="text-[11px] text-text-tertiary mb-7">
             Run on the Linux box you want to host on — not your laptop.
           </p>
@@ -149,6 +170,23 @@ export default function Home() {
         </div>
       </section>
     </main>
+  );
+}
+
+function InstallStep({ n, command, hint }: { n: number; command: string; hint: string }) {
+  return (
+    <li className="flex items-start gap-2.5 rounded-lg border border-white/5 bg-bg/40 px-3 py-2.5">
+      <span
+        className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-white/[0.06] font-mono text-[10px] text-text-tertiary"
+        aria-hidden
+      >
+        {n}
+      </span>
+      <div className="min-w-0">
+        <code className="block truncate font-mono text-[13px] text-text">{command}</code>
+        <p className="text-[11px] text-text-tertiary mt-0.5">{hint}</p>
+      </div>
+    </li>
   );
 }
 

@@ -19,10 +19,12 @@ import {
   rmSync,
   statSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { resolve, join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { createWriteStream } from 'node:fs';
 import { createRequire } from 'node:module';
+import { computeBuildInfo } from './build-info.mjs';
 
 // esbuild is a transitive dep (via vite). Resolve through vite so we don't
 // rely on pnpm's `.bin/esbuild` shim, which invokes `node bin/esbuild` —
@@ -83,8 +85,8 @@ function nodeBinaryPathInArchive(os, arch) {
 
 // ── Steps ────────────────────────────────────────────────────────────────────
 
-async function step1_bundle() {
-  console.log('\n[1/4] Bundling CLI for SEA...');
+async function step1_bundle(buildInfo) {
+  console.log('\n[1/5] Bundling CLI for SEA...');
   mkdirSync(CLI_DIR, { recursive: true });
 
   // The CLI is ESM with top-level await and import.meta.dirname.
@@ -102,6 +104,14 @@ async function step1_bundle() {
     platform: 'node',
     format: 'esm',
     outfile: resolve(CLI_DIR, 'deploy.mjs'),
+    // Bake the build stamp in as a JSON string (not an object literal) so the
+    // ESM→CJS post-processing below has nothing structural to trip over. Run
+    // from source, the identifier is undefined and the CLI falls back to git.
+    define: {
+      __DEPLOY_BUILD_INFO__: JSON.stringify(
+        JSON.stringify({ ...buildInfo, runtime: NODE_VERSION }),
+      ),
+    },
   });
   console.log('  Bundled bin/deploy.js → dist/cli/deploy.mjs');
 
@@ -140,7 +150,7 @@ ${code}
 }
 
 function step2_generateBlob() {
-  console.log('\n[2/4] Generating SEA blob...');
+  console.log('\n[3/5] Generating SEA blob...');
   // Must use the same-version Node that will be embedded — SEA blobs aren't
   // compatible across Node major versions, and the system node may be 23+.
   const hostNode = join(CACHE_DIR, `node-${process.platform}-${process.arch}`);
@@ -157,7 +167,7 @@ function step2_generateBlob() {
 }
 
 async function step3_downloadNodeBinaries() {
-  console.log('\n[3/4] Downloading Node.js binaries...');
+  console.log('\n[2/5] Downloading Node.js binaries...');
   mkdirSync(CACHE_DIR, { recursive: true });
 
   for (const { os, arch } of TARGETS) {
@@ -194,7 +204,7 @@ async function step3_downloadNodeBinaries() {
 }
 
 function step4_injectAndSign() {
-  console.log('\n[4/4] Injecting SEA blob into binaries...');
+  console.log('\n[4/5] Injecting SEA blob into binaries...');
   const blobPath = resolve(CLI_DIR, 'sea-prep.blob');
   const canCodesign = hasCommand('codesign');
 
@@ -251,19 +261,48 @@ function step4_injectAndSign() {
   }
 }
 
+// Manifest the server serves at /cli/version. `deploy upgrade` compares its
+// baked-in version against this one and verifies the download against the
+// per-target digest recorded here.
+function step5_writeManifest(buildInfo) {
+  console.log('\n[5/5] Writing build manifest...');
+  const targets = {};
+
+  for (const { os, arch } of TARGETS) {
+    const label = `${os}-${arch}`;
+    const binaryPath = join(CLI_DIR, `deploy-${label}`);
+    if (!existsSync(binaryPath)) continue;
+    const bytes = readFileSync(binaryPath);
+    targets[label] = {
+      size: bytes.length,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+    };
+  }
+
+  const manifest = { ...buildInfo, runtime: NODE_VERSION, targets };
+  writeFileSync(resolve(CLI_DIR, 'build-info.json'), JSON.stringify(manifest, null, 2) + '\n');
+  console.log(`  dist/cli/build-info.json (${Object.keys(targets).length} targets)`);
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
+  const buildInfo = computeBuildInfo(ROOT);
+
   console.log('Building deploy.local CLI binaries (Node.js SEA)');
+  console.log(`  Version: ${buildInfo.version}`);
+  console.log(`  Commit:  ${buildInfo.commit}${buildInfo.dirty ? ' (dirty working tree)' : ''}`);
+  console.log(`  Built:   ${buildInfo.buildTime}`);
   console.log(`  Embedded runtime: Node.js ${NODE_VERSION}`);
   console.log(`  Targets: ${TARGETS.map((t) => `${t.os}-${t.arch}`).join(', ')}`);
 
-  await step1_bundle();
+  await step1_bundle(buildInfo);
   // step3 must run before step2 — blob generation needs the matching-version
   // host node binary from the cache.
   await step3_downloadNodeBinaries();
   step2_generateBlob();
   step4_injectAndSign();
+  step5_writeManifest(buildInfo);
 
   console.log('\nDone! Binaries:');
   for (const { os, arch } of TARGETS) {

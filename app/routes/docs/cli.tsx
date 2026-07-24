@@ -186,6 +186,50 @@ deploy -u https://my-server.local:5000`}
         <code>deploy whoami</code>
       </pre>
 
+      <h2>deploy version</h2>
+      <p>
+        Show the build installed on this machine. Every build is stamped with the commit it was
+        built from and the time it was built, so rebuilding the same commit still yields a distinct
+        version. Alias: <code>v</code>
+      </p>
+      <pre>
+        <code>
+          {`deploy version
+deploy version --json
+
+deploy 0.0.1+c4d1a04.20260724T173839Z
+  commit:   c4d1a04858ccef12a3b4b81277fdc0c7c1efceee
+  built:    2026-07-24T17:38:39Z
+  platform: darwin-arm64
+  runtime:  node 22.22.1`}
+        </code>
+      </pre>
+
+      <h2>deploy upgrade</h2>
+      <p>
+        Replace the installed CLI with the build the server serves. The binary for your platform is
+        downloaded, verified against the SHA-256 in the server's manifest, run once as a smoke test,
+        and only then swapped into place — a failed download never leaves you without a working{' '}
+        <code>deploy</code>. Alias: <code>update</code>
+      </p>
+      <p>
+        Versions are compared for equality rather than order: the CLI's job is to match its server,
+        so a server rolled back to an older build pulls the CLI back with it. The server publishes
+        what it serves at <code>GET /cli/version</code>; both that and the binaries come from{' '}
+        <code>pnpm build:cli</code> on the server.
+      </p>
+      <pre>
+        <code>
+          {`deploy upgrade
+deploy upgrade --check   # exits 1 if the server has a different build
+deploy upgrade --force   # reinstall even when the versions match`}
+        </code>
+      </pre>
+      <p>
+        Upgrading in place needs write access to the installed binary. If it lives somewhere
+        root-owned such as <code>/usr/local/bin</code>, re-run the command with <code>sudo</code>.
+      </p>
+
       <h2>deploy server</h2>
       <p>
         Start the deploy.local server. This launches the HTTPS server, HTTP redirect, API, and web
@@ -304,6 +348,18 @@ deploy server -p 8443`}
               <code>who</code>, <code>me</code>
             </td>
             <td>whoami</td>
+          </tr>
+          <tr>
+            <td>
+              <code>v</code>
+            </td>
+            <td>version</td>
+          </tr>
+          <tr>
+            <td>
+              <code>update</code>
+            </td>
+            <td>upgrade</td>
           </tr>
           <tr>
             <td>

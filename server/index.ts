@@ -7,7 +7,7 @@ import { startMaintenance } from './maintenance.ts';
 import { cleanupStaleBuildLogs, flushRequestLogs, logRequest, getAllDeployments } from './store.ts';
 import { notFoundPage } from './error-page.ts';
 import { ensureCerts, getTlsOptions, getCaCertBuffer } from './certs.ts';
-import { serveInstallScript, serveCliBinary } from './cli-download.ts';
+import { serveInstallScript, serveCliRequest } from './cli-download.ts';
 import { installCrashGuard } from './crash-guard.ts';
 import { attachAppUpgradeProxy } from './edge/upgrade-proxy.ts';
 import { initEdgeRuntime, getDefaultDbFile } from './edge/runtime.ts';
@@ -43,6 +43,16 @@ const httpsServer = createHttpsServer(
   (req, res) => {
     if (req.url === '/ca.crt') {
       serveCaCert(res);
+      return;
+    }
+    // Also on HTTPS: the CLI's configured server URL is https://, so `deploy
+    // upgrade` and the installer must resolve here too, not only on port 80.
+    if (req.url === '/install') {
+      serveInstallScript(req, res);
+      return;
+    }
+    if (req.url?.startsWith('/cli')) {
+      serveCliRequest(req, res);
       return;
     }
 
@@ -100,7 +110,7 @@ const httpServer = createServer((req, res) => {
     return;
   }
   if (req.url?.startsWith('/cli')) {
-    serveCliBinary(req, res);
+    serveCliRequest(req, res);
     return;
   }
   // Handle API requests over HTTP (for CLI compatibility)

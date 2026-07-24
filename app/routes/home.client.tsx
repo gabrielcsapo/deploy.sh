@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Self-driving terminal that mirrors a real `deploy` run. The script —
@@ -81,6 +81,7 @@ export function AnimatedTerminal() {
   const [lines, setLines] = useState<Line[]>([]);
   const [step, setStep] = useState(0);
   const [reducedMotion, setReducedMotion] = useState<boolean | null>(null);
+  const outputRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -118,6 +119,13 @@ export function AnimatedTerminal() {
     return () => clearTimeout(t);
   }, [reducedMotion, step]);
 
+  // Follow the output like a real terminal does — the window height is fixed,
+  // so new lines have to scroll into view rather than grow the card.
+  useEffect(() => {
+    const el = outputRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [lines]);
+
   const isFinished = step >= SCRIPT.length;
 
   return (
@@ -134,10 +142,15 @@ export function AnimatedTerminal() {
           <div className="w-12" aria-hidden />
         </div>
 
-        {/* Output — fixed-height region so the card doesn't jump while the
-            script types itself out. Each line type has its own renderer
-            since the real CLI prints them with different colors/glyphs. */}
-        <div className="min-h-[260px] flex flex-col gap-0.5" aria-hidden="true">
+        {/* Output — a fixed-height window that scrolls, so the card never
+            grows or jumps as the script types itself out. Each line type has
+            its own renderer since the real CLI prints them with different
+            colors/glyphs. */}
+        <div
+          ref={outputRef}
+          className="h-[280px] sm:h-[320px] overflow-y-auto overscroll-contain space-y-0.5"
+          aria-hidden="true"
+        >
           {lines.map((l, i) => (
             <TerminalLine key={i} line={l} />
           ))}
