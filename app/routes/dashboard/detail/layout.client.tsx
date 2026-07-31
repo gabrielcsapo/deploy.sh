@@ -12,13 +12,14 @@ import { useWebSocket } from '../../../hooks/useWebSocket';
 import { LoadingState } from '../../../components/LoadingState';
 import { TabStrip, type TabDef } from '../../../components/dashboard/TabStrip';
 import { LiveStatusStrip } from '../../../components/dashboard/LiveStatusStrip';
+import { formatBytes } from '../../../utils';
 import {
   OverviewIcon,
   BuildIcon,
   LogsIcon,
   TerminalIcon,
   RequestsIcon,
-  ResourcesIcon,
+  BackupsIcon,
   HistoryIcon,
   SettingsIcon,
   ExternalLinkIcon,
@@ -27,23 +28,21 @@ import {
 type TabKey =
   | 'overview'
   | 'logs'
-  | 'requests'
-  | 'resources'
-  | 'history'
-  | 'build'
+  | 'traffic'
+  | 'data'
+  | 'activity'
+  | 'releases'
   | 'terminal'
   | 'settings';
 
 const TABS_META: Array<{ key: TabKey; label: string; path: string; icon: React.ReactNode }> = [
   { key: 'overview', label: 'Overview', path: '', icon: <OverviewIcon /> },
-  { key: 'build', label: 'Build', path: 'build', icon: <BuildIcon /> },
+  { key: 'releases', label: 'Releases', path: 'releases', icon: <BuildIcon /> },
   { key: 'logs', label: 'Logs', path: 'logs', icon: <LogsIcon /> },
   { key: 'terminal', label: 'Terminal', path: 'terminal', icon: <TerminalIcon /> },
-  { key: 'requests', label: 'Requests', path: 'requests', icon: <RequestsIcon /> },
-  { key: 'resources', label: 'Resources', path: 'resources', icon: <ResourcesIcon /> },
-  // Activity = deploys + restarts + config changes + backups. URL kept as
-  // /history for bookmark stability; label says "Activity".
-  { key: 'history', label: 'Activity', path: 'history', icon: <HistoryIcon /> },
+  { key: 'traffic', label: 'Traffic', path: 'traffic', icon: <RequestsIcon /> },
+  { key: 'data', label: 'Data', path: 'data', icon: <BackupsIcon /> },
+  { key: 'activity', label: 'Activity', path: 'activity', icon: <HistoryIcon /> },
   // Settings holds the structural config (env, volumes, ports, GPU,
   // resource limits) so the Overview tab can stay metrics-first.
   { key: 'settings', label: 'Settings', path: 'settings', icon: <SettingsIcon /> },
@@ -52,7 +51,14 @@ const TABS_META: Array<{ key: TabKey; label: string; path: string; icon: React.R
 function getActiveTab(pathname: string, name: string): TabKey {
   const base = `/dashboard/${name}`;
   const suffix = pathname.slice(base.length).replace(/^\//, '');
+  const legacyAliases: Record<string, TabKey> = {
+    build: 'releases',
+    requests: 'traffic',
+    resources: 'data',
+    history: 'activity',
+  };
   const match = TABS_META.find((t) => t.path === suffix);
+  if (legacyAliases[suffix]) return legacyAliases[suffix];
   return match?.key ?? 'overview';
 }
 
@@ -63,6 +69,12 @@ export default function Component() {
   const [inspect, setInspect] = useState<ContainerInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [migrationProgress, setMigrationProgress] = useState<{
+    phase: string;
+    stage: string;
+    processedBytes: number;
+    totalBytes: number;
+  } | null>(null);
 
   const activeTab = getActiveTab(location.pathname, name!);
 
@@ -97,16 +109,68 @@ export default function Component() {
     fetchInspect();
   }, [fetchDeployment, fetchInspect]);
 
+  useEffect(() => {
+    if (!deployment?.name) return;
+    let cancelled = false;
+    const refreshProgress = async () => {
+      const auth = getAuth();
+      if (!auth) return;
+      try {
+        const response = await fetch(
+          `/api/deployments/${encodeURIComponent(deployment.name)}/migration-progress`,
+          {
+            headers: {
+              'x-deploy-username': auth.username,
+              'x-deploy-token': auth.token,
+            },
+          },
+        );
+        const body = await response.json();
+        if (!response.ok || cancelled) return;
+        if (!body.active) {
+          if (deployment.status === 'backing-up' || deployment.status === 'restoring') {
+            setMigrationProgress(null);
+            await fetchDeployment();
+          }
+          return;
+        }
+        if (!body.progress) return;
+        setMigrationProgress(body.progress);
+        setDeployment((current) =>
+          current ? { ...current, status: String(body.progress.phase) } : current,
+        );
+      } catch {
+        // WebSocket updates remain the primary live path.
+      }
+    };
+    void refreshProgress();
+    const timer = window.setInterval(refreshProgress, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [deployment?.name, deployment?.status, fetchDeployment]);
+
   // WebSocket for real-time status updates
   const channels = useMemo(() => [`deployment:${name}`], [name]);
   const handleWsEvent = useCallback(
     (event: { type: string; data: Record<string, unknown> }) => {
       if (event.type === 'deployment:status') {
         setDeployment((prev) => (prev ? { ...prev, status: event.data.status as string } : prev));
+        if (event.data.status !== 'backing-up' && event.data.status !== 'restoring') {
+          setMigrationProgress(null);
+        }
         // Refetch inspect when status changes to running
         if (event.data.status === 'running') {
           fetchInspect();
         }
+      } else if (event.type === 'deployment:migration-progress') {
+        setMigrationProgress({
+          phase: String(event.data.phase || ''),
+          stage: String(event.data.stage || ''),
+          processedBytes: Number(event.data.processedBytes || 0),
+          totalBytes: Number(event.data.totalBytes || 0),
+        });
       }
     },
     [fetchInspect],
@@ -124,7 +188,13 @@ export default function Component() {
     // always on, so it carried no signal). Build still gets a dot during
     // an active build because that IS a real "click in here, something is
     // happening" cue.
-    if (t.key === 'build' && deployment?.status === 'building') dot = 'warning';
+    if (
+      t.key === 'releases' &&
+      ['uploading', 'backing-up', 'restoring', 'building', 'starting'].includes(
+        deployment?.status || '',
+      )
+    )
+      dot = 'warning';
     return {
       key: t.key,
       label: t.label,
@@ -139,17 +209,37 @@ export default function Component() {
   // is already in the URL, blanking the page on every navigate is a
   // polish-killer. (Vercel/Heroku both do this.)
   const hasError = error || (!loading && !deployment);
+  const migrationActive = deployment?.status === 'backing-up' || deployment?.status === 'restoring';
+  const exactTransfer =
+    migrationProgress?.stage === 'transferring' && migrationProgress.totalBytes > 0;
+  const transferPercent = exactTransfer
+    ? Math.min(
+        100,
+        Math.round((migrationProgress.processedBytes / migrationProgress.totalBytes) * 100),
+      )
+    : null;
 
   return (
-    <div className={isFullBleed ? 'flex flex-col h-[calc(100vh-6rem)]' : ''}>
+    <div className={isFullBleed ? 'flex h-[calc(100vh-7rem)] flex-col' : ''}>
       {/* Sticky context: title row + tabs stay pinned to the top of the
           content area as the page scrolls. Without this, the app name and
           tab navigation vanish offscreen and you lose your "where am I"
           anchor — that absence is one of the big "feels like a toy" tells. */}
-      <div className="sticky top-0 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 bg-bg/90 backdrop-blur-sm">
-        <div className="flex items-center gap-3 py-2 flex-wrap">
-          <h1 className="prompt-h1 truncate">{deployment?.name ?? name}</h1>
-          {deployment && <StatusBadge status={deployment.status} />}
+      <div className="sticky top-[52px] z-20 -mx-4 border-b border-border bg-bg/94 px-4 backdrop-blur-xl sm:-mx-7 sm:px-7 xl:-mx-10 xl:px-10">
+        <div className="flex flex-wrap items-center gap-3 py-3">
+          <span
+            className="relative hidden h-9 w-9 shrink-0 rounded-[8px] border border-border bg-bg-surface sm:block"
+            aria-hidden
+          >
+            <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_0_5px_rgb(124_156_255_/_0.08)]" />
+          </span>
+          <div className="min-w-0">
+            <p className="eyebrow mb-0.5">Application</p>
+            <div className="flex items-center gap-2">
+              <h1 className="prompt-h1 truncate">{deployment?.name ?? name}</h1>
+              {deployment && <StatusBadge status={deployment.status} />}
+            </div>
+          </div>
           <div className="flex-1" />
           <a
             href={appUrl(deployment?.name ?? name!)}
@@ -162,8 +252,49 @@ export default function Component() {
             <ExternalLinkIcon />
           </a>
         </div>
-        <TabStrip tabs={tabs} active={activeTab} className="border-b border-border" />
+        <TabStrip tabs={tabs} active={activeTab} />
       </div>
+
+      {migrationActive && (
+        <div className="mt-3 rounded-lg border border-warning/30 bg-warning/8 px-4 py-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-warning">
+                {deployment.status === 'backing-up'
+                  ? 'Moving application data: backing up'
+                  : 'Moving application data: restoring'}
+              </p>
+              <p className="text-xs text-text-secondary mt-1">
+                {migrationProgress?.stage === 'compressing'
+                  ? `${formatBytes(migrationProgress.processedBytes)} archive written from ${formatBytes(
+                      migrationProgress.totalBytes,
+                    )} of source data`
+                  : migrationProgress?.stage === 'transferring'
+                    ? `${formatBytes(migrationProgress.processedBytes)} of ${formatBytes(
+                        migrationProgress.totalBytes,
+                      )} transferred`
+                    : migrationProgress?.stage === 'extracting'
+                      ? 'Extracting the managed-volume archive on the destination'
+                      : 'Preparing migration data…'}
+              </p>
+            </div>
+            <a
+              href={`/dashboard/${encodeURIComponent(deployment.name)}/build`}
+              className="text-xs text-warning hover:text-text shrink-0"
+            >
+              View details
+            </a>
+          </div>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-bg-active">
+            <div
+              className={`h-full rounded-full bg-warning transition-[width] duration-300 ${
+                transferPercent == null ? 'w-1/3 animate-pulse motion-reduce:animate-none' : ''
+              }`}
+              style={transferPercent == null ? undefined : { width: `${transferPercent}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Metrics readout sits below the sticky chrome and scrolls with the
           page. Always rendered so the operator gets one at-a-glance row

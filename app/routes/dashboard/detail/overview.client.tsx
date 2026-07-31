@@ -29,6 +29,8 @@ import {
 } from '../../../components/dashboard/TimeRange';
 import { ResourcesIcon } from '../../../components/dashboard/icons';
 import { formatBytes } from '../../../utils';
+import { ApplicationGraphPanel } from './ApplicationGraphPanel';
+import { RuntimeGraphPanel } from './RuntimeGraphPanel';
 
 // ── URL ↔ preset mapping (shared with Requests/Resources tabs) ──────────────
 
@@ -395,12 +397,19 @@ export default function Component() {
         <ResourcePanel metrics={metrics} name={name} />
       </div>
 
+      {deployment.type === 'application-graph' && (
+        <>
+          <RuntimeGraphPanel name={name} />
+          <ApplicationGraphPanel name={name} />
+        </>
+      )}
+
       {/* Recent activity */}
       <div className="card p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="eyebrow font-semibold">Recent activity</h3>
           <Link
-            to={`/dashboard/${name}/history`}
+            to={`/dashboard/${name}/activity`}
             className="text-xs font-mono text-text-tertiary hover:text-accent"
           >
             view all →

@@ -5,10 +5,10 @@
  *
  * Usage:  node scripts/build-cli.mjs
  *
- * Produces: dist/cli/deploy-{darwin,linux}-{arm64,x64}
+ * Produces macOS/Linux arm64+x64 binaries and a Windows x64 executable in dist/cli.
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -36,14 +36,16 @@ const CLI_DIR = resolve(ROOT, 'dist/cli');
 const CACHE_DIR = resolve(ROOT, '.deploy-data/node-cache');
 const SEA_CONFIG = resolve(ROOT, 'sea-config.json');
 
-// Node.js 22 LTS — battle-tested SEA support
-const NODE_VERSION = 'v22.22.1';
+// Keep the standalone CLI runtime on the same supported major/minor as the
+// server, CI, package engine contract, and suitcase image.
+const NODE_VERSION = 'v26.1.0';
 
 const TARGETS = [
   { os: 'darwin', arch: 'arm64' },
   { os: 'darwin', arch: 'x64' },
   { os: 'linux', arch: 'arm64' },
   { os: 'linux', arch: 'x64' },
+  { os: 'win32', archiveOs: 'win', arch: 'x64', archiveType: 'zip', extension: '.exe' },
 ];
 
 const SENTINEL_FUSE = 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';
@@ -71,16 +73,29 @@ async function download(url, dest) {
   await pipeline(res.body, createWriteStream(dest));
 }
 
-function nodeArchiveName(os, arch) {
-  return `node-${NODE_VERSION}-${os}-${arch}.tar.gz`;
+function nodeArchiveName(target) {
+  const os = target.archiveOs || target.os;
+  const extension = target.archiveType === 'zip' ? 'zip' : 'tar.gz';
+  return `node-${NODE_VERSION}-${os}-${target.arch}.${extension}`;
 }
 
-function nodeDownloadUrl(os, arch) {
-  return `https://nodejs.org/dist/${NODE_VERSION}/${nodeArchiveName(os, arch)}`;
+function nodeDownloadUrl(target) {
+  return `https://nodejs.org/dist/${NODE_VERSION}/${nodeArchiveName(target)}`;
 }
 
-function nodeBinaryPathInArchive(os, arch) {
-  return `node-${NODE_VERSION}-${os}-${arch}/bin/node`;
+function nodeBinaryPathInArchive(target) {
+  const os = target.archiveOs || target.os;
+  return target.archiveType === 'zip'
+    ? `node-${NODE_VERSION}-${os}-${target.arch}/node.exe`
+    : `node-${NODE_VERSION}-${os}-${target.arch}/bin/node`;
+}
+
+function cachedNodePath(target) {
+  return join(CACHE_DIR, `node-${target.os}-${target.arch}${target.extension || ''}`);
+}
+
+function outputBinaryPath(target) {
+  return join(CLI_DIR, `deploy-${target.os}-${target.arch}${target.extension || ''}`);
 }
 
 // ── Steps ────────────────────────────────────────────────────────────────────
@@ -90,7 +105,7 @@ async function step1_bundle(buildInfo) {
   mkdirSync(CLI_DIR, { recursive: true });
 
   // The CLI is ESM with top-level await and import.meta.dirname.
-  // Node.js 22 SEA requires CJS, so we:
+  // SEA consumes a CommonJS bootstrap, so we:
   //  1. Bundle with esbuild as ESM (resolves all imports to a single file)
   //  2. Post-process: convert ESM imports to CJS requires, replace import.meta,
   //     and wrap top-level code in an async IIFE
@@ -115,7 +130,7 @@ async function step1_bundle(buildInfo) {
   });
   console.log('  Bundled bin/deploy.js → dist/cli/deploy.mjs');
 
-  // Step 2: convert to CJS-compatible script for Node.js 22 SEA
+  // Step 2: convert to a CJS-compatible SEA bootstrap
   let code = readFileSync(resolve(CLI_DIR, 'deploy.mjs'), 'utf-8');
 
   // Strip shebang (SEA doesn't need it)
@@ -153,7 +168,13 @@ function step2_generateBlob() {
   console.log('\n[3/5] Generating SEA blob...');
   // Must use the same-version Node that will be embedded — SEA blobs aren't
   // compatible across Node major versions, and the system node may be 23+.
-  const hostNode = join(CACHE_DIR, `node-${process.platform}-${process.arch}`);
+  const hostTarget = TARGETS.find(
+    (target) => target.os === process.platform && target.arch === process.arch,
+  );
+  if (!hostTarget) {
+    throw new Error(`No standalone CLI build target for ${process.platform}-${process.arch}`);
+  }
+  const hostNode = cachedNodePath(hostTarget);
   if (!existsSync(hostNode)) {
     throw new Error(
       `Host node ${process.platform}-${process.arch} (${NODE_VERSION}) not cached — step3 must run first`,
@@ -170,10 +191,11 @@ async function step3_downloadNodeBinaries() {
   console.log('\n[2/5] Downloading Node.js binaries...');
   mkdirSync(CACHE_DIR, { recursive: true });
 
-  for (const { os, arch } of TARGETS) {
-    const archiveName = nodeArchiveName(os, arch);
+  for (const target of TARGETS) {
+    const { os, arch } = target;
+    const archiveName = nodeArchiveName(target);
     const archivePath = join(CACHE_DIR, archiveName);
-    const extractedBinaryPath = join(CACHE_DIR, `node-${os}-${arch}`);
+    const extractedBinaryPath = cachedNodePath(target);
 
     // Skip if already cached
     if (existsSync(extractedBinaryPath)) {
@@ -183,23 +205,31 @@ async function step3_downloadNodeBinaries() {
 
     // Download archive if not cached
     if (!existsSync(archivePath)) {
-      await download(nodeDownloadUrl(os, arch), archivePath);
+      await download(nodeDownloadUrl(target), archivePath);
     }
 
     // Extract just the node binary from the tarball
     console.log(`  Extracting node binary for ${os}-${arch}...`);
-    const binaryInArchive = nodeBinaryPathInArchive(os, arch);
-    run(`tar -xzf ${archivePath} -C ${CACHE_DIR} ${binaryInArchive}`);
-
-    // Move to a flat name
-    copyFileSync(join(CACHE_DIR, binaryInArchive), extractedBinaryPath);
+    const binaryInArchive = nodeBinaryPathInArchive(target);
+    if (target.archiveType === 'zip') {
+      const bytes = execFileSync('unzip', ['-p', archivePath, binaryInArchive], {
+        cwd: ROOT,
+        maxBuffer: 256 * 1024 * 1024,
+      });
+      writeFileSync(extractedBinaryPath, bytes);
+    } else {
+      run(`tar -xzf ${archivePath} -C ${CACHE_DIR} ${binaryInArchive}`);
+      copyFileSync(join(CACHE_DIR, binaryInArchive), extractedBinaryPath);
+    }
     chmodSync(extractedBinaryPath, 0o755);
 
     // Clean up extracted directory
-    rmSync(join(CACHE_DIR, `node-${NODE_VERSION}-${os}-${arch}`), {
-      recursive: true,
-      force: true,
-    });
+    if (target.archiveType !== 'zip') {
+      rmSync(join(CACHE_DIR, `node-${NODE_VERSION}-${target.archiveOs || os}-${arch}`), {
+        recursive: true,
+        force: true,
+      });
+    }
   }
 }
 
@@ -208,10 +238,11 @@ function step4_injectAndSign() {
   const blobPath = resolve(CLI_DIR, 'sea-prep.blob');
   const canCodesign = hasCommand('codesign');
 
-  for (const { os, arch } of TARGETS) {
+  for (const target of TARGETS) {
+    const { os, arch } = target;
     const label = `${os}-${arch}`;
-    const outputPath = join(CLI_DIR, `deploy-${label}`);
-    const cachedNode = join(CACHE_DIR, `node-${os}-${arch}`);
+    const outputPath = outputBinaryPath(target);
+    const cachedNode = cachedNodePath(target);
 
     if (!existsSync(cachedNode)) {
       console.warn(`  SKIP ${label}: node binary not found`);
@@ -268,9 +299,10 @@ function step5_writeManifest(buildInfo) {
   console.log('\n[5/5] Writing build manifest...');
   const targets = {};
 
-  for (const { os, arch } of TARGETS) {
+  for (const target of TARGETS) {
+    const { os, arch } = target;
     const label = `${os}-${arch}`;
-    const binaryPath = join(CLI_DIR, `deploy-${label}`);
+    const binaryPath = outputBinaryPath(target);
     if (!existsSync(binaryPath)) continue;
     const bytes = readFileSync(binaryPath);
     targets[label] = {
@@ -305,8 +337,8 @@ async function main() {
   step5_writeManifest(buildInfo);
 
   console.log('\nDone! Binaries:');
-  for (const { os, arch } of TARGETS) {
-    const p = join(CLI_DIR, `deploy-${os}-${arch}`);
+  for (const target of TARGETS) {
+    const p = outputBinaryPath(target);
     if (existsSync(p)) {
       const size = statSync(p).size;
       const mb = (size / 1024 / 1024).toFixed(1);

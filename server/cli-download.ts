@@ -16,6 +16,10 @@ export interface CliBuildManifest {
   targets: Record<string, { size: number; sha256: string }>;
 }
 
+export function cliBinaryFilename(os: string, arch: string): string {
+  return `deploy-${os}-${arch}${os === 'win32' ? '.exe' : ''}`;
+}
+
 /** Written by scripts/build-cli.mjs next to the binaries it stamped. */
 export function readCliManifest(): CliBuildManifest | null {
   try {
@@ -88,7 +92,8 @@ export function serveCliBinary(req: IncomingMessage, res: ServerResponse): void 
     return;
   }
 
-  const binaryPath = resolve(CLI_DIR, `deploy-${os}-${arch}`);
+  const executableExtension = os === 'win32' ? '.exe' : '';
+  const binaryPath = resolve(CLI_DIR, cliBinaryFilename(os, arch));
 
   if (!existsSync(binaryPath)) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -101,7 +106,7 @@ export function serveCliBinary(req: IncomingMessage, res: ServerResponse): void 
     const manifest = readCliManifest();
     res.writeHead(200, {
       'Content-Type': 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="deploy"`,
+      'Content-Disposition': `attachment; filename="deploy${executableExtension}"`,
       'Content-Length': binary.length,
       ...(manifest
         ? {
@@ -138,6 +143,60 @@ export function serveInstallScript(req: IncomingMessage, res: ServerResponse): v
     'Content-Length': Buffer.byteLength(script),
   });
   res.end(script);
+}
+
+/** Windows PowerShell equivalent of the POSIX one-command installer. */
+export function serveWindowsInstallScript(req: IncomingMessage, res: ServerResponse): void {
+  const host = req.headers.host || 'deploy.local';
+  const serverHttpUrl = `http://${host}`;
+  const hostname = host.split(':')[0];
+  const serverHttpsUrl = `https://${hostname}`;
+  const script = generateWindowsInstallScript(serverHttpUrl, serverHttpsUrl);
+  res.writeHead(200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Content-Length': Buffer.byteLength(script),
+  });
+  res.end(script);
+}
+
+function generateWindowsInstallScript(serverHttpUrl: string, serverHttpsUrl: string): string {
+  return `$ErrorActionPreference = "Stop"
+$installDir = Join-Path $env:LOCALAPPDATA "deploy.local"
+$deployExe = Join-Path $installDir "deploy.exe"
+$temporary = Join-Path $env:TEMP ("deploy-" + [guid]::NewGuid().ToString() + ".exe")
+
+Write-Host "Installing deploy.local CLI for win32-x64..."
+New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+try {
+  Invoke-WebRequest -UseBasicParsing -Uri "${serverHttpUrl}/cli?os=win32&arch=x64" -OutFile $temporary
+  if ((Get-Item $temporary).Length -eq 0) { throw "Downloaded CLI is empty" }
+  Move-Item -Force $temporary $deployExe
+} finally {
+  Remove-Item -Force -ErrorAction SilentlyContinue $temporary
+}
+
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if (-not (($userPath -split ";") -contains $installDir)) {
+  $nextPath = if ($userPath) { "$userPath;$installDir" } else { $installDir }
+  [Environment]::SetEnvironmentVariable("Path", $nextPath, "User")
+  $env:Path = "$env:Path;$installDir"
+  Write-Host "Added $installDir to your user PATH."
+}
+
+$deployRc = Join-Path $HOME ".deployrc"
+if (Test-Path $deployRc) {
+  $configuration = Get-Content -Raw $deployRc | ConvertFrom-Json
+} else {
+  $configuration = [pscustomobject]@{}
+}
+$configuration | Add-Member -Force -NotePropertyName url -NotePropertyValue "${serverHttpsUrl}"
+$configuration | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 $deployRc
+
+Write-Host "Installed $deployExe"
+& $deployExe version
+Write-Host "Download ${serverHttpUrl}/ca.crt and add it to Trusted Root Certification Authorities before login."
+Write-Host "Next: deploy register"
+`;
 }
 
 function generateInstallScript(serverHttpUrl: string, serverHttpsUrl: string): string {

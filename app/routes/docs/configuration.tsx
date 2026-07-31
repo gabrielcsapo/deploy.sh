@@ -29,29 +29,286 @@ const portsItemProps = schema.properties.ports.items as {
 export default function Component() {
   return (
     <article className="prose max-w-none">
-      <h1>Configuration</h1>
+      <h1>Application configuration</h1>
       <p>
-        By default, deploy.local requires no configuration file. It auto-detects your project type
-        and maps port 3000 inside the container to an available host port. For apps that need custom
-        port settings, create a <code>deploy.json</code> file in your project root.
+        <code>deploy.yaml</code> is the primary, durable description of an application. It is a
+        versioned graph of the components, routes, resources, jobs, and configuration the
+        application needs. Keep it in the application repository so the definition can be reviewed,
+        reproduced, and moved between deploy.local installations.
       </p>
-
-      <h2>deploy.json</h2>
       <p>
-        Place a <code>deploy.json</code> file in your project root alongside your{' '}
-        <code>Dockerfile</code>, <code>package.json</code>, or <code>index.html</code>.
+        A configuration file is still optional for the simplest projects. Without one, deploy.local
+        detects the project and creates the same one-component application graph automatically.
+        Existing <code>deploy.json</code> projects remain supported through the legacy compatibility
+        compiler.
       </p>
+      <div className="not-prose my-7 rounded-xl border border-warning/30 bg-warning/8 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="badge badge-success">v1 format available</span>
+          <span className="badge badge-success">Graph executor available</span>
+        </div>
+        <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+          Home, selected Suitcases, and connected execution agents materialize build- or
+          image-backed components, fixed instance groups, private interfaces, routes, declared
+          resources, jobs, configuration, and supported lifecycle profiles. Each v1 graph stays on
+          one node; a connected agent returns one primary route to Home rather than distributing
+          components across the fleet.
+        </p>
+      </div>
 
-      <h3>JSON Schema</h3>
+      <h2>A simple deploy.yaml</h2>
       <p>
-        A JSON schema is available for editor autocompletion and validation. First, copy the schema
-        into your project:
+        Every v1 manifest starts with an API version and kind. This example makes the implicit
+        single-container deployment explicit:
       </p>
       <pre>
-        <code>deploy schema</code>
+        <code>
+          {`apiVersion: deploy.local/v1
+kind: Application
+
+components:
+  web:
+    build:
+      context: .
+    role: web
+    interfaces:
+      http:
+        port: 3000
+        protocol: http
+
+routes:
+  public:
+    to: web.http`}
+        </code>
       </pre>
       <p>
-        Then add a <code>$schema</code> field to your <code>deploy.json</code>:
+        <code>web</code> is a component and <code>http</code> is an interface it provides. The route
+        target <code>web.http</code> creates an edge from the public route to that interface. Names
+        are stable references within the application; they also give the dashboard useful labels
+        when it visualizes the graph.
+      </p>
+
+      <h2>How the graph is expressed</h2>
+      <p>
+        The YAML uses named maps and references instead of a low-level <code>nodes</code> and{' '}
+        <code>edges</code> array. References describe both the connection and what deploy.local must
+        do with it:
+      </p>
+      <ul>
+        <li>
+          A route&apos;s <code>to</code> value sends traffic to a component interface.
+        </li>
+        <li>
+          An environment <code>from</code> value binds declared configuration or another
+          component&apos;s interface.
+        </li>
+        <li>A mount attaches a named volume resource at a container path.</li>
+        <li>A job reuses a component image for a one-time command, such as a migration.</li>
+      </ul>
+      <p>
+        A web tier and PostgreSQL remain ordinary components in the same graph. This example runs
+        two web instances behind one stable component interface and gives the database a separate
+        durable resource:
+      </p>
+      <pre>
+        <code>
+          {`components:
+  web:
+    build:
+      context: .
+    role: web
+    instances: 2
+    interfaces:
+      http:
+        port: 3000
+        protocol: http
+    environment:
+      DATABASE_URL:
+        from: db.postgres
+
+  db:
+    image: postgres:18
+    role: service
+    profile: deploy.local/postgres@1
+    interfaces:
+      postgres:
+        port: 5432
+        protocol: postgres
+    mounts:
+      /var/lib/postgresql/data:
+        resource: database
+
+resources:
+  database:
+    type: volume
+    durability: durable
+    dataRole: database
+    access: singleWriter
+    reconciliation:
+      excludeTables: [sessions]
+      excludePaths: [tmp/previews]
+      conflictPolicy: collect
+
+routes:
+  public:
+    to: web.http`}
+        </code>
+      </pre>
+      <p>
+        The <code>deploy.local/postgres@1</code> lifecycle profile adds supported backup, restore,
+        migration, and version-admission operations to a normal component; it does not turn the
+        database into a hidden platform resource. The volume remains separate so its durability and
+        access rules are explicit.
+      </p>
+      <p>
+        The optional <code>reconciliation</code> block records application intent without requiring
+        a deploy.local data library. Table and relative-path exclusions remove derived or local-only
+        content from the shared profile, while <code>conflictPolicy</code> selects collect,
+        prefer-home, or prefer-suitcase behavior. These annotations never override integrity,
+        primary-key, schema, or opaque-format safety checks; unsafe data still fails closed.
+      </p>
+      <p>
+        <code>instances: 2</code> asks deploy.local to keep two healthy instances behind the
+        component&apos;s stable interface. Changing the count creates an immutable desired revision;
+        traffic only moves after the new runtime passes health admission.
+      </p>
+
+      <h3>Routes, caching, and runtime options</h3>
+      <p>
+        Route behavior belongs on the route, while container-specific behavior belongs on the
+        component. For example:
+      </p>
+      <pre>
+        <code>
+          {`components:
+  web:
+    build:
+      context: .
+    role: web
+    interfaces:
+      http:
+        port: 3000
+        protocol: http
+    runtime:
+      networks:
+        - name: restricted-egress
+          subnet: 172.30.0.0/24
+      runArgs: [--dns, 172.30.0.10]
+
+routes:
+  public:
+    to: web.http
+    cache:
+      maxAge: 60
+      paths: [/assets/*, /api/public/*]
+      maxObjectBytes: 2097152`}
+        </code>
+      </pre>
+      <p>
+        Response caching is opt-in and intended for public, read-only content. Requests carrying
+        cookies or authorization, private or <code>no-store</code> responses, and streams bypass the
+        cache. Runtime arguments are preserved as argument boundaries and are not evaluated by a
+        shell; deploy.local still reserves the container lifecycle arguments it owns.
+      </p>
+
+      <h2>Declared configuration and secrets</h2>
+      <p>
+        The manifest declares every administrator-supplied value an application expects. Components
+        then project those declarations into their environment by reference:
+      </p>
+      <pre>
+        <code>
+          {`configuration:
+  adminUsername:
+    type: string
+    required: true
+    description: Initial administrator username
+
+  adminPassword:
+    type: secret
+    required: true
+    description: Initial administrator password
+
+  logLevel:
+    type: string
+    default: info
+    allowedValues: [debug, info, warn, error]
+
+components:
+  web:
+    build:
+      context: .
+    role: web
+    interfaces:
+      http:
+        port: 3000
+        protocol: http
+    environment:
+      ADMIN_USERNAME:
+        from: configuration.adminUsername
+      ADMIN_PASSWORD:
+        from: configuration.adminPassword
+      LOG_LEVEL:
+        from: configuration.logLevel`}
+        </code>
+      </pre>
+      <p>
+        The declaration belongs in <code>deploy.yaml</code>; its server-side value does not. The
+        dashboard can generate the correct setup control from <code>type</code>,{' '}
+        <code>description</code>, <code>default</code>, and <code>allowedValues</code>. Secret
+        values are stored separately and are never written into the manifest or its exports.
+      </p>
+      <p>
+        A required value with no default gates startup for components or jobs that reference it.
+        This lets deploy.local build and inspect an application while clearly reporting why it is
+        not ready to run. Changing a declaration creates an application revision; changing a value
+        creates a configuration revision without putting that value into source control.
+      </p>
+      <p>
+        Declarations have <code>application</code> scope by default. Use <code>scope: site</code>{' '}
+        only when each deployment site must provide a different value. Supported declaration types
+        are <code>string</code>, <code>boolean</code>, <code>number</code>, and <code>secret</code>.
+        Secrets cannot define defaults or allowed values.
+      </p>
+
+      <h2>Revisions and the dashboard</h2>
+      <p>
+        deploy.local normalizes the YAML into a versioned application specification. Formatting,
+        comments, and key order do not change the application identity. Runtime state—such as the
+        currently running containers, resolved secret values, and per-site placement—is stored
+        separately from this durable definition.
+      </p>
+      <p>
+        The application Overview page shows desired and active immutable digests, graph
+        components/resources/routes/jobs, and redacted configuration readiness. It can export the
+        desired revision as <code>deploy.yaml</code>, so UI-authored changes can return to the
+        repository as the durable copy. The component API and CLI can inspect, scale, restart, and
+        replace instances without hiding the resulting revision or runtime operation.
+      </p>
+
+      <h2>Legacy deploy.json compatibility</h2>
+      <p>
+        The unversioned <code>deploy.json</code> format remains supported for existing
+        single-container projects. deploy.local compiles it into a v1 graph with one main component,
+        its public route, and the legacy data and uploads volumes. You can continue using it until
+        you are ready to export and commit the equivalent <code>deploy.yaml</code>.
+      </p>
+      <p>
+        Do not keep both files in the same project. If <code>deploy.yaml</code> and{' '}
+        <code>deploy.json</code> are both present, deployment stops and asks you to choose one
+        instead of silently guessing which definition wins.
+      </p>
+
+      <h3>Legacy JSON Schema</h3>
+      <p>
+        The CLI can copy the legacy JSON schema into a project for editor autocompletion and
+        validation:
+      </p>
+      <pre>
+        <code>deploy schema --legacy</code>
+      </pre>
+      <p>
+        Then add a <code>$schema</code> field to <code>deploy.json</code>:
       </p>
       <pre>
         <code>
@@ -62,7 +319,7 @@ export default function Component() {
         </code>
       </pre>
 
-      <h3>Fields</h3>
+      <h3>Legacy fields</h3>
       <table>
         <thead>
           <tr>
@@ -112,10 +369,10 @@ export default function Component() {
                   <>
                     {' '}
                     (
-                    {(prop.enum as string[]).map((v, i) => (
-                      <span key={v}>
-                        {i > 0 && ' or '}
-                        <code>"{v}"</code>
+                    {(prop.enum as string[]).map((value, index) => (
+                      <span key={value}>
+                        {index > 0 && ' or '}
+                        <code>&quot;{value}&quot;</code>
                       </span>
                     ))}
                     )
@@ -127,30 +384,12 @@ export default function Component() {
         </tbody>
       </table>
 
-      <h2>Examples</h2>
-
-      <h3>No configuration (default)</h3>
-      <p>
-        If you don&apos;t create a <code>deploy.json</code>, deploy.local uses port 3000 as the
-        container port with no extra ports. This is the zero-config happy path.
-      </p>
-
-      <h3>Custom app port</h3>
-      <p>If your app listens on a different port (e.g. 8080):</p>
+      <h3>Legacy examples</h3>
+      <p>Set a custom application port and additional TCP port:</p>
       <pre>
         <code>
           {`{
-  "port": 8080
-}`}
-        </code>
-      </pre>
-
-      <h3>Extra ports (e.g. SSH)</h3>
-      <p>If your app needs additional ports beyond HTTP, such as an SSH server on port 2222:</p>
-      <pre>
-        <code>
-          {`{
-  "port": 3000,
+  "port": 8080,
   "ports": [
     { "container": 2222 }
   ]
@@ -158,15 +397,8 @@ export default function Component() {
         </code>
       </pre>
       <p>
-        The extra port is assigned an available host port automatically. You can see the assigned
-        ports in the <Link to="/dashboard">dashboard</Link> under each deployment&apos;s overview.
-      </p>
-
-      <h3>Ignoring files and directories</h3>
-      <p>
-        In git repositories, your <code>.gitignore</code> is respected automatically &mdash;
-        anything git ignores is excluded from the upload bundle. To exclude additional paths beyond{' '}
-        <code>.gitignore</code>, use the <code>ignore</code> field:
+        In Git repositories, <code>.gitignore</code> is respected automatically. The legacy{' '}
+        <code>ignore</code> field excludes additional paths:
       </p>
       <pre>
         <code>
@@ -176,87 +408,21 @@ export default function Component() {
         </code>
       </pre>
       <p>
-        For non-git projects, <code>node_modules</code> and <code>.git</code> are always excluded,
-        and the <code>ignore</code> entries are applied on top.
+        For non-Git projects, <code>node_modules</code> and <code>.git</code> are always excluded.
+        Use{' '}
+        <Link to="/docs/cli">
+          <code>deploy files</code>
+        </Link>{' '}
+        to inspect the bundle before uploading it.
       </p>
-
-      <h3>Edge response caching</h3>
-      <p>
-        Response caching is opt-in and intended for public, read-only content. A matching response
-        is cached only when it is a successful <code>GET</code> or <code>HEAD</code>, has an
-        explicit public <code>Cache-Control</code> policy, and does not set cookies. Requests with
-        cookies or authorization headers, streaming responses, private responses, and
-        <code>no-store</code> responses always bypass the cache.
-      </p>
-
-      <pre>
-        <code>
-          {`{
-  "cache": {
-    "enabled": true,
-    "maxAge": 60,
-    "paths": ["/assets/*", "/api/public/*"],
-    "maxObjectBytes": 2097152
-  }
-}`}
-        </code>
-      </pre>
-      <p>
-        A trailing <code>*</code> performs prefix matching. Cache keys include the deployment port,
-        so every blue/green switchover immediately uses a fresh namespace. Responses include
-        <code>X-Deploy-Cache: HIT</code> or <code>MISS</code> for troubleshooting.
-      </p>
-
-      <h3>Docker networks and runtime arguments</h3>
-      <p>
-        The optional <code>docker</code> section configures Docker-specific runtime behavior.
-        Networks are inspected and created only when missing, then attached to every newly deployed
-        or recreated container. The first network is used as the primary <code>docker run</code>
-        network; additional networks are connected immediately after container creation.
-      </p>
-      <pre>
-        <code>
-          {`{
-  "docker": {
-    "networks": [
-      {
-        "name": "groffee-ci",
-        "subnet": "172.30.0.0/24",
-        "labels": {
-          "com.groffee.egress": "restricted"
-        }
-      }
-    ],
-    "runArgs": ["--dns", "172.30.0.10"]
-  }
-}`}
-        </code>
-      </pre>
-      <p>
-        This is equivalent to creating <code>groffee-ci</code> with the configured subnet and label,
-        then starting the app with <code>--network groffee-ci</code>. Values in
-        <code>runArgs</code> are passed directly as argument boundaries without shell evaluation.
-        Container lifecycle arguments such as <code>--name</code>, <code>--rm</code>, and detached
-        mode are reserved so deploy.local can continue to manage blue/green rollouts safely.
-      </p>
-      <h3>Multiple extra ports</h3>
-      <pre>
-        <code>
-          {`{
-  "port": 3000,
-  "ports": [
-    { "container": 2222 },
-    { "container": 5432, "protocol": "tcp" }
-  ]
-}`}
-        </code>
-      </pre>
 
       <h2>Validation</h2>
       <p>
-        deploy.local validates <code>deploy.json</code> during upload. If the file contains unknown
-        fields, invalid port numbers, or malformed entries, the deploy will fail with a descriptive
-        error message.
+        deploy.local validates the selected manifest before materializing it. YAML uses a
+        restricted, predictable YAML 1.2 subset: duplicate keys, aliases, anchors, custom tags,
+        unknown fields, and invalid graph references are rejected. Legacy JSON rejects unknown
+        fields and malformed values through its existing schema. Validation errors include the path
+        to the declaration or reference that needs attention.
       </p>
     </article>
   );

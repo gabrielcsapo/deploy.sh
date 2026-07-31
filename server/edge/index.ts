@@ -29,6 +29,7 @@ import { controlRestartingPage } from '../error-page.ts';
 import { createHotPathHandler } from './proxy.ts';
 import { initEdgeRuntime, getDefaultDbFile } from './runtime.ts';
 import { startEdgeIpcServer, getEdgeSockPath } from '../ipc.ts';
+import { purgeDeploymentCache } from './response-cache.ts';
 import { logRequest, flushRequestLogs } from '../request-log.ts';
 import { isAppHost, tunnelUpgrade } from './upgrade-proxy.ts';
 
@@ -136,6 +137,7 @@ async function main() {
 
   const ipcServer = startEdgeIpcServer(getEdgeSockPath(), {
     onRouteChanged: (name) => runtime.routes.reconcile(name),
+    onCachePurge: (name) => purgeDeploymentCache(name),
     onCertReload: () => reloadTls(),
     onControlConnected: () => {
       runtime.routes.reloadAll();
@@ -211,8 +213,21 @@ async function main() {
     const deps = { getRoute: runtime.hotPathDeps.getRoute };
     if (isAppHost(hostname, deps)) {
       const route = deps.getRoute(hostname.substring(0, hostname.length - 6));
-      if (route?.port) tunnelUpgrade(req, socket, head, route.port);
-      else socket.destroy();
+      const backend = route?.selectBackend?.(req) ?? null;
+      const port = backend?.port ?? route?.port;
+      if (port) {
+        tunnelUpgrade(
+          req,
+          socket,
+          head,
+          port,
+          backend?.host || route?.backendHost || '127.0.0.1',
+          backend?.release,
+        );
+      } else {
+        backend?.release();
+        socket.destroy();
+      }
       return;
     }
     const pathname = (req.url || '').split('?')[0];

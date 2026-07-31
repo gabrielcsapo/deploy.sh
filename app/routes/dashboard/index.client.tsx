@@ -2,144 +2,71 @@
 
 import { useState } from 'react';
 import { Link } from 'react-flight-router/client';
+import { BrandMark } from '../../components/BrandLogo';
 import { LoadingState, ErrorBanner } from '../../components/LoadingState';
-import { HostStatusStrip } from '../../components/dashboard/HostStatusStrip';
-import { FleetStrip } from '../../components/dashboard/FleetStrip';
-import { FleetActivityPanel } from '../../components/dashboard/FleetActivityPanel';
+import { FleetTopologyBoard } from '../../components/dashboard/FleetTopologyBoard';
 import { useDashboardData } from './data.client';
 
 /**
- * Overview — the at-a-glance fleet view. Fleet stats, traffic sparklines,
- * recent activity, and any apps that need attention. No per-app table here
- * (lives at /dashboard/apps), so the page can prioritize health signals
- * over scrolling rows.
+ * Overview — a graph-first answer to what exists, where it runs, and what
+ * needs attention. Metrics and activity remain drill-downs; the primary
+ * surface is the fleet's current topology.
  */
 export default function OverviewClient() {
-  const { deployments, aggregate, problemApps, loading, error } = useDashboardData();
+  const { deployments, aggregate, cards, loading, error } = useDashboardData();
 
   if (loading && deployments.length === 0) {
     return (
-      <div>
-        <HostStatusStrip />
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="prompt-h1">Overview</h1>
-        </div>
+      <div className="command-center-page">
+        <FleetPageHeading loading />
         <LoadingState />
       </div>
     );
   }
 
   return (
-    <div>
-      <HostStatusStrip />
+    <div className="command-center-page">
+      <FleetPageHeading />
 
       {error && <ErrorBanner message={error} />}
 
       {deployments.length === 0 ? (
         <EmptyState />
       ) : (
-        <>
-          <FleetStrip totals={aggregate?.totals ?? null} />
-          <FleetActivityPanel />
-          <ProblemBanner apps={problemApps} />
-          {problemApps.length === 0 && <NominalCard deployments={deployments} />}
-        </>
+        <FleetTopologyBoard
+          cards={cards}
+          deployments={deployments}
+          totals={aggregate?.totals ?? null}
+        />
       )}
     </div>
   );
 }
 
-// ── Nominal card ────────────────────────────────────────────────────────────
-
-interface NominalDeployment {
-  name: string;
-  updatedAt: string;
-}
-
-/**
- * Compact "we're good" callout shown when nothing is broken. Earns its row
- * by surfacing three operator-relevant numbers (apps healthy, recent
- * deploys, last deploy time) rather than just declaring nominal status and
- * pointing at /apps. Numbers are derived from data already in the dashboard
- * shell — no extra fetch.
- */
-function NominalCard({ deployments }: { deployments: NominalDeployment[] }) {
-  const recentMs = 24 * 60 * 60 * 1000; // count "today" as last 24h
-  const now = Date.now();
-  let recentDeploys = 0;
-  let lastDeployTs: number | null = null;
-  for (const d of deployments) {
-    if (!d.updatedAt) continue;
-    const ts = new Date(d.updatedAt).getTime();
-    if (Number.isNaN(ts)) continue;
-    if (now - ts <= recentMs) recentDeploys++;
-    if (lastDeployTs === null || ts > lastDeployTs) lastDeployTs = ts;
-  }
-  const lastDeployLabel = lastDeployTs ? formatRelativeShort(now - lastDeployTs) : '—';
-
+function FleetPageHeading({ loading = false }: { loading?: boolean }) {
   return (
-    <div className="card p-5 flex items-center justify-between flex-wrap gap-4">
-      <div className="flex items-center gap-3 min-w-0">
-        <span
-          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-success/12 text-success shrink-0"
-          aria-hidden
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="w-4 h-4"
-          >
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
+    <header className="command-center-heading">
+      <div className="command-center-title">
+        <BrandMark />
+        <span>
+          <span className="command-kicker">
+            <span className="fleet-live-dot" aria-hidden />
+            {loading ? 'Locating your cloud' : 'Home authority · live'}
+          </span>
+          <h1>Command center</h1>
         </span>
-        <div>
-          <p className="text-sm text-text">All systems nominal</p>
-          <p className="text-xs text-text-tertiary mt-0.5">
-            {deployments.length} {deployments.length === 1 ? 'app' : 'apps'} healthy across the
-            fleet
-          </p>
-        </div>
       </div>
-
-      <div className="flex items-center gap-6 sm:gap-8 text-xs">
-        <MiniStat label="Apps" value={`${deployments.length}`} />
-        <MiniStat label="Deploys · 24h" value={`${recentDeploys}`} />
-        <MiniStat label="Last deploy" value={lastDeployLabel} />
-      </div>
-
-      <Link to="/dashboard/apps" className="btn btn-sm">
-        View apps
-        <span aria-hidden className="-mr-1">
-          →
-        </span>
-      </Link>
-    </div>
+      <button
+        type="button"
+        className="command-center-search"
+        onClick={() => window.dispatchEvent(new CustomEvent('deploy:command-palette'))}
+      >
+        <span aria-hidden>⌕</span>
+        Navigate or run a command
+        <kbd>⌘K</kbd>
+      </button>
+    </header>
   );
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="leading-tight">
-      <p className="eyebrow text-[10px] mb-0.5">{label}</p>
-      <p className="font-mono text-sm font-semibold tabular-nums">{value}</p>
-    </div>
-  );
-}
-
-function formatRelativeShort(ms: number): string {
-  if (ms < 0) return 'just now';
-  const sec = Math.floor(ms / 1000);
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  return `${day}d ago`;
 }
 
 // ── Empty state ─────────────────────────────────────────────────────────────
@@ -240,46 +167,6 @@ function CopyableSnippet({ snippet }: { snippet: string }) {
       >
         {copied ? 'copied' : 'copy'}
       </button>
-    </div>
-  );
-}
-
-// ── Problem apps banner ─────────────────────────────────────────────────────
-
-interface BannerApp {
-  name: string;
-  severity: 'down' | 'degraded' | 'healthy' | 'idle' | 'building';
-  errPct: number;
-  p95: number;
-}
-
-function ProblemBanner({ apps }: { apps: BannerApp[] }) {
-  if (apps.length === 0) return null;
-  const down = apps.filter((a) => a.severity === 'down');
-  const degraded = apps.filter((a) => a.severity === 'degraded');
-  return (
-    <div className="card p-3 mb-4 border-warning/30 bg-warning/5">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="eyebrow text-warning">Needs attention</span>
-        {down.map((a) => (
-          <Link
-            key={`down-${a.name}`}
-            to={`/dashboard/${a.name}`}
-            className="badge badge-danger hover:opacity-90"
-          >
-            {a.name} · down
-          </Link>
-        ))}
-        {degraded.map((a) => (
-          <Link
-            key={`deg-${a.name}`}
-            to={`/dashboard/${a.name}`}
-            className="badge badge-warning hover:opacity-90"
-          >
-            {a.name} · {a.errPct > 5 ? `${a.errPct.toFixed(0)}% err` : `p95 ${Math.round(a.p95)}ms`}
-          </Link>
-        ))}
-      </div>
     </div>
   );
 }

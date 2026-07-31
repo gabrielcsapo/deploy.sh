@@ -6,7 +6,7 @@
  * `deploy upgrade` able to answer "am I running the binary this server serves?"
  * for a project that ships from a working tree rather than tagged releases.
  *
- *   0.0.1+c4d1a04.20260724T173839Z
+ *   1.0.0+c4d1a04.20260724T173839Z
  *   └pkg┘ └commit┘ └─ build time ─┘
  *
  * Set SOURCE_DATE_EPOCH (seconds) to pin the timestamp for reproducible builds.

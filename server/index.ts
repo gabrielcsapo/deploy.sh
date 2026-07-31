@@ -7,12 +7,13 @@ import { startMaintenance } from './maintenance.ts';
 import { cleanupStaleBuildLogs, flushRequestLogs, logRequest, getAllDeployments } from './store.ts';
 import { notFoundPage } from './error-page.ts';
 import { ensureCerts, getTlsOptions, getCaCertBuffer } from './certs.ts';
-import { serveInstallScript, serveCliRequest } from './cli-download.ts';
+import { serveInstallScript, serveWindowsInstallScript, serveCliRequest } from './cli-download.ts';
 import { installCrashGuard } from './crash-guard.ts';
 import { attachAppUpgradeProxy } from './edge/upgrade-proxy.ts';
 import { initEdgeRuntime, getDefaultDbFile } from './edge/runtime.ts';
 import { startEdgeIpcServer, getEdgeSockPath } from './ipc.ts';
 import { emit } from './events.ts';
+import { startApplicationGraphSupervisor } from './application-graph-supervisor.ts';
 
 installCrashGuard();
 
@@ -49,6 +50,10 @@ const httpsServer = createHttpsServer(
     // upgrade` and the installer must resolve here too, not only on port 80.
     if (req.url === '/install') {
       serveInstallScript(req, res);
+      return;
+    }
+    if (req.url === '/install.ps1') {
+      serveWindowsInstallScript(req, res);
       return;
     }
     if (req.url?.startsWith('/cli')) {
@@ -92,6 +97,7 @@ const edgeRuntime = initEdgeRuntime({
   },
 });
 const edgeIpc = startEdgeIpcServer(getEdgeSockPath(), edgeRuntime.handlers);
+const graphSupervisor = startApplicationGraphSupervisor();
 setHotPathRouteSource(edgeRuntime.hotPathDeps.getRoute);
 
 setupWebSocket(httpsServer);
@@ -107,6 +113,10 @@ const httpServer = createServer((req, res) => {
   }
   if (req.url === '/install') {
     serveInstallScript(req, res);
+    return;
+  }
+  if (req.url === '/install.ps1') {
+    serveWindowsInstallScript(req, res);
     return;
   }
   if (req.url?.startsWith('/cli')) {
@@ -136,6 +146,7 @@ function shutdown(signal: string) {
 
   flushRequestLogs();
   void stopAllContainers();
+  graphSupervisor.stop();
   edgeRuntime.close();
   edgeIpc.close();
 
