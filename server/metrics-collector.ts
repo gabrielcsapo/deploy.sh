@@ -250,13 +250,17 @@ async function collectAll() {
       // Sync deployment status from Docker
       const dockerStatus = statusMap.get(d.name.toLowerCase()) || 'stopped';
       const dbStatus = d.status || 'stopped';
-      // Only sync if status diverged and not in a transitional state
-      if (
-        dockerStatus !== dbStatus &&
-        dbStatus !== 'uploading' &&
-        dbStatus !== 'building' &&
-        dbStatus !== 'starting'
-      ) {
+      const transitional =
+        dbStatus === 'uploading' ||
+        dbStatus === 'backing-up' ||
+        dbStatus === 'restoring' ||
+        dbStatus === 'building' ||
+        dbStatus === 'starting';
+      const runsOnCoordinator = !d.activeNodeId || d.activeNodeId === 'coordinator';
+      // Local Docker is authoritative only for coordinator-owned apps and
+      // never while the old source container intentionally stays live during
+      // a deploy or migration.
+      if (dockerStatus !== dbStatus && !transitional && runsOnCoordinator) {
         updateDeploymentStatus(d.name, dockerStatus);
         emit({
           type: 'deployment:status',

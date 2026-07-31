@@ -40,8 +40,17 @@ export async function syncContainerStates() {
     try {
       const dockerStatus = statusMap.get(deployment.name.toLowerCase()) || 'stopped';
       const dbStatus = deployment.status || 'stopped';
+      const transitional = [
+        'uploading',
+        'backing-up',
+        'restoring',
+        'building',
+        'starting',
+      ].includes(dbStatus);
+      const runsOnCoordinator =
+        !deployment.activeNodeId || deployment.activeNodeId === 'coordinator';
 
-      if (dockerStatus !== dbStatus) {
+      if (dockerStatus !== dbStatus && !transitional && runsOnCoordinator) {
         console.log(`  ${deployment.name}: ${dbStatus} -> ${dockerStatus}`);
         updateDeploymentStatus(deployment.name, dockerStatus);
         emit({
@@ -82,6 +91,10 @@ export async function startAllContainers() {
 
   let cursor = 0;
   const startContainer = async (deployment: (typeof deployments)[number]) => {
+    if (deployment.activeNodeId && deployment.activeNodeId !== 'coordinator') {
+      console.log(`  ${deployment.name}: assigned to remote node, skipping local start`);
+      return false;
+    }
     const status = statusMap.get(deployment.name.toLowerCase()) || 'stopped';
     console.log(`  ${deployment.name}: status=${status}`);
 
@@ -247,6 +260,7 @@ export async function stopAllContainers() {
 
   for (const deployment of deployments) {
     try {
+      if (deployment.activeNodeId && deployment.activeNodeId !== 'coordinator') continue;
       const status = statusMap.get(deployment.name.toLowerCase()) || 'stopped';
       if (status === 'running') {
         console.log(`  Stopping ${deployment.name}...`);

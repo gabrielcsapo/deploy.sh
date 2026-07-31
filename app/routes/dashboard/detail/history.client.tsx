@@ -8,6 +8,11 @@ import {
   createBackup as serverCreateBackup,
   restoreBackup as serverRestoreBackup,
   deleteBackup as serverDeleteBackup,
+  fetchRollbackRelease as serverFetchRollbackRelease,
+  rollbackDeployment as serverRollbackDeployment,
+  purgeDeploymentCache as serverPurgeDeploymentCache,
+  fetchBuildCacheUsage as serverFetchBuildCacheUsage,
+  purgeDeploymentBuildCache as serverPurgeBuildCache,
 } from '../../../actions/deployments';
 import { getAuth, useDetailContext } from './shared';
 import { formatBytes } from '../../../utils';
@@ -57,7 +62,7 @@ type FilterKey = 'all' | 'deploys' | 'restarts' | 'backups' | 'config';
 
 function classifyHistory(action: string): Exclude<FilterKey, 'all' | 'backups'> | 'backups' | null {
   if (action === 'deploy') return 'deploys';
-  if (action === 'restart' || action === 'recreate') return 'restarts';
+  if (action === 'restart' || action === 'recreate' || action === 'rollback') return 'restarts';
   if (action === 'backup' || action === 'restore') return 'backups';
   if (action === 'delete') return null; // a delete is rare; show in 'all'
   if (action.endsWith('-update')) return 'config';
@@ -81,6 +86,12 @@ function actionMeta(action: string) {
       return { label: 'Restart', icon: <RotateIcon />, tone: 'warning' as const };
     case 'recreate':
       return { label: 'Recreate', icon: <RotateIcon />, tone: 'warning' as const };
+    case 'rollback':
+      return { label: 'Rollback', icon: <RotateIcon />, tone: 'warning' as const };
+    case 'cache-purge':
+      return { label: 'Cache purge', icon: <RotateIcon />, tone: 'default' as const };
+    case 'build-cache-purge':
+      return { label: 'Build cache purge', icon: <RotateIcon />, tone: 'default' as const };
     case 'delete':
       return { label: 'Delete', icon: <AlertTriangleIcon />, tone: 'danger' as const };
     case 'backup':
@@ -125,6 +136,14 @@ export default function Component() {
   const [creating, setCreating] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [rollingBack, setRollingBack] = useState(false);
+  const [purgingCache, setPurgingCache] = useState(false);
+  const [purgingBuildCache, setPurgingBuildCache] = useState(false);
+  const [buildCacheBytes, setBuildCacheBytes] = useState(0);
+  const [rollbackRelease, setRollbackRelease] = useState<{
+    image: string;
+    createdAt: string;
+  } | null>(null);
   const [confirmState, setConfirmState] = useState<{
     title: string;
     message: string;
@@ -137,13 +156,17 @@ export default function Component() {
     try {
       const auth = getAuth();
       if (!auth) return;
-      const [hist, backupData] = await Promise.all([
+      const [hist, backupData, previousRelease, buildCache] = await Promise.all([
         serverFetchHistory(auth.username, auth.token, name),
         serverFetchBackups(auth.username, auth.token, name),
+        serverFetchRollbackRelease(auth.username, auth.token, name),
+        serverFetchBuildCacheUsage(auth.username, auth.token, name),
       ]);
       setEvents(hist as HistoryEvent[]);
       setBackups(backupData.backups as Backup[]);
       setVolumeSize(backupData.volumeSize);
+      setRollbackRelease(previousRelease);
+      setBuildCacheBytes(buildCache.bytes);
       setError('');
     } catch (err) {
       setError((err as Error).message);
@@ -222,6 +245,68 @@ export default function Component() {
     });
   };
 
+  const handleRollback = () => {
+    if (!rollbackRelease || rollingBack) return;
+    setConfirmState({
+      title: 'Roll back release',
+      message: `Switch traffic back to ${rollbackRelease.image}? The current release will be retained so you can reverse the rollback.`,
+      confirmLabel: 'Roll back',
+      danger: false,
+      onConfirm: async () => {
+        setConfirmState(null);
+        setRollingBack(true);
+        setError('');
+        setSuccessMessage('');
+        try {
+          const auth = getAuth();
+          if (!auth) return;
+          await serverRollbackDeployment(auth.username, auth.token, name);
+          await Promise.all([load(), fetchDeployment()]);
+          setSuccessMessage('Traffic switched to the previous release.');
+        } catch (err) {
+          setError((err as Error).message);
+        } finally {
+          setRollingBack(false);
+        }
+      },
+    });
+  };
+
+  const handlePurgeCache = async () => {
+    if (purgingCache) return;
+    setPurgingCache(true);
+    setError('');
+    try {
+      const auth = getAuth();
+      if (!auth) return;
+      await serverPurgeDeploymentCache(auth.username, auth.token, name);
+      setSuccessMessage('Edge cache purged.');
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setPurgingCache(false);
+    }
+  };
+
+  const handlePurgeBuildCache = async () => {
+    if (purgingBuildCache || buildCacheBytes === 0) return;
+    setPurgingBuildCache(true);
+    setError('');
+    try {
+      const auth = getAuth();
+      if (!auth) return;
+      await serverPurgeBuildCache(auth.username, auth.token, name);
+      setBuildCacheBytes(0);
+      setSuccessMessage('Build cache purged. The next build will rebuild every layer.');
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setPurgingBuildCache(false);
+    }
+  };
+
   // Merged + filtered timeline
   const items: DayGroupItem<ActivityItem>[] = useMemo(() => {
     const merged: ActivityItem[] = [
@@ -283,7 +368,9 @@ export default function Component() {
     () => ({
       all: events.length + backups.length,
       deploys: events.filter((e) => e.action === 'deploy').length,
-      restarts: events.filter((e) => e.action === 'restart' || e.action === 'recreate').length,
+      restarts: events.filter(
+        (e) => e.action === 'restart' || e.action === 'recreate' || e.action === 'rollback',
+      ).length,
       backups: backups.length + events.filter((e) => e.action === 'restore').length,
       config: events.filter((e) => e.action.endsWith('-update')).length,
     }),
@@ -365,6 +452,28 @@ export default function Component() {
           onClick={() => setFilter('config')}
         />
         <div className="flex-1" />
+        <button onClick={handlePurgeCache} disabled={purgingCache} className="btn btn-sm">
+          {purgingCache ? 'Purging…' : 'Purge edge cache'}
+        </button>
+        <button
+          onClick={handlePurgeBuildCache}
+          disabled={purgingBuildCache || buildCacheBytes === 0}
+          className="btn btn-sm"
+          title={`${formatBytes(buildCacheBytes)} persistent build cache`}
+        >
+          {purgingBuildCache ? 'Purging…' : `Purge build cache · ${formatBytes(buildCacheBytes)}`}
+        </button>
+        {rollbackRelease && (
+          <button
+            onClick={handleRollback}
+            disabled={rollingBack}
+            className="btn btn-sm inline-flex items-center gap-1.5"
+            title={`Previous release from ${new Date(rollbackRelease.createdAt).toLocaleString()}`}
+          >
+            <RotateIcon className="w-3.5 h-3.5" />
+            {rollingBack ? 'Rolling back…' : 'Roll back release'}
+          </button>
+        )}
         <span className="text-[11px] font-mono text-text-tertiary tabular-nums">
           volume {formatBytes(volumeSize)}
         </span>

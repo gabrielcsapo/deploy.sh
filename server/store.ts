@@ -1,10 +1,11 @@
 import { mkdirSync, existsSync, readFileSync, appendFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { randomBytes, createHash, scryptSync, timingSafeEqual } from 'node:crypto';
+import { arch, cpus, platform, totalmem } from 'node:os';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { eq, and, desc, gte, sql } from 'drizzle-orm';
+import { eq, and, desc, gte, lt, sql } from 'drizzle-orm';
 import {
   users,
   sessions,
@@ -16,6 +17,9 @@ import {
   backups,
   buildLogs,
   systemSettings,
+  nodes,
+  nodeEnrollments,
+  agentJobs,
 } from './schema.ts';
 import { parseMemoryLimit, type RawContainerStats } from './docker.ts';
 import { isCrashLooping } from './crash-tracker.ts';
@@ -161,10 +165,15 @@ export function registerUser(username: string, password: string) {
     return { error: 'User already exists' as const, status: 409 as const };
   }
   const now = new Date().toISOString();
+  const userCount = db
+    .select({ count: sql<number>`count(*)` })
+    .from(users)
+    .get()?.count;
   db.insert(users)
     .values({
       username,
       password: hashPassword(password),
+      role: userCount === 0 ? 'admin' : 'member',
       createdAt: now,
     })
     .run();
@@ -245,11 +254,392 @@ export function changePassword(username: string, currentPassword: string, newPas
 export function getUser(username: string) {
   const db = getDb();
   const user = db
-    .select({ username: users.username, createdAt: users.createdAt })
+    .select({ username: users.username, role: users.role, createdAt: users.createdAt })
     .from(users)
     .where(eq(users.username, username))
     .get();
   return user || null;
+}
+
+export function isAdmin(username: string): boolean {
+  return getUser(username)?.role === 'admin';
+}
+
+// ── Fleet nodes ─────────────────────────────────────────────────────────────
+
+const NODE_ONLINE_WINDOW_MS = 30_000;
+const ENROLLMENT_TTL_MS = 10 * 60_000;
+const DEFAULT_NODE_SETTING = 'default_node_id';
+
+function hashNodeSecret(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function publicNode<T extends typeof nodes.$inferSelect>(node: T) {
+  const { credentialHash: _, ...safe } = node;
+  const online =
+    node.revokedAt == null &&
+    (node.kind === 'coordinator' ||
+      (node.lastSeenAt != null && Date.now() - node.lastSeenAt < NODE_ONLINE_WINDOW_MS));
+  return { ...safe, online };
+}
+
+/** Ensure the machine hosting the control plane is represented in the fleet. */
+export function ensureCoordinatorNode() {
+  const db = getDb();
+  const now = new Date().toISOString();
+  const id = 'coordinator';
+  db.insert(nodes)
+    .values({
+      id,
+      name: process.env.DEPLOY_NODE_NAME || 'Main Host',
+      kind: 'coordinator',
+      platform: platform(),
+      architecture: arch(),
+      agentVersion: process.env.npm_package_version || null,
+      address: '127.0.0.1',
+      capabilities: JSON.stringify({
+        cpuCount: cpus().length,
+        memoryBytes: totalmem(),
+        docker: true,
+      }),
+      enrolledAt: now,
+      lastSeenAt: Date.now(),
+    })
+    .onConflictDoUpdate({
+      target: nodes.id,
+      set: {
+        platform: platform(),
+        architecture: arch(),
+        lastSeenAt: Date.now(),
+        revokedAt: null,
+      },
+    })
+    .run();
+  return publicNode(db.select().from(nodes).where(eq(nodes.id, id)).get()!);
+}
+
+export function getNodes() {
+  const db = getDb();
+  return db
+    .select()
+    .from(nodes)
+    .all()
+    .map((node) => publicNode(node));
+}
+
+export function getNode(id: string) {
+  const db = getDb();
+  const node = db.select().from(nodes).where(eq(nodes.id, id)).get();
+  return node ? publicNode(node) : null;
+}
+
+function enrollmentCode(): string {
+  const raw = randomBytes(18).toString('base64url').toUpperCase();
+  return `JOIN-${raw.match(/.{1,6}/g)!.join('-')}`;
+}
+
+export function createNodeEnrollment(name: string, createdBy: string) {
+  const trimmedName = name.trim();
+  if (!trimmedName) throw new Error('Node name is required');
+  const db = getDb();
+  const existing = db.select().from(nodes).where(eq(nodes.name, trimmedName)).get();
+  if (existing && !existing.revokedAt)
+    throw new Error(`A node named "${trimmedName}" already exists`);
+  const code = enrollmentCode();
+  const now = new Date();
+  const id = randomBytes(16).toString('hex');
+  const expiresAt = now.getTime() + ENROLLMENT_TTL_MS;
+  db.insert(nodeEnrollments)
+    .values({
+      id,
+      name: trimmedName,
+      codeHash: hashNodeSecret(code),
+      createdBy,
+      createdAt: now.toISOString(),
+      expiresAt,
+    })
+    .run();
+  return { id, name: trimmedName, code, expiresAt };
+}
+
+export function redeemNodeEnrollment(input: {
+  code: string;
+  name?: string;
+  platform?: string;
+  architecture?: string;
+  agentVersion?: string;
+  address?: string;
+  capabilities?: Record<string, unknown>;
+}) {
+  const db = getDb();
+  const codeHash = hashNodeSecret(input.code.trim().toUpperCase());
+  const enrollment = db
+    .select()
+    .from(nodeEnrollments)
+    .where(eq(nodeEnrollments.codeHash, codeHash))
+    .get();
+  if (!enrollment || enrollment.usedAt || enrollment.expiresAt < Date.now()) {
+    return { error: 'Enrollment code is invalid or expired' as const };
+  }
+
+  const name = input.name?.trim() || enrollment.name;
+  if (name !== enrollment.name) {
+    return { error: `This enrollment is reserved for "${enrollment.name}"` as const };
+  }
+
+  const existing = db.select().from(nodes).where(eq(nodes.name, name)).get();
+  if (existing && !existing.revokedAt) {
+    return { error: `A node named "${name}" already exists` as const };
+  }
+
+  const nodeId = existing?.id || `node_${randomBytes(12).toString('hex')}`;
+  const secret = `node_secret_${randomBytes(32).toString('base64url')}`;
+  const now = new Date().toISOString();
+  db.transaction((tx) => {
+    if (existing) {
+      tx.update(nodes)
+        .set({
+          platform: input.platform || null,
+          architecture: input.architecture || null,
+          agentVersion: input.agentVersion || null,
+          address: input.address || null,
+          capabilities: JSON.stringify(input.capabilities || {}),
+          credentialHash: hashNodeSecret(secret),
+          enrolledAt: now,
+          lastSeenAt: Date.now(),
+          revokedAt: null,
+        })
+        .where(eq(nodes.id, nodeId))
+        .run();
+    } else {
+      tx.insert(nodes)
+        .values({
+          id: nodeId,
+          name,
+          kind: 'agent',
+          platform: input.platform || null,
+          architecture: input.architecture || null,
+          agentVersion: input.agentVersion || null,
+          address: input.address || null,
+          capabilities: JSON.stringify(input.capabilities || {}),
+          credentialHash: hashNodeSecret(secret),
+          enrolledAt: now,
+          lastSeenAt: Date.now(),
+        })
+        .run();
+    }
+    tx.update(nodeEnrollments)
+      .set({ usedAt: now })
+      .where(eq(nodeEnrollments.id, enrollment.id))
+      .run();
+  });
+  return { nodeId, name, secret };
+}
+
+export function authenticateNode(nodeId: string | undefined, secret: string | undefined) {
+  if (!nodeId || !secret) return false;
+  const db = getDb();
+  const node = db.select().from(nodes).where(eq(nodes.id, nodeId)).get();
+  if (!node?.credentialHash || node.revokedAt) return false;
+  const actual = Buffer.from(hashNodeSecret(secret));
+  const expected = Buffer.from(node.credentialHash);
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+export function heartbeatNode(
+  nodeId: string,
+  details: {
+    platform?: string;
+    architecture?: string;
+    agentVersion?: string;
+    address?: string;
+    capabilities?: Record<string, unknown>;
+  },
+) {
+  const db = getDb();
+  const previous = db.select().from(nodes).where(eq(nodes.id, nodeId)).get();
+  db.update(nodes)
+    .set({
+      platform: details.platform,
+      architecture: details.architecture,
+      agentVersion: details.agentVersion,
+      address: details.address,
+      capabilities: details.capabilities ? JSON.stringify(details.capabilities) : undefined,
+      lastSeenAt: Date.now(),
+    })
+    .where(eq(nodes.id, nodeId))
+    .run();
+  if (details.address && previous?.address !== details.address) {
+    const assigned = db
+      .select({ name: deployments.name })
+      .from(deployments)
+      .where(eq(deployments.activeNodeId, nodeId))
+      .all();
+    for (const deployment of assigned) notifyRouteChanged(deployment.name);
+  }
+  return getNode(nodeId);
+}
+
+export function reconcileNodeRuntimePorts(
+  nodeId: string,
+  apps: Array<{
+    name?: unknown;
+    relayPort?: unknown;
+    id?: unknown;
+    containerName?: unknown;
+    status?: unknown;
+  }>,
+) {
+  const db = getDb();
+  for (const app of apps) {
+    const name = typeof app.name === 'string' ? app.name : '';
+    const relayPort = Number(app.relayPort);
+    if (!name || !Number.isInteger(relayPort) || relayPort <= 0 || relayPort > 65535) continue;
+    const deployment = db
+      .select()
+      .from(deployments)
+      .where(and(eq(deployments.name, name), eq(deployments.activeNodeId, nodeId)))
+      .get();
+    if (!deployment || deployment.port === relayPort) continue;
+    db.update(deployments)
+      .set({
+        port: relayPort,
+        containerId: typeof app.id === 'string' ? app.id : deployment.containerId,
+        containerName:
+          typeof app.containerName === 'string' ? app.containerName : deployment.containerName,
+        status: app.status === 'running' ? 'running' : deployment.status,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(deployments.name, name))
+      .run();
+    refreshDeploymentInCache(name);
+  }
+}
+
+export function revokeNode(nodeId: string) {
+  if (nodeId === 'coordinator') throw new Error('The coordinator node cannot be revoked');
+  const db = getDb();
+  const node = db.select().from(nodes).where(eq(nodes.id, nodeId)).get();
+  if (!node) throw new Error('Node not found');
+  db.update(nodes)
+    .set({ revokedAt: new Date().toISOString(), credentialHash: null })
+    .where(eq(nodes.id, nodeId))
+    .run();
+  if (getDefaultNodeId() === nodeId) setSystemSetting(DEFAULT_NODE_SETTING, '');
+}
+
+export function getDefaultNodeId(): string | null {
+  return getSystemSetting(DEFAULT_NODE_SETTING) || null;
+}
+
+export function setDefaultNode(nodeId: string) {
+  const node = getNode(nodeId);
+  if (!node || node.revokedAt) throw new Error('Node not found');
+  setSystemSetting(DEFAULT_NODE_SETTING, nodeId);
+  return node;
+}
+
+export function getFleetPlacementState() {
+  ensureCoordinatorNode();
+  const allNodes = getNodes().filter((node) => !node.revokedAt);
+  const defaultNodeId = getDefaultNodeId();
+  const defaultNode = defaultNodeId
+    ? allNodes.find((node) => node.id === defaultNodeId) || null
+    : null;
+  return {
+    ready: Boolean(defaultNode),
+    defaultNodeId,
+    defaultNode,
+    nodes: allNodes,
+  };
+}
+
+export function enqueueAgentJob(input: {
+  nodeId: string;
+  type: string;
+  deploymentName: string;
+  artifactPath?: string;
+  payload: Record<string, unknown>;
+}) {
+  const db = getDb();
+  const id = `job_${randomBytes(16).toString('hex')}`;
+  db.insert(agentJobs)
+    .values({
+      id,
+      nodeId: input.nodeId,
+      type: input.type,
+      deploymentName: input.deploymentName,
+      artifactPath: input.artifactPath || null,
+      payload: JSON.stringify(input.payload),
+      createdAt: Date.now(),
+    })
+    .run();
+  return db.select().from(agentJobs).where(eq(agentJobs.id, id)).get()!;
+}
+
+export function claimAgentJob(nodeId: string) {
+  const db = getDb();
+  return db.transaction((tx) => {
+    // Agent/service crashes can strand a claimed job. Builds have a 15-minute
+    // ceiling, so a 20-minute lease safely makes abandoned work claimable.
+    tx.update(agentJobs)
+      .set({ status: 'queued', claimedAt: null })
+      .where(
+        and(
+          eq(agentJobs.nodeId, nodeId),
+          eq(agentJobs.status, 'running'),
+          lt(agentJobs.claimedAt, Date.now() - 20 * 60_000),
+        ),
+      )
+      .run();
+    const job = tx
+      .select()
+      .from(agentJobs)
+      .where(and(eq(agentJobs.nodeId, nodeId), eq(agentJobs.status, 'queued')))
+      .orderBy(agentJobs.createdAt)
+      .get();
+    if (!job) return null;
+    const claimedAt = Date.now();
+    tx.update(agentJobs)
+      .set({ status: 'running', claimedAt })
+      .where(and(eq(agentJobs.id, job.id), eq(agentJobs.status, 'queued')))
+      .run();
+    return { ...job, status: 'running', claimedAt };
+  });
+}
+
+export function getAgentJob(id: string) {
+  return getDb().select().from(agentJobs).where(eq(agentJobs.id, id)).get() || null;
+}
+
+export function getRecentAgentJobs(nodeId: string, limit = 5) {
+  return getDb()
+    .select()
+    .from(agentJobs)
+    .where(eq(agentJobs.nodeId, nodeId))
+    .orderBy(desc(agentJobs.createdAt))
+    .limit(limit)
+    .all();
+}
+
+export function completeAgentJob(
+  id: string,
+  nodeId: string,
+  completion: { success: boolean; result?: Record<string, unknown>; error?: string },
+) {
+  const db = getDb();
+  const job = getAgentJob(id);
+  if (!job || job.nodeId !== nodeId) throw new Error('Job not found');
+  db.update(agentJobs)
+    .set({
+      status: completion.success ? 'complete' : 'failed',
+      result: completion.result ? JSON.stringify(completion.result) : null,
+      error: completion.error || null,
+      completedAt: Date.now(),
+    })
+    .where(eq(agentJobs.id, id))
+    .run();
 }
 
 // ── Deployments ─────────────────────────────────────────────────────────────
@@ -263,6 +653,8 @@ interface DeploymentInput {
   containerName?: string;
   directory?: string;
   extraPorts?: string | null;
+  desiredNodeId?: string | null;
+  activeNodeId?: string | null;
   createdAt?: string;
 }
 
@@ -353,6 +745,8 @@ export function saveDeployment(deployment: DeploymentInput) {
       containerName: deployment.containerName || null,
       directory: deployment.directory || null,
       extraPorts: deployment.extraPorts || null,
+      desiredNodeId: deployment.desiredNodeId || null,
+      activeNodeId: deployment.activeNodeId || null,
       createdAt: deployment.createdAt || now,
       updatedAt: now,
     })
@@ -366,6 +760,10 @@ export function saveDeployment(deployment: DeploymentInput) {
         containerName: deployment.containerName || null,
         directory: deployment.directory || null,
         extraPorts: deployment.extraPorts || null,
+        ...(deployment.desiredNodeId !== undefined
+          ? { desiredNodeId: deployment.desiredNodeId }
+          : {}),
+        ...(deployment.activeNodeId !== undefined ? { activeNodeId: deployment.activeNodeId } : {}),
         updatedAt: now,
       },
     })
@@ -429,6 +827,18 @@ export function updateDeploymentSettings(
   if (settings.privilegedDocker !== undefined) set.privilegedDocker = settings.privilegedDocker;
   db.update(deployments).set(set).where(eq(deployments.name, name)).run();
   refreshDeploymentInCache(name);
+}
+
+export function setDeploymentDesiredNode(name: string, nodeId: string) {
+  const node = getNode(nodeId);
+  if (!node || node.revokedAt) throw new Error('Node not found');
+  const db = getDb();
+  db.update(deployments)
+    .set({ desiredNodeId: nodeId, updatedAt: new Date().toISOString() })
+    .where(eq(deployments.name, name))
+    .run();
+  refreshDeploymentInCache(name);
+  return getDeployment(name);
 }
 
 export function getDeploymentEnvVars(name: string): Record<string, string> {
@@ -971,7 +1381,7 @@ export interface DashboardAppStat {
  * Derive a single ordinal health signal from the raw stats. Heroku-like:
  * one color you can read at a glance from across the room.
  *
- *  - building/uploading/starting → 'building' (yellow, in-progress)
+ *  - migration/build lifecycle states → 'building' (yellow, in-progress)
  *  - crash-looping → 'degraded' (container keeps restarting; not "down"
  *    because Docker has restarted it, but operators need to know)
  *  - stopped/exited/failed → 'down' (red, action needed)
@@ -988,7 +1398,14 @@ function computeSeverity(args: {
   requestsLastMin: number;
 }): HealthSeverity {
   const { status, crashLooping, errPct, p95, memPercent, requestsLastMin } = args;
-  if (status === 'building' || status === 'uploading' || status === 'starting') return 'building';
+  if (
+    status === 'building' ||
+    status === 'uploading' ||
+    status === 'backing-up' ||
+    status === 'restoring' ||
+    status === 'starting'
+  )
+    return 'building';
   if (crashLooping) return 'degraded';
   if (status !== 'running') return 'down';
   if (errPct > 5 || p95 > 5000 || memPercent > 90) return 'degraded';
@@ -1554,7 +1971,9 @@ export function cleanupStaleBuildLogs() {
   // Also reset any deployments stuck in pre-container states
   db.update(deployments)
     .set({ status: 'unknown', updatedAt: new Date().toISOString() })
-    .where(sql`${deployments.status} IN ('building', 'starting', 'uploading')`)
+    .where(
+      sql`${deployments.status} IN ('building', 'starting', 'uploading', 'backing-up', 'restoring')`,
+    )
     .run();
 }
 

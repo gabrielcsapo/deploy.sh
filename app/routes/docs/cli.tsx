@@ -1,3 +1,5 @@
+import { Link } from 'react-flight-router/client';
+
 export default function Component() {
   return (
     <article className="prose max-w-none">
@@ -48,6 +50,64 @@ deploy -u https://my-server.local:5000`}
       </p>
       <pre>
         <code>deploy list</code>
+      </pre>
+
+      <h2>deploy nodes enroll</h2>
+      <p>
+        Create a ten-minute, one-use enrollment for an execution node. Administrators can normally
+        do this from <strong>Dashboard → Nodes</strong>; this command is available for automation.
+      </p>
+      <pre>
+        <code>deploy nodes enroll --name imac</code>
+      </pre>
+      <p>
+        For the normal web workflow and placement behavior, see{' '}
+        <Link to="/docs/nodes">Nodes &amp; Placement</Link>.
+      </p>
+
+      <h2>deploy agent join</h2>
+      <p>
+        Redeem an enrollment code on another machine and install the background agent. On macOS, run
+        it without sudo so its LaunchAgent can access Docker Desktop and mounted storage. Linux
+        installs a systemd service as root.
+      </p>
+      <pre>
+        <code>
+          {`# macOS
+deploy agent join https://deploy.local
+
+# Linux
+sudo deploy agent join https://deploy.local`}
+        </code>
+      </pre>
+
+      <h2>deploy agent status</h2>
+      <p>
+        Check whether the local execution agent can authenticate with its coordinator and whether
+        its background service is running.
+      </p>
+      <pre>
+        <code>deploy agent status</code>
+      </pre>
+
+      <h2>deploy agent install</h2>
+      <p>
+        Reinstall the background service using this machine&apos;s existing enrollment. This does
+        not create a new node or rotate its credential.
+      </p>
+      <pre>
+        <code>deploy agent install</code>
+      </pre>
+
+      <h2>deploy upgrade</h2>
+      <p>
+        Replace the current CLI with the exact platform build served by the coordinator. After
+        upgrading an execution node, run <code>deploy agent install</code> to restart its background
+        service with the new binary.
+      </p>
+      <pre>
+        <code>{`deploy upgrade
+deploy upgrade --check`}</code>
       </pre>
 
       <h2>deploy logs</h2>

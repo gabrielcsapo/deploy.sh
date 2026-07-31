@@ -12,10 +12,12 @@ import Database from 'better-sqlite3';
 import { registerHost, unregisterHost } from '../mdns.ts';
 import { startProxies, stopProxies, type ExtraPortMapping } from '../tcp-proxy.ts';
 import { readDeployConfig, type DeployConfig } from '../deploy-config.ts';
+import { purgeDeploymentCache } from './response-cache.ts';
 
 export interface EdgeRoute {
   name: string;
   port: number | null;
+  backendHost: string;
   /** JSON string of ExtraPortMapping[] as stored on the row. */
   extraPorts: string | null;
   cache?: DeployConfig['cache'];
@@ -26,6 +28,7 @@ interface DeploymentRow {
   port: number | null;
   extra_ports: string | null;
   directory: string | null;
+  backend_host: string | null;
 }
 
 export class RouteTable {
@@ -46,7 +49,11 @@ export class RouteTable {
   /** Full resync from the DB — boot, and after every IPC (re)connect. */
   reloadAll() {
     const rows = this.sqlite
-      .prepare('SELECT name, port, extra_ports, directory FROM deployments')
+      .prepare(
+        `SELECT d.name, d.port, d.extra_ports, d.directory, n.address AS backend_host
+         FROM deployments d
+         LEFT JOIN nodes n ON n.id = d.active_node_id`,
+      )
       .all() as DeploymentRow[];
     const seen = new Set<string>();
     for (const row of rows) {
@@ -62,7 +69,12 @@ export class RouteTable {
   /** Re-read one row after a route:changed hint. Missing row ⇒ removal. */
   reconcile(name: string) {
     const row = this.sqlite
-      .prepare('SELECT name, port, extra_ports, directory FROM deployments WHERE name = ?')
+      .prepare(
+        `SELECT d.name, d.port, d.extra_ports, d.directory, n.address AS backend_host
+         FROM deployments d
+         LEFT JOIN nodes n ON n.id = d.active_node_id
+         WHERE d.name = ?`,
+      )
       .get(name) as DeploymentRow | undefined;
     if (!row) {
       this.remove(name);
@@ -73,6 +85,10 @@ export class RouteTable {
 
   private apply(row: DeploymentRow) {
     const prev = this.cache.get(row.name);
+    const backendHost = row.backend_host || '127.0.0.1';
+    if (prev && (prev.port !== row.port || prev.backendHost !== backendHost)) {
+      purgeDeploymentCache(row.name);
+    }
     let cache: DeployConfig['cache'];
     if (row.directory) {
       try {
@@ -84,6 +100,7 @@ export class RouteTable {
     this.cache.set(row.name, {
       name: row.name,
       port: row.port,
+      backendHost,
       extraPorts: row.extra_ports,
       cache,
     });
@@ -93,12 +110,15 @@ export class RouteTable {
 
     // Restart TCP proxies only when the extra-port set actually changed —
     // status-only row updates must not churn listening sockets.
-    if ((row.extra_ports ?? null) !== (prev?.extraPorts ?? null)) {
+    if (
+      (row.extra_ports ?? null) !== (prev?.extraPorts ?? null) ||
+      backendHost !== prev?.backendHost
+    ) {
       if (row.extra_ports) {
         try {
           const ports = JSON.parse(row.extra_ports) as ExtraPortMapping[];
           if (ports.length > 0) {
-            startProxies(row.name, ports);
+            startProxies(row.name, ports, backendHost);
           } else {
             stopProxies(row.name);
           }
@@ -112,6 +132,7 @@ export class RouteTable {
   }
 
   private remove(name: string) {
+    purgeDeploymentCache(name);
     this.cache.delete(name);
     unregisterHost(name);
     stopProxies(name);

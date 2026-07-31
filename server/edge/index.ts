@@ -29,6 +29,7 @@ import { controlRestartingPage } from '../error-page.ts';
 import { createHotPathHandler } from './proxy.ts';
 import { initEdgeRuntime, getDefaultDbFile } from './runtime.ts';
 import { startEdgeIpcServer, getEdgeSockPath } from '../ipc.ts';
+import { purgeDeploymentCache } from './response-cache.ts';
 import { logRequest, flushRequestLogs } from '../request-log.ts';
 import { isAppHost, tunnelUpgrade } from './upgrade-proxy.ts';
 
@@ -136,6 +137,7 @@ async function main() {
 
   const ipcServer = startEdgeIpcServer(getEdgeSockPath(), {
     onRouteChanged: (name) => runtime.routes.reconcile(name),
+    onCachePurge: (name) => purgeDeploymentCache(name),
     onCertReload: () => reloadTls(),
     onControlConnected: () => {
       runtime.routes.reloadAll();

@@ -22,6 +22,7 @@ import type { DeployEvent } from './events.ts';
 export type ControlToEdge =
   | { t: 'hello'; pid: number; v: 1; events?: boolean }
   | { t: 'route:changed'; name: string }
+  | { t: 'cache:purge'; name: string }
   | { t: 'cert:reload' }
   | { t: 'ping'; id: number };
 
@@ -42,6 +43,7 @@ export function getEdgeSockPath(): string {
 export interface EdgeHandlers {
   onRouteChanged(name: string): void;
   onCertReload(): void;
+  onCachePurge?(name: string): void;
   /** Fired when a client identifies itself — edge resyncs missed state. */
   onControlConnected?(): void;
 }
@@ -118,6 +120,9 @@ export function startEdgeIpcServer(sockPath: string, handlers: EdgeHandlers): Ed
           break;
         case 'cert:reload':
           handlers.onCertReload();
+          break;
+        case 'cache:purge':
+          handlers.onCachePurge?.(msg.name);
           break;
         case 'ping':
           writeMessage(socket, { t: 'pong', id: msg.id } satisfies EdgeToControl);
@@ -269,6 +274,10 @@ export function notifyRouteChanged(name: string) {
 
 export function notifyCertReload() {
   lazySend({ t: 'cert:reload' });
+}
+
+export function notifyCachePurge(name: string) {
+  lazySend({ t: 'cache:purge', name });
 }
 
 /** Test/reset hook: drop the lazy client so the next notify re-dials. */

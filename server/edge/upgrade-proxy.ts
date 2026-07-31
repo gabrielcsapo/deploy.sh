@@ -19,6 +19,7 @@ import type { Duplex } from 'node:stream';
 export interface UpgradeRoute {
   name: string;
   port: number | null;
+  backendHost?: string | null;
 }
 
 export interface UpgradeProxyDeps {
@@ -47,8 +48,14 @@ export function isAppHost(hostname: string, deps: UpgradeProxyDeps): boolean {
  * Tunnel an upgrade request to a backend port. Writes the original request
  * line + raw headers, replays `head`, then pipes bytes both ways.
  */
-export function tunnelUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer, port: number) {
-  const upstream = connect({ port, host: '127.0.0.1' });
+export function tunnelUpgrade(
+  req: IncomingMessage,
+  socket: Duplex,
+  head: Buffer,
+  port: number,
+  host = '127.0.0.1',
+) {
+  const upstream = connect({ port, host });
 
   upstream.on('connect', () => {
     const lines = [`${req.method} ${req.url} HTTP/1.1`];
@@ -87,7 +94,7 @@ export function attachAppUpgradeProxy(
     if (isAppHost(hostname, deps)) {
       const route = deps.getRoute(hostname.substring(0, hostname.length - 6));
       if (route?.port) {
-        tunnelUpgrade(req, socket, head, route.port);
+        tunnelUpgrade(req, socket, head, route.port, route.backendHost || '127.0.0.1');
       } else {
         socket.destroy();
       }

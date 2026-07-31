@@ -12,6 +12,7 @@ import { useWebSocket } from '../../../hooks/useWebSocket';
 import { LoadingState } from '../../../components/LoadingState';
 import { TabStrip, type TabDef } from '../../../components/dashboard/TabStrip';
 import { LiveStatusStrip } from '../../../components/dashboard/LiveStatusStrip';
+import { formatBytes } from '../../../utils';
 import {
   OverviewIcon,
   BuildIcon,
@@ -63,6 +64,12 @@ export default function Component() {
   const [inspect, setInspect] = useState<ContainerInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [migrationProgress, setMigrationProgress] = useState<{
+    phase: string;
+    stage: string;
+    processedBytes: number;
+    totalBytes: number;
+  } | null>(null);
 
   const activeTab = getActiveTab(location.pathname, name!);
 
@@ -97,16 +104,68 @@ export default function Component() {
     fetchInspect();
   }, [fetchDeployment, fetchInspect]);
 
+  useEffect(() => {
+    if (!deployment?.name) return;
+    let cancelled = false;
+    const refreshProgress = async () => {
+      const auth = getAuth();
+      if (!auth) return;
+      try {
+        const response = await fetch(
+          `/api/deployments/${encodeURIComponent(deployment.name)}/migration-progress`,
+          {
+            headers: {
+              'x-deploy-username': auth.username,
+              'x-deploy-token': auth.token,
+            },
+          },
+        );
+        const body = await response.json();
+        if (!response.ok || cancelled) return;
+        if (!body.active) {
+          if (deployment.status === 'backing-up' || deployment.status === 'restoring') {
+            setMigrationProgress(null);
+            await fetchDeployment();
+          }
+          return;
+        }
+        if (!body.progress) return;
+        setMigrationProgress(body.progress);
+        setDeployment((current) =>
+          current ? { ...current, status: String(body.progress.phase) } : current,
+        );
+      } catch {
+        // WebSocket updates remain the primary live path.
+      }
+    };
+    void refreshProgress();
+    const timer = window.setInterval(refreshProgress, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [deployment?.name, deployment?.status, fetchDeployment]);
+
   // WebSocket for real-time status updates
   const channels = useMemo(() => [`deployment:${name}`], [name]);
   const handleWsEvent = useCallback(
     (event: { type: string; data: Record<string, unknown> }) => {
       if (event.type === 'deployment:status') {
         setDeployment((prev) => (prev ? { ...prev, status: event.data.status as string } : prev));
+        if (event.data.status !== 'backing-up' && event.data.status !== 'restoring') {
+          setMigrationProgress(null);
+        }
         // Refetch inspect when status changes to running
         if (event.data.status === 'running') {
           fetchInspect();
         }
+      } else if (event.type === 'deployment:migration-progress') {
+        setMigrationProgress({
+          phase: String(event.data.phase || ''),
+          stage: String(event.data.stage || ''),
+          processedBytes: Number(event.data.processedBytes || 0),
+          totalBytes: Number(event.data.totalBytes || 0),
+        });
       }
     },
     [fetchInspect],
@@ -124,7 +183,13 @@ export default function Component() {
     // always on, so it carried no signal). Build still gets a dot during
     // an active build because that IS a real "click in here, something is
     // happening" cue.
-    if (t.key === 'build' && deployment?.status === 'building') dot = 'warning';
+    if (
+      t.key === 'build' &&
+      ['uploading', 'backing-up', 'restoring', 'building', 'starting'].includes(
+        deployment?.status || '',
+      )
+    )
+      dot = 'warning';
     return {
       key: t.key,
       label: t.label,
@@ -139,6 +204,15 @@ export default function Component() {
   // is already in the URL, blanking the page on every navigate is a
   // polish-killer. (Vercel/Heroku both do this.)
   const hasError = error || (!loading && !deployment);
+  const migrationActive = deployment?.status === 'backing-up' || deployment?.status === 'restoring';
+  const exactTransfer =
+    migrationProgress?.stage === 'transferring' && migrationProgress.totalBytes > 0;
+  const transferPercent = exactTransfer
+    ? Math.min(
+        100,
+        Math.round((migrationProgress.processedBytes / migrationProgress.totalBytes) * 100),
+      )
+    : null;
 
   return (
     <div className={isFullBleed ? 'flex flex-col h-[calc(100vh-6rem)]' : ''}>
@@ -164,6 +238,47 @@ export default function Component() {
         </div>
         <TabStrip tabs={tabs} active={activeTab} className="border-b border-border" />
       </div>
+
+      {migrationActive && (
+        <div className="mt-3 rounded-lg border border-warning/30 bg-warning/8 px-4 py-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-warning">
+                {deployment.status === 'backing-up'
+                  ? 'Moving application data: backing up'
+                  : 'Moving application data: restoring'}
+              </p>
+              <p className="text-xs text-text-secondary mt-1">
+                {migrationProgress?.stage === 'compressing'
+                  ? `${formatBytes(migrationProgress.processedBytes)} archive written from ${formatBytes(
+                      migrationProgress.totalBytes,
+                    )} of source data`
+                  : migrationProgress?.stage === 'transferring'
+                    ? `${formatBytes(migrationProgress.processedBytes)} of ${formatBytes(
+                        migrationProgress.totalBytes,
+                      )} transferred`
+                    : migrationProgress?.stage === 'extracting'
+                      ? 'Extracting the managed-volume archive on the destination'
+                      : 'Preparing migration data…'}
+              </p>
+            </div>
+            <a
+              href={`/dashboard/${encodeURIComponent(deployment.name)}/build`}
+              className="text-xs text-warning hover:text-text shrink-0"
+            >
+              View details
+            </a>
+          </div>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-bg-active">
+            <div
+              className={`h-full rounded-full bg-warning transition-[width] duration-300 ${
+                transferPercent == null ? 'w-1/3 animate-pulse motion-reduce:animate-none' : ''
+              }`}
+              style={transferPercent == null ? undefined : { width: `${transferPercent}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Metrics readout sits below the sticky chrome and scrolls with the
           page. Always rendered so the operator gets one at-a-glance row

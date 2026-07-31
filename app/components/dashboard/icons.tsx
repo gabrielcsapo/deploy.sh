@@ -99,6 +99,17 @@ export function DeploymentsIcon(p: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function NodesIcon(p: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...baseProps} {...p}>
+      <rect x="4" y="3" width="16" height="6" rx="2" />
+      <rect x="4" y="15" width="16" height="6" rx="2" />
+      <path d="M8 9v6M16 9v6" />
+      <path d="M8 6h.01M8 18h.01" />
+    </svg>
+  );
+}
+
 export function DiscoverIcon(p: SVGProps<SVGSVGElement>) {
   return (
     <svg {...baseProps} {...p}>

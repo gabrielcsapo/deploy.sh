@@ -215,8 +215,10 @@ export interface ApiContainerInspect {
   Platform: string;
   RestartCount: number;
   State: { Status: string; FinishedAt: string };
-  Config: { Image: string; Env: string[] };
-  NetworkSettings: { Ports: Record<string, unknown> };
+  Config: { Image: string; Env: string[]; Labels?: Record<string, string> };
+  NetworkSettings: {
+    Ports: Record<string, Array<{ HostIp: string; HostPort: string }> | null>;
+  };
 }
 
 export async function inspectContainer(containerName: string): Promise<ApiContainerInspect | null> {

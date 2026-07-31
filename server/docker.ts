@@ -1,6 +1,7 @@
 import { execFile, spawn, spawnSync } from 'node:child_process';
 import { promisify } from 'node:util';
-import { existsSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { createServer, createConnection, type AddressInfo, type Socket } from 'node:net';
 import http from 'node:http';
@@ -25,6 +26,35 @@ import {
 } from './docker-api.ts';
 
 const execFileAsync = promisify(execFile);
+
+function buildCacheDirectory(name: string) {
+  const dataDir = process.env.DEPLOY_DATA_DIR || resolve(process.cwd(), '.deploy-data');
+  const root = resolve(dataDir, 'build-cache');
+  if (!/^[a-z0-9][a-z0-9-]*$/i.test(name)) throw new Error('Invalid deployment name');
+  return resolve(root, name.toLowerCase());
+}
+
+export function getBuildCacheSize(name: string): number {
+  const root = buildCacheDirectory(name);
+  if (!existsSync(root)) return 0;
+  let bytes = 0;
+  const pending = [root];
+  while (pending.length > 0) {
+    const directory = pending.pop()!;
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = resolve(directory, entry.name);
+      if (entry.isDirectory()) pending.push(path);
+      else if (entry.isFile()) bytes += statSync(path).size;
+    }
+  }
+  return bytes;
+}
+
+export async function purgeBuildCache(name: string): Promise<number> {
+  const bytes = getBuildCacheSize(name);
+  await rm(buildCacheDirectory(name), { recursive: true, force: true });
+  return bytes;
+}
 
 // Enable BuildKit by default for all Docker operations
 process.env.DOCKER_BUILDKIT = '1';
@@ -258,8 +288,7 @@ export function buildImage(
   // and add --no-cache (so even local intermediates are ignored). This is the
   // escape hatch for cases where a prior build cached a corrupted COPY layer
   // and subsequent builds keep replaying it.
-  const dataDir = process.env.DEPLOY_DATA_DIR || resolve(process.cwd(), '.deploy-data');
-  const cacheDir = resolve(dataDir, 'build-cache', name.toLowerCase());
+  const cacheDir = buildCacheDirectory(name);
   mkdirSync(cacheDir, { recursive: true });
   const useBuildx = hasBuildx();
   let buildArgs: string[];
@@ -572,6 +601,8 @@ export async function runContainer(
     ...privilegedDockerFlags,
     '--label',
     `deploy-sh.app=${name.toLowerCase()}`,
+    '--label',
+    `deploy-sh.host-port=${port}`,
     ...customRunArgs,
     imageTag,
   ];
@@ -594,7 +625,7 @@ export async function runContainer(
 // new one comes up. We rename the existing container out of the way (instead
 // of removing it) so the new container can take the canonical name and the
 // reverse proxy can switch over atomically by updating deployment.port. The
-// old container is removed after a drain window.
+// one old container is retained after the drain window for rollback.
 
 /** Returns true if a Docker container with the exact name exists (any state). */
 export async function containerExists(name: string): Promise<boolean> {
@@ -619,18 +650,36 @@ export async function removeContainerByName(name: string): Promise<void> {
   }
 }
 
+export async function stopContainerByName(name: string): Promise<void> {
+  try {
+    await apiStopContainer(name);
+  } catch {
+    // ignore missing/already stopped release containers
+  }
+}
+
 /**
- * Remove leftover blue/green drain containers (`deploy-sh-<app>-prev-<ts>`).
- * The drain removal is a setTimeout in the deploy path — if the server dies
- * inside the 30s window, the renamed container survives with
- * `--restart unless-stopped` and runs forever. Called on startup.
+ * Remove surplus blue/green containers while retaining the newest previous
+ * release for rollback. Called on startup to recover from interrupted deploys.
  */
 export async function sweepOrphanedPrevContainers(): Promise<string[]> {
   try {
     const containers = await listDeployContainers();
-    const orphans = containers
+    const previous = containers
       .map((c) => c.Names[0]?.replace(/^\//, ''))
       .filter((n): n is string => !!n && /^deploy-sh-.+-prev-\d+$/.test(n));
+    const newestByApp = new Map<string, string>();
+    for (const candidate of previous) {
+      const base = candidate.replace(/-prev-\d+$/, '');
+      const current = newestByApp.get(base);
+      if (!current || candidate.localeCompare(current) > 0) newestByApp.set(base, candidate);
+    }
+    const orphans = previous.filter(
+      (candidate) => newestByApp.get(candidate.replace(/-prev-\d+$/, '')) !== candidate,
+    );
+    for (const [canonical, retained] of newestByApp) {
+      if (await containerExists(canonical)) await stopContainerByName(retained);
+    }
     for (const name of orphans) {
       try {
         await apiRemoveContainer(name);
@@ -643,6 +692,81 @@ export async function sweepOrphanedPrevContainers(): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+function publishedHostPort(info: Awaited<ReturnType<typeof inspectContainer>>): number | null {
+  if (!info) return null;
+  const labeled = Number.parseInt(info.Config.Labels?.['deploy-sh.host-port'] || '', 10);
+  if (Number.isInteger(labeled) && labeled > 0) return labeled;
+  for (const bindings of Object.values(info.NetworkSettings.Ports || {})) {
+    const port = Number.parseInt(bindings?.[0]?.HostPort || '', 10);
+    if (Number.isInteger(port) && port > 0) return port;
+  }
+  return null;
+}
+
+export async function getPreviousRelease(name: string): Promise<{
+  containerName: string;
+  containerId: string;
+  image: string;
+  port: number;
+  createdAt: string;
+} | null> {
+  const canonical = `deploy-sh-${name.toLowerCase()}`;
+  const candidates = (await listDeployContainers())
+    .map((container) => container.Names[0]?.replace(/^\//, ''))
+    .filter((candidate): candidate is string =>
+      Boolean(candidate?.startsWith(`${canonical}-prev-`)),
+    )
+    .sort((a, b) => b.localeCompare(a));
+  for (const containerName of candidates) {
+    const info = await inspectContainer(containerName);
+    const port = publishedHostPort(info);
+    if (info && port) {
+      return {
+        containerName,
+        containerId: info.Id,
+        image: info.Config.Image,
+        port,
+        createdAt: info.Created,
+      };
+    }
+  }
+  return null;
+}
+
+/** Atomically swaps the canonical container with the retained previous release. */
+export async function rollbackContainer(name: string) {
+  const canonical = `deploy-sh-${name.toLowerCase()}`;
+  const previous = await getPreviousRelease(name);
+  if (!previous) throw new Error('No previous release is available');
+  await apiStartContainer(previous.containerName);
+  if (!(await healthCheckPort(previous.port, 30_000))) {
+    await stopContainerByName(previous.containerName);
+    throw new Error('Previous release failed its health check');
+  }
+  const displaced = `${canonical}-prev-${Date.now()}`;
+  await renameContainerByName(canonical, displaced);
+  try {
+    await renameContainerByName(previous.containerName, canonical);
+  } catch (error) {
+    await renameContainerByName(displaced, canonical).catch(() => {});
+    await stopContainerByName(previous.containerName);
+    throw error;
+  }
+  setTimeout(() => stopContainerByName(displaced), 30_000).unref();
+  return { ...previous, containerName: canonical, displacedContainerName: displaced };
+}
+
+export async function prunePreviousContainers(name: string, keep = 1): Promise<void> {
+  const canonical = `deploy-sh-${name.toLowerCase()}`;
+  const candidates = (await listDeployContainers())
+    .map((container) => container.Names[0]?.replace(/^\//, ''))
+    .filter((candidate): candidate is string =>
+      Boolean(candidate?.startsWith(`${canonical}-prev-`)),
+    )
+    .sort((a, b) => b.localeCompare(a));
+  await Promise.all(candidates.slice(keep).map((candidate) => removeContainerByName(candidate)));
 }
 
 /**
@@ -693,11 +817,15 @@ export async function startContainer(name: string): Promise<void> {
 
 export async function removeContainer(name: string): Promise<void> {
   const containerName = `deploy-sh-${name.toLowerCase()}`;
-  try {
-    await apiRemoveContainer(containerName);
-  } catch {
-    // ignore if already gone
-  }
+  const containers = await listDeployContainers().catch(() => []);
+  const releaseNames = containers
+    .map((container) => container.Names[0]?.replace(/^\//, ''))
+    .filter(
+      (candidate): candidate is string =>
+        candidate === containerName || Boolean(candidate?.startsWith(`${containerName}-prev-`)),
+    );
+  if (!releaseNames.includes(containerName)) releaseNames.push(containerName);
+  await Promise.all(releaseNames.map((candidate) => removeContainerByName(candidate)));
 }
 
 /** Container status via the Engine API. 'stopped' when the container doesn't exist. */
@@ -949,6 +1077,31 @@ const statusCache = new TtlCache(getAllContainerStatusesUncached, 5_000);
  */
 export function getAllContainerStatuses(): Promise<Map<string, string>> {
   return statusCache.get();
+}
+
+export async function getDeploymentContainerStatuses(): Promise<
+  Array<{
+    id: string;
+    name: string;
+    containerName: string;
+    status: string;
+    detail: string;
+  }>
+> {
+  const containers = await listDeployContainers().catch(() => []);
+  return containers
+    .map((container) => {
+      const containerName = container.Names[0]?.replace(/^\//, '') || '';
+      return {
+        id: container.Id,
+        name: containerName.replace(/^deploy-sh-/, '').replace(/-prev-\d+$/, ''),
+        containerName,
+        status: container.State,
+        detail: container.Status,
+      };
+    })
+    .filter((container) => container.containerName.startsWith('deploy-sh-'))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**

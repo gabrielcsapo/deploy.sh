@@ -1,5 +1,7 @@
 'use server';
 
+import { existsSync } from 'node:fs';
+import { basename, resolve } from 'node:path';
 import {
   authenticate,
   getDeployments as _getDeployments,
@@ -25,6 +27,9 @@ import {
   deleteBackupRecord as _deleteBackupRecord,
   getBuildLogs as _getBuildLogs,
   getDeploymentVolumes as _getDeploymentVolumes,
+  getNode as _getNode,
+  enqueueAgentJob as _enqueueAgentJob,
+  getAgentJob as _getAgentJob,
 } from '../../server/store.ts';
 import {
   getContainerStatusAsync,
@@ -35,9 +40,15 @@ import {
   startContainer as _startContainer,
   restartContainer as _restartContainer,
   recreateContainer as _recreateContainer,
+  getPreviousRelease as _getPreviousRelease,
+  rollbackContainer as _rollbackContainer,
+  removeContainer as _removeContainer,
+  getBuildCacheSize as _getBuildCacheSize,
+  purgeBuildCache as _purgeBuildCache,
 } from '../../server/docker.ts';
 import {
   getVolumeDir,
+  getBackupDir,
   createBackup as _createBackup,
   restoreBackup as _restoreBackup,
   deleteBackupFile as _deleteBackupFile,
@@ -46,6 +57,7 @@ import {
 } from '../../server/volumes.ts';
 import { readCapture } from '../../server/capture.ts';
 import { getActiveBuildLog } from '../../server/store.ts';
+import { notifyCachePurge } from '../../server/ipc.ts';
 
 function requireAuth(username: string, token: string) {
   if (!authenticate(username, token)) {
@@ -53,9 +65,52 @@ function requireAuth(username: string, token: string) {
   }
 }
 
-const PRE_CONTAINER_STATES = new Set(['uploading', 'building', 'starting']);
+async function runRemoteCommand(
+  nodeId: string,
+  type: string,
+  name: string,
+  payload: Record<string, unknown> = {},
+  timeoutMs = 120_000,
+  artifactPath?: string,
+) {
+  const node = _getNode(nodeId);
+  if (!node?.online) throw new Error('Deployment node is offline');
+  const queued = _enqueueAgentJob({
+    nodeId,
+    type,
+    deploymentName: name,
+    payload,
+    artifactPath,
+  });
+  const deadline = Date.now() + timeoutMs;
+  let job = _getAgentJob(queued.id);
+  while (job && job.status !== 'complete' && job.status !== 'failed' && Date.now() < deadline) {
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 500));
+    job = _getAgentJob(queued.id);
+  }
+  if (!job || (job.status !== 'complete' && job.status !== 'failed')) {
+    throw new Error(`Timed out waiting for ${node.name}`);
+  }
+  if (job.status === 'failed') throw new Error(job.error || `Remote ${type} failed`);
+  return job.result ? (JSON.parse(job.result) as Record<string, unknown>) : {};
+}
 
-async function resolveStatus(d: { name: string; status: string | null }): Promise<string> {
+const PRE_CONTAINER_STATES = new Set([
+  'uploading',
+  'backing-up',
+  'building',
+  'restoring',
+  'starting',
+]);
+
+async function resolveStatus(d: {
+  name: string;
+  status: string | null;
+  activeNodeId?: string | null;
+}): Promise<string> {
+  if (d.activeNodeId && d.activeNodeId !== 'coordinator') {
+    return _getNode(d.activeNodeId)?.online ? d.status || 'unknown' : 'node-offline';
+  }
   if (d.status && PRE_CONTAINER_STATES.has(d.status)) return d.status;
   const containerStatus = await getContainerStatusAsync(d.name);
   // A failed deploy (esp. a never-started new app) has no container. Preserve the
@@ -65,9 +120,12 @@ async function resolveStatus(d: { name: string; status: string | null }): Promis
 }
 
 function resolveStatusBatched(
-  d: { name: string; status: string | null },
+  d: { name: string; status: string | null; activeNodeId?: string | null },
   statusMap: Map<string, string>,
 ): string {
+  if (d.activeNodeId && d.activeNodeId !== 'coordinator') {
+    return _getNode(d.activeNodeId)?.online ? d.status || 'unknown' : 'node-offline';
+  }
   if (d.status && PRE_CONTAINER_STATES.has(d.status)) return d.status;
   const containerStatus = statusMap.get(d.name.toLowerCase());
   if (d.status === 'failed' && !containerStatus) return 'failed';
@@ -100,7 +158,13 @@ export async function deleteDeployment(
   requireAuth(username, token);
   const d = _getDeployment(name);
   if (!d || d.username !== username) throw new Error('Not found');
-  await _stopContainer(name);
+  if (d.activeNodeId && d.activeNodeId !== 'coordinator') {
+    await runRemoteCommand(d.activeNodeId, 'delete', name, {
+      deleteVolumes: opts?.deleteVolumes === true,
+    });
+  } else {
+    await _removeContainer(name);
+  }
   addDeployEvent(name, { action: 'delete', username });
   _deleteDeployment(name);
   if (opts?.deleteVolumes) _deleteVolumes(name);
@@ -130,6 +194,9 @@ export async function updateDeploymentSettings(
   // Don't pass extraPorts to the DB settings update — it's handled via container recreation below
   const { extraPorts: extraPortsConfig, ...dbSettings } = settings;
   _updateDeploymentSettings(name, dbSettings);
+  if (d.activeNodeId && d.activeNodeId !== 'coordinator') {
+    return { message: 'Settings saved. Run deploy to apply them on the remote node.' };
+  }
 
   // If env vars, volumes, GPU, privileged Docker, or extra ports changed, recreate the container so they take effect
   const needsRecreation =
@@ -203,6 +270,10 @@ export async function fetchContainerLogs(
   requireAuth(username, token);
   const d = _getDeployment(name);
   if (!d || d.username !== username) throw new Error('Not found');
+  if (d.activeNodeId && d.activeNodeId !== 'coordinator') {
+    const result = await runRemoteCommand(d.activeNodeId, 'logs', name, { tail });
+    return String(result.logs || '');
+  }
   return _getContainerLogs(name, tail);
 }
 
@@ -210,7 +281,11 @@ export async function restartDeployment(username: string, token: string, name: s
   requireAuth(username, token);
   const d = _getDeployment(name);
   if (!d || d.username !== username) throw new Error('Not found');
-  await _restartContainer(name);
+  if (d.activeNodeId && d.activeNodeId !== 'coordinator') {
+    await runRemoteCommand(d.activeNodeId, 'restart', name);
+  } else {
+    await _restartContainer(name);
+  }
   addDeployEvent(name, { action: 'restart', username });
   return { message: `Restarted ${name}` };
 }
@@ -219,7 +294,11 @@ export async function stopDeployment(username: string, token: string, name: stri
   requireAuth(username, token);
   const d = _getDeployment(name);
   if (!d || d.username !== username) throw new Error('Not found');
-  await _stopContainer(name);
+  if (d.activeNodeId && d.activeNodeId !== 'coordinator') {
+    await runRemoteCommand(d.activeNodeId, 'stop', name);
+  } else {
+    await _stopContainer(name);
+  }
   addDeployEvent(name, { action: 'stop', username });
   return { message: `Stopped ${name}` };
 }
@@ -228,7 +307,11 @@ export async function startDeployment(username: string, token: string, name: str
   requireAuth(username, token);
   const d = _getDeployment(name);
   if (!d || d.username !== username) throw new Error('Not found');
-  await _startContainer(name);
+  if (d.activeNodeId && d.activeNodeId !== 'coordinator') {
+    await runRemoteCommand(d.activeNodeId, 'start', name);
+  } else {
+    await _startContainer(name);
+  }
   addDeployEvent(name, { action: 'start', username });
   return { message: `Started ${name}` };
 }
@@ -323,6 +406,63 @@ export async function fetchDeployHistory(username: string, token: string, name: 
   return _getDeployHistory(name);
 }
 
+export async function fetchRollbackRelease(username: string, token: string, name: string) {
+  requireAuth(username, token);
+  const d = _getDeployment(name);
+  if (!d || d.username !== username) throw new Error('Not found');
+  return _getPreviousRelease(name);
+}
+
+export async function rollbackDeployment(username: string, token: string, name: string) {
+  requireAuth(username, token);
+  const d = _getDeployment(name);
+  if (!d || d.username !== username) throw new Error('Not found');
+  const release = await _rollbackContainer(name);
+  _saveDeployment({
+    name,
+    type: d.type || undefined,
+    username: d.username,
+    port: release.port,
+    containerId: release.containerId,
+    containerName: release.containerName,
+    directory: d.directory || undefined,
+    extraPorts: d.extraPorts,
+  });
+  addDeployEvent(name, {
+    action: 'rollback',
+    username,
+    port: release.port,
+    containerId: release.containerId,
+    source: 'ui',
+  });
+  return { message: `Rolled back ${name}`, release };
+}
+
+export async function purgeDeploymentCache(username: string, token: string, name: string) {
+  requireAuth(username, token);
+  const d = _getDeployment(name);
+  if (!d || d.username !== username) throw new Error('Not found');
+  notifyCachePurge(name);
+  addDeployEvent(name, { action: 'cache-purge', username, source: 'ui' });
+  return { message: `Purged edge cache for ${name}` };
+}
+
+export async function fetchBuildCacheUsage(username: string, token: string, name: string) {
+  requireAuth(username, token);
+  const d = _getDeployment(name);
+  if (!d || d.username !== username) throw new Error('Not found');
+  return { bytes: _getBuildCacheSize(name) };
+}
+
+export async function purgeDeploymentBuildCache(username: string, token: string, name: string) {
+  requireAuth(username, token);
+  const d = _getDeployment(name);
+  if (!d || d.username !== username) throw new Error('Not found');
+  const bytes = await _purgeBuildCache(name);
+  addDeployEvent(name, { action: 'build-cache-purge', username, source: 'ui' });
+  return { message: `Purged build cache for ${name}`, bytes };
+}
+
 export async function fetchRequestData(
   username: string,
   token: string,
@@ -402,16 +542,32 @@ export async function createBackup(username: string, token: string, name: string
   const d = _getDeployment(name);
   if (!d || d.username !== username) throw new Error('Not found');
 
-  const result = await _createBackup(name, label);
-  _saveBackup({
-    deploymentName: name,
-    filename: result.filename,
-    label: label || null,
-    sizeBytes: result.sizeBytes,
-    createdBy: username,
-    createdAt: result.timestamp,
-    volumePaths: ['data', 'uploads'],
-  });
+  let result;
+  if (d.activeNodeId && d.activeNodeId !== 'coordinator') {
+    result = await runRemoteCommand(
+      d.activeNodeId,
+      'backup',
+      name,
+      {
+        label: label || 'manual',
+        createdBy: username,
+        relatedBuildLogId: d.currentBuildLogId ?? null,
+        auto: false,
+      },
+      10 * 60_000,
+    );
+  } else {
+    result = await _createBackup(name, label);
+    _saveBackup({
+      deploymentName: name,
+      filename: result.filename as string,
+      label: label || null,
+      sizeBytes: result.sizeBytes as number,
+      createdBy: username,
+      createdAt: result.timestamp as string,
+      volumePaths: ['data', 'uploads'],
+    });
+  }
 
   addDeployEvent(name, { action: 'backup', username });
   return result;
@@ -426,9 +582,16 @@ export async function restoreBackup(
   requireAuth(username, token);
   const d = _getDeployment(name);
   if (!d || d.username !== username) throw new Error('Not found');
+  if (basename(filename) !== filename) throw new Error('Invalid backup filename');
 
-  _restoreBackup(name, filename);
-  await _restartContainer(name);
+  if (d.activeNodeId && d.activeNodeId !== 'coordinator') {
+    const backupPath = resolve(getBackupDir(name), filename);
+    if (!existsSync(backupPath)) throw new Error('Backup file not found');
+    await runRemoteCommand(d.activeNodeId, 'restore', name, {}, 10 * 60_000, backupPath);
+  } else {
+    _restoreBackup(name, filename);
+    await _restartContainer(name);
+  }
 
   addDeployEvent(name, { action: 'restore', username });
   return { message: 'Backup restored and container restarted' };
@@ -463,7 +626,11 @@ export async function fetchBuildLogs(username: string, token: string, name: stri
     page,
     pageSize,
     activeBuild: activeBuild
-      ? { output: activeBuild.output, timestamp: activeBuild.timestamp }
+      ? {
+          output: activeBuild.output,
+          timestamp: activeBuild.timestamp,
+          phase: d.status || 'building',
+        }
       : null,
   };
 }

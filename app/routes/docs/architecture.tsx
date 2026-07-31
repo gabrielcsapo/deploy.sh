@@ -10,29 +10,49 @@ export default function Component() {
       <h2>System overview</h2>
       <pre>
         <code>
-          {`┌─────────────┐    HTTPS     ┌──────────────────┐     Docker CLI      ┌────────────┐
-│   CLI / UI  │ ──────────▶  │  deploy.local server │ ──────────────▶  │  Containers │
-└─────────────┘              └──────────────────┘                   └────────────┘
-                                      │
-                                      │  SQLite
-                                      ▼
-                               ┌────────────┐
-                               │  deploy.db  │
-                               └────────────┘`}
+          {`                                  ┌─────────────────────────┐
+CLI / UI ─── HTTPS ─────────────────▶ │ deploy.local coordinator │
+*.local traffic ─── mDNS + TLS ─────▶ │ API · routes · backups   │
+                                  └────────────┬────────────┘
+                                               │ authenticated jobs
+                          ┌────────────────────┴────────────────────┐
+                          ▼                                         ▼
+                ┌──────────────────┐                      ┌──────────────────┐
+                │ Main Host Docker │                      │ Execution agent  │
+                │ default apps     │                      │ Docker + storage │
+                └──────────────────┘                      └──────────────────┘
+                                               │
+                                               ▼
+                                      SQLite + backup archive`}
         </code>
       </pre>
 
       <h2>Server</h2>
       <p>
         The server is a Node.js HTTPS server that runs on port 443 by default (falling back to 8443
-        if 443 is unavailable). It handles user authentication, receives deployment uploads, builds
-        Docker images, manages containers, and collects resource metrics. A separate HTTP server on
-        port 80 redirects browsers to HTTPS and serves the CA certificate and CLI install script.
+        if 443 is unavailable). It is the fleet control plane: it handles authentication, receives
+        uploads, schedules work, stores deployment metadata, owns mDNS and TLS, and routes traffic.
+        It can execute Docker work locally or dispatch authenticated jobs to enrolled agents. A
+        separate HTTP server on port 80 redirects browsers to HTTPS and serves the CA certificate
+        and CLI install script.
       </p>
       <p>
         Each deployed application gets its own <code>.local</code> hostname via mDNS. The server
-        tracks which container is assigned to which port so it can proxy requests to the right
-        container.
+        tracks the active node, LAN address, and relay port so it can proxy requests to the right
+        container without changing the public hostname.
+      </p>
+
+      <h2>Coordinator and agents</h2>
+      <p>
+        There is exactly one coordinator. Additional Linux and macOS machines enroll as execution
+        agents with short-lived one-use codes. Agents heartbeat their platform, Docker capability,
+        private LAN address, running applications, and version. They claim queued jobs over
+        authenticated outbound requests; credentials can only be revoked by an administrator.
+      </p>
+      <p>
+        Application traffic is the exception to the outbound-only control path. Each agent exposes a
+        small LAN relay for its assigned container ports. This also works around desktop Docker
+        runtimes such as Colima that publish ports only on the Mac&apos;s loopback interface.
       </p>
 
       <h2>HTTPS and certificates</h2>
@@ -86,8 +106,8 @@ export default function Component() {
           POST to <code>/api/upload</code>.
         </li>
         <li>
-          <strong>Extract</strong> &mdash; The server extracts the archive into a per-deployment
-          directory.
+          <strong>Place</strong> &mdash; The coordinator resolves the application&apos;s pinned node
+          or the fleet default.
         </li>
         <li>
           <strong>Classify</strong> &mdash; The server inspects the extracted files to determine the
@@ -98,26 +118,35 @@ export default function Component() {
           configuration is read from it (custom app port, extra ports).
         </li>
         <li>
-          <strong>Build</strong> &mdash; A Dockerfile is generated (if needed), and a Docker image
-          is built.
+          <strong>Migrate</strong> &mdash; If placement changed, managed volumes are backed up,
+          transferred through the coordinator, and extracted on the destination before the build.
         </li>
         <li>
-          <strong>Run</strong> &mdash; A container is created from the image, assigned an available
-          port, and started. Persistent volumes are mounted at <code>/app/data</code> and{' '}
-          <code>/app/uploads</code>.
+          <strong>Build and run</strong> &mdash; The selected machine extracts the retained source,
+          builds the image, starts the container, and health-checks its local port.
         </li>
         <li>
-          <strong>Store</strong> &mdash; The deployment metadata (container ID, port, name) is saved
-          to the database.
+          <strong>Verify and switch</strong> &mdash; The coordinator verifies the agent relay is
+          reachable, stores the node and runtime metadata, switches traffic, and cleans up the old
+          container.
         </li>
       </ol>
 
       <h2>Request routing</h2>
       <p>
         The server includes a catch-all route that proxies incoming requests to the appropriate
-        container. When a request comes in, the server looks up the deployment by subdomain or name,
-        finds the assigned port, and forwards the request to the container. Each proxied request is
-        logged with its method, path, status code, and response time.
+        container. When a request comes in, the edge route table joins the deployment with its
+        active node, then forwards to either loopback (coordinator-owned) or the node&apos;s private
+        LAN address and relay port. Each proxied request is logged with its method, path, status
+        code, and response time. Only the coordinator advertises mDNS records.
+      </p>
+
+      <h2>Remote terminal and logs</h2>
+      <p>
+        Dashboard WebSockets always terminate on the coordinator. For remote containers, interactive
+        terminal frames are multiplexed through the authenticated agent control channel and attached
+        to a Docker exec PTY on the execution node. Runtime log reads are dispatched as agent jobs.
+        The remote Docker socket is never exposed to the coordinator.
       </p>
 
       <h2>Data storage</h2>

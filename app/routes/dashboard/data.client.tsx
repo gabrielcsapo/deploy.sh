@@ -225,6 +225,7 @@ export function DashboardDataShell({ children }: { children: React.ReactNode }) 
   const [aggregate, setAggregate] = useState<Aggregate | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [placementReady, setPlacementReady] = useState<boolean | null>(null);
 
   const rpsHistoryRef = useRef<Map<string, number[]>>(new Map());
   const [historyTick, setHistoryTick] = useState(0);
@@ -280,6 +281,36 @@ export function DashboardDataShell({ children }: { children: React.ReactNode }) 
       setLoading(false);
     }
   }, [fetchDeployments, fetchAggregate]);
+
+  useEffect(() => {
+    if (!authed) return;
+    let cancelled = false;
+    const checkPlacement = async () => {
+      const auth = getAuth();
+      if (!auth) return;
+      try {
+        const response = await fetch('/api/deploy-admission', {
+          headers: {
+            'x-deploy-username': auth.username,
+            'x-deploy-token': auth.token,
+          },
+        });
+        if (!response.ok) return;
+        const state = await response.json();
+        if (!cancelled && typeof state.placementReady === 'boolean') {
+          setPlacementReady(state.placementReady);
+        }
+      } catch {
+        // The control plane may be restarting; retain the previous state.
+      }
+    };
+    void checkPlacement();
+    const timer = window.setInterval(checkPlacement, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [authed]);
 
   // React to sign-out from header profile dropdown
   useEffect(() => {
@@ -359,7 +390,11 @@ export function DashboardDataShell({ children }: { children: React.ReactNode }) 
           ? stat.severity
           : d.status === 'running'
             ? 'idle'
-            : d.status === 'building' || d.status === 'starting' || d.status === 'uploading'
+            : d.status === 'building' ||
+                d.status === 'starting' ||
+                d.status === 'uploading' ||
+                d.status === 'backing-up' ||
+                d.status === 'restoring'
               ? 'building'
               : 'down';
         return {
@@ -449,6 +484,20 @@ export function DashboardDataShell({ children }: { children: React.ReactNode }) 
           <span className="text-text-tertiary">
             Containers keep running, but statuses and metrics are stale and deploys will fail until
             it's back.
+          </span>
+        </div>
+      )}
+      {placementReady === false && (
+        <div
+          role="alert"
+          className="flex items-center justify-center gap-3 border-b border-warning/30 bg-warning/10 px-4 py-2.5 text-sm"
+        >
+          <span className="h-2 w-2 rounded-full bg-warning" aria-hidden />
+          <span>
+            Choose a default node before your first deploy.{' '}
+            <a className="font-semibold text-warning hover:underline" href="/dashboard/nodes">
+              Configure nodes
+            </a>
           </span>
         </div>
       )}

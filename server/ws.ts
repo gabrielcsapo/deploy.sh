@@ -1,8 +1,9 @@
 import type { Server as HttpServer, IncomingMessage } from 'node:http';
 import type { Http2SecureServer } from 'node:http2';
 import { WebSocketServer, WebSocket } from 'ws';
-import { authenticate, getDeployment } from './store.ts';
+import { authenticate, getDeployment, getNode } from './store.ts';
 import { streamLogs, execContainer, type DockerExecSession } from './docker.ts';
+import { createAgentExecSession } from './agent-exec.ts';
 import { on as onEvent, type DeployEvent } from './events.ts';
 import type { ChildProcess } from 'node:child_process';
 
@@ -226,6 +227,16 @@ export function attachWebSocketUpgrade(server: UpgradableServer) {
 }
 
 function startLogStream(name: string, ws: AuthedSocket) {
+  const deployment = getDeployment(name);
+  if (
+    !deployment ||
+    deployment.username !== ws.username ||
+    (deployment.activeNodeId && deployment.activeNodeId !== 'coordinator')
+  ) {
+    // Remote logs are fetched through authenticated agent jobs by the client.
+    // Never spawn `docker logs` on the coordinator for a remote-owned app.
+    return;
+  }
   const existing = logStreams.get(name);
   if (existing) {
     existing.clients.add(ws);
@@ -282,7 +293,18 @@ function startExecSession(deploymentName: string, ws: AuthedSocket, cols = 80, r
   cleanupExecSession(ws);
 
   try {
-    const session = execContainer(deploymentName, cols, rows);
+    const deployment = getDeployment(deploymentName);
+    if (!deployment || deployment.username !== ws.username) {
+      throw new Error('Deployment not found');
+    }
+    const activeNodeId = deployment?.activeNodeId || 'coordinator';
+    if (activeNodeId !== 'coordinator' && !getNode(activeNodeId)?.online) {
+      throw new Error('Deployment node is offline');
+    }
+    const session =
+      activeNodeId === 'coordinator'
+        ? execContainer(deploymentName, cols, rows)
+        : createAgentExecSession(activeNodeId, deploymentName, cols, rows);
     ws.execSession = session;
 
     session.on('data', (chunk: Buffer) => {

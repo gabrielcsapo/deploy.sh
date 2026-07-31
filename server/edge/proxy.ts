@@ -37,6 +37,7 @@ import {
 export interface ProxyRoute {
   name: string;
   port: number | null;
+  backendHost?: string | null;
   cache?: DeployConfig['cache'];
 }
 
@@ -125,6 +126,41 @@ function emitLiveRequest(deps: HotPathDeps, name: string, entry: RequestLogEntry
 // budget are treated as down (502) rather than blocking the client forever.
 const PROXY_RESPONSE_TIMEOUT_MS = 15_000;
 
+// Range requests often need to seek into large files or wake storage before
+// the backend can send response headers. Give that startup work more room than
+// ordinary API traffic; once a media/range response begins flowing we remove
+// the idle timeout below so client backpressure cannot turn a healthy stream
+// into a 502.
+const PROXY_RANGE_RESPONSE_TIMEOUT_MS = 120_000;
+
+const MEDIA_REQUEST_PATH = /\.(?:m3u8|m4s|ts|mp4|m4v|mov|webm|mkv|mp3|m4a|aac|ogg|oga|wav|flac)$/i;
+
+export function proxyResponseTimeoutMs(options: {
+  method: string;
+  path: string;
+  rangeHeader: string | string[] | undefined;
+}): number {
+  const isMediaRequest =
+    options.rangeHeader ||
+    ((options.method === 'GET' || options.method === 'HEAD') &&
+      MEDIA_REQUEST_PATH.test(options.path));
+  return isMediaRequest ? PROXY_RANGE_RESPONSE_TIMEOUT_MS : PROXY_RESPONSE_TIMEOUT_MS;
+}
+
+export function isStreamingResponse(
+  status: number,
+  contentType: string,
+  accelBuffering: string | string[] | undefined,
+): boolean {
+  return (
+    status === 206 ||
+    contentType.includes('text/event-stream') ||
+    contentType.startsWith('video/') ||
+    contentType.startsWith('audio/') ||
+    accelBuffering === 'no'
+  );
+}
+
 // Cap retry attempts and grow the gap between them. Stale keep-alive sockets
 // usually clear on the first retry; further retries against a truly-down
 // backend are pointless and would just amplify thundering-herd pressure.
@@ -207,7 +243,8 @@ export function proxyToApp(
   const originalHost = outHeaders.host || (req.headers[':authority'] as string | undefined) || '';
   const xff = outHeaders['x-forwarded-for'] as string | undefined;
   const remoteAddr = req.socket.remoteAddress || '';
-  outHeaders.host = `localhost:${deployment.port}`;
+  const backendHost = deployment.backendHost || '127.0.0.1';
+  outHeaders.host = `${backendHost}:${deployment.port}`;
   outHeaders['x-forwarded-host'] = originalHost;
   outHeaders['x-forwarded-proto'] =
     (xff && (outHeaders['x-forwarded-proto'] as string)) ||
@@ -217,7 +254,7 @@ export function proxyToApp(
   const proxyReq = httpRequest(
     {
       agent: proxyAgent,
-      hostname: 'localhost',
+      hostname: backendHost,
       port: deployment.port,
       path: search ? targetPath + search : targetPath,
       method,
@@ -225,9 +262,6 @@ export function proxyToApp(
     },
     (proxyRes) => {
       const proxyHeaders = proxyRes.headers;
-      const declaredResponseSize = proxyHeaders['content-length']
-        ? +proxyHeaders['content-length']
-        : null;
       let streamedResponseSize = 0;
       const cacheChunks: Buffer[] = [];
       let cacheBytes = 0;
@@ -258,10 +292,11 @@ export function proxyToApp(
       proxyHeaders['access-control-allow-origin'] = '*';
 
       // Long-lived streams (SSE, or any backend that set `x-accel-buffering: no`)
-      // need to flow through untouched: no gzip buffering, no idle timeout.
+      // and media/range responses need to flow through untouched: no gzip
+      // buffering and no idle timeout while a client is paused or slow.
       const contentType = proxyHeaders['content-type'] || '';
-      const isStream =
-        contentType.includes('text/event-stream') || proxyHeaders['x-accel-buffering'] === 'no';
+      const status = proxyRes.statusCode!;
+      const isStream = isStreamingResponse(status, contentType, proxyHeaders['x-accel-buffering']);
       if (isStream) {
         proxyReq.setTimeout(0);
       }
@@ -269,7 +304,6 @@ export function proxyToApp(
       // Compression decision. Skip the cost of parsing/checking when the
       // response is already compressed by the backend.
       const existingEncoding = proxyHeaders['content-encoding'];
-      const status = proxyRes.statusCode!;
       if (cacheEligibleRequest) proxyHeaders['x-deploy-cache'] = 'MISS';
       const cacheHeaders = { ...proxyHeaders };
       if (cacheEligibleRequest && method === 'GET' && status === 200 && !existingEncoding) {
@@ -382,7 +416,10 @@ export function proxyToApp(
             userAgent,
             referrer,
             requestSize,
-            responseSize: declaredResponseSize ?? streamedResponseSize,
+            // Content-Length is the amount the backend intended to send, not
+            // necessarily what crossed the proxy before a seek, cancellation,
+            // or disconnect. Record bytes actually observed instead.
+            responseSize: streamedResponseSize,
             queryParams,
             username,
             captureId,
@@ -391,8 +428,19 @@ export function proxyToApp(
           emitLiveRequest(deps, deployment.name, entry);
         });
       };
-      res.once('finish', logCompletedRequest);
-      res.once('close', logCompletedRequest);
+      let responseFinished = false;
+      res.once('finish', () => {
+        responseFinished = true;
+        logCompletedRequest();
+      });
+      res.once('close', () => {
+        // A video player commonly abandons one range when it seeks or has
+        // buffered enough. Stop reading from the node immediately; the data
+        // listener used for accounting would otherwise keep draining the
+        // entire upstream response after the browser was gone.
+        if (!responseFinished && !proxyRes.destroyed) proxyRes.destroy();
+        logCompletedRequest();
+      });
     },
   );
 
@@ -400,9 +448,12 @@ export function proxyToApp(
   // is idle for the given window — works for both "TCP connected but never
   // responding" and "response started but stalled mid-stream". On fire we
   // destroy the request, which triggers the 'error' handler below.
-  proxyReq.setTimeout(PROXY_RESPONSE_TIMEOUT_MS, () => {
-    proxyReq.destroy(new Error('proxy_timeout'));
-  });
+  proxyReq.setTimeout(
+    proxyResponseTimeoutMs({ method, path: targetPath, rangeHeader: req.headers.range }),
+    () => {
+      proxyReq.destroy(new Error('proxy_timeout'));
+    },
+  );
 
   proxyReq.on('error', (err) => {
     const isTimeout = (err as Error & { message?: string }).message === 'proxy_timeout';

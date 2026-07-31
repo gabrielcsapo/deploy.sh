@@ -141,6 +141,10 @@ deploy logout              Log out
 deploy whoami              Show current user
 deploy version             Show the installed build
 deploy upgrade             Update the CLI to the build the server serves
+deploy nodes enroll        Create a one-time execution-node enrollment
+deploy agent join <url>     Enroll this machine and install its agent service
+deploy agent install        Repair or reinstall the agent service
+deploy agent status         Check this machine's agent connection
 ```
 
 | Flag                         | Description                                       |
@@ -177,6 +181,48 @@ build pulls the CLI back with it.
 The server publishes what it serves at `GET /cli/version`. Both come from
 `pnpm build:cli` — until that has run on the server, upgrades report that no
 build is available.
+
+### Add an execution node
+
+The first registered account is the fleet administrator. Open **Dashboard → Nodes**, name the new
+machine, and create a short-lived enrollment. The CLI remains available for automation:
+
+```bash
+deploy nodes enroll --name imac
+```
+
+On the new machine, install the deploy CLI, then redeem the printed code:
+
+```bash
+# macOS — run as your normal desktop user
+deploy agent join https://deploy.local
+
+# Linux
+sudo deploy agent join https://deploy.local
+```
+
+The agent installs as a per-user launchd agent on macOS, so it can access Docker Desktop and mounted
+storage, or as a systemd service on Linux. It connects outbound to the coordinator and does not
+advertise any mDNS names. Choose the default node under
+**Dashboard → Nodes**; application placement can be changed from each application's Settings page.
+Only the main coordinator advertises `deploy.local`, `discover.local`, and application hostnames.
+
+You always deploy to the coordinator. It dispatches the build to the selected node, verifies the
+result, and keeps the application at the same `https://<name>.local` URL. The Nodes page shows agent
+health, Docker capability, running applications, job stages, byte progress, and recent failures.
+
+Changing an application's node moves its managed `/app/data` and `/app/uploads` volumes before the
+next build. **Move now** performs the same migration from the latest retained source artifact without
+another CLI upload. The old route remains active until the destination container is healthy, then
+the coordinator switches traffic and cleans up the previous container.
+
+Remote application traffic passes through an agent-owned LAN relay, including Docker Desktop and
+Colima setups whose published ports are otherwise loopback-only. Logs and interactive terminal
+sessions are tunneled through the authenticated agent control channel. Scheduled remote backups are
+collected on the coordinator so its external rsync schedule protects the entire fleet.
+
+See [Nodes & Placement](https://deploy.local/docs/nodes) in the built-in documentation for the full
+workflow and troubleshooting guide.
 
 ## Supported project types
 

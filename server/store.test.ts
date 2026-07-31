@@ -193,6 +193,63 @@ describe('store – getUser', () => {
   });
 });
 
+describe('store – fleet enrollment', () => {
+  beforeEach(setup);
+  afterEach(teardown);
+
+  it('makes the first account an administrator', async () => {
+    const store = await loadStore();
+    store.registerUser('owner', 'pass');
+    store.registerUser('member', 'pass');
+    assert.equal(store.getUser('owner').role, 'admin');
+    assert.equal(store.getUser('member').role, 'member');
+    assert.equal(store.isAdmin('owner'), true);
+    assert.equal(store.isAdmin('member'), false);
+  });
+
+  it('enrolls an agent with a one-use code and accepts heartbeats', async () => {
+    const store = await loadStore();
+    store.registerUser('owner', 'pass');
+    const enrollment = store.createNodeEnrollment('iMac', 'owner');
+    const enrolled = store.redeemNodeEnrollment({
+      code: enrollment.code,
+      platform: 'darwin',
+      architecture: 'arm64',
+      capabilities: { docker: true, cpuCount: 8 },
+    });
+    assert.ok(enrolled.nodeId);
+    assert.ok(enrolled.secret);
+    assert.equal(store.authenticateNode(enrolled.nodeId, enrolled.secret), true);
+
+    const reused = store.redeemNodeEnrollment({ code: enrollment.code });
+    assert.equal(reused.error, 'Enrollment code is invalid or expired');
+
+    const node = store.heartbeatNode(enrolled.nodeId, {
+      agentVersion: '1.0.0',
+      capabilities: { docker: true, cpuCount: 8 },
+    });
+    assert.equal(node.name, 'iMac');
+    assert.equal(node.online, true);
+  });
+
+  it('requires an explicit default and clears it when an agent is revoked', async () => {
+    const store = await loadStore();
+    store.registerUser('owner', 'pass');
+    const initial = store.getFleetPlacementState();
+    assert.equal(initial.ready, false);
+    assert.equal(initial.nodes[0].kind, 'coordinator');
+
+    const enrollment = store.createNodeEnrollment('iMac', 'owner');
+    const enrolled = store.redeemNodeEnrollment({ code: enrollment.code });
+    store.setDefaultNode(enrolled.nodeId);
+    assert.equal(store.getFleetPlacementState().defaultNodeId, enrolled.nodeId);
+
+    store.revokeNode(enrolled.nodeId);
+    assert.equal(store.authenticateNode(enrolled.nodeId, enrolled.secret), false);
+    assert.equal(store.getFleetPlacementState().ready, false);
+  });
+});
+
 describe('store – deployment CRUD', () => {
   beforeEach(setup);
   afterEach(teardown);

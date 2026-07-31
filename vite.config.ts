@@ -59,6 +59,9 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['better-sqlite3'],
   },
+  ssr: {
+    external: ['better-sqlite3'],
+  },
   server: {
     watch: {
       ignored: ['.deploy-data/**'],

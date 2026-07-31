@@ -10,7 +10,7 @@ export default function Component() {
       </p>
 
       <h2>How it works</h2>
-      <p>deploy.local has three components:</p>
+      <p>deploy.local has four components:</p>
       <ol>
         <li>
           <strong>A server</strong> that receives deployments, builds Docker images, manages
@@ -23,6 +23,11 @@ export default function Component() {
         <li>
           <strong>A web dashboard</strong> (what you&apos;re looking at) that lets you monitor and
           manage your deployments in a browser.
+        </li>
+        <li>
+          <strong>Optional execution agents</strong> that let the coordinator build and run an app
+          on another Linux or macOS machine while keeping its <code>*.local</code> address and
+          management UI on the main host.
         </li>
       </ol>
 
@@ -122,8 +127,24 @@ pnpm install && pnpm build`}
         <code>https://&lt;name&gt;.local</code>.
       </p>
 
+      <h2>Add another machine</h2>
+      <p>
+        Open <Link to="/dashboard/nodes">Dashboard → Nodes</Link> to enroll a Linux or macOS
+        execution node. Choose a default node once, or place individual applications on the machine
+        with the storage, GPU, or compute they need. The coordinator continues to advertise and
+        terminate TLS for every application hostname.
+      </p>
+      <p>
+        See <Link to="/docs/nodes">Nodes &amp; Placement</Link> for enrollment, migrations, remote
+        access, backups, and troubleshooting.
+      </p>
+
       <h2>Next steps</h2>
       <ul>
+        <li>
+          <Link to="/docs/nodes">Nodes &amp; Placement</Link> &mdash; run applications across
+          multiple machines behind one coordinator.
+        </li>
         <li>
           <Link to="/docs/deploying">Learn about deployment types</Link> &mdash; Node.js, Docker,
           and static sites.

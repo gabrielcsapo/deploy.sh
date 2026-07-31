@@ -14,6 +14,7 @@ import { RouteTable } from './routes.ts';
 import { registerHost } from '../mdns.ts';
 import { setTcpProxyHooks, stopAllProxies } from '../tcp-proxy.ts';
 import type { EdgeHandlers } from '../ipc.ts';
+import { purgeDeploymentCache } from './response-cache.ts';
 import type { HotPathDeps, RequestLogEntry } from './proxy.ts';
 
 export interface EdgeRuntimeOptions {
@@ -53,6 +54,7 @@ export function initEdgeRuntime(opts: EdgeRuntimeOptions): EdgeRuntime {
 
   const handlers: EdgeHandlers = {
     onRouteChanged: (name) => routes.reconcile(name),
+    onCachePurge: (name) => purgeDeploymentCache(name),
     onCertReload: () => opts.onCertReload?.(),
     onControlConnected: () => {
       // Resync everything a dropped link may have missed.

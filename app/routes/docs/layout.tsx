@@ -23,6 +23,9 @@ export default function Component() {
               <SidebarLink to="/docs/managing">Managing Deployments</SidebarLink>
             </li>
             <li>
+              <SidebarLink to="/docs/nodes">Nodes &amp; Placement</SidebarLink>
+            </li>
+            <li>
               <SidebarLink to="/docs/configuration">Configuration</SidebarLink>
             </li>
           </ul>

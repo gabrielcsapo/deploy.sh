@@ -1,26 +1,43 @@
 #!/usr/bin/env node
 
 import { parseArgs } from 'node:util';
-import { createReadStream } from 'node:fs';
 import { basename, resolve, dirname } from 'node:path';
-import { execSync, execFileSync, spawnSync } from 'node:child_process';
+import { execSync, execFileSync, spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { homedir } from 'node:os';
+import { arch, cpus, homedir, networkInterfaces, platform, totalmem } from 'node:os';
 import {
+  chmodSync,
+  createReadStream,
+  createWriteStream,
   existsSync,
+  mkdirSync,
   readFileSync,
   writeFileSync,
   unlinkSync,
   statSync,
   renameSync,
-  chmodSync,
   realpathSync,
   accessSync,
   constants as fsConstants,
+  rmSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { connect, createServer } from 'node:net';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
+import {
+  buildImage as agentBuildImage,
+  classifyProject as agentClassifyProject,
+  ensureDockerfile as agentEnsureDockerfile,
+  getAvailablePort as agentGetAvailablePort,
+  healthCheckPort as agentHealthCheckPort,
+  runContainer as agentRunContainer,
+  validateVolumeMounts as agentValidateVolumeMounts,
+  execContainer as agentExecContainer,
+} from '../server/docker.ts';
+import { readDeployConfig as agentReadDeployConfig } from '../server/deploy-config.ts';
 
 const DEFAULT_URL = 'https://deploy.local';
 const RC_PATH = resolve(homedir(), '.deployrc');
@@ -604,6 +621,1076 @@ async function cmdWhoami() {
   }
 }
 
+async function cmdNodesEnroll(serverUrl, nodeName) {
+  if (!nodeName) {
+    console.error('Usage: deploy nodes enroll --name <node-name>');
+    process.exit(1);
+  }
+  const config = loadConfig();
+  if (!config.token) {
+    console.error('Not logged in. Run: deploy login');
+    process.exit(1);
+  }
+  const enrollment = await request(`${serverUrl}/api/nodes/enrollment`, {
+    method: 'POST',
+    headers: { ...authHeaders(config), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: nodeName }),
+  });
+  const nodesDashboard = new URL('/dashboard/nodes', serverUrl).toString();
+  console.log(`\nNode enrollment created for “${enrollment.name}”.\n`);
+  console.log('On that machine, run:\n');
+  console.log(`  macOS:  deploy agent join ${serverUrl}`);
+  console.log(`  Linux:  sudo deploy agent join ${serverUrl}\n`);
+  console.log(`Enrollment code: ${enrollment.code}`);
+  console.log(`Expires: ${new Date(enrollment.expiresAt).toLocaleString()}\n`);
+  console.log(`Tip: administrators can also create and manage nodes in the web interface:`);
+  console.log(`  ${nodesDashboard}\n`);
+}
+
+function agentConfigPath() {
+  if (process.env.DEPLOY_AGENT_CONFIG) return resolve(process.env.DEPLOY_AGENT_CONFIG);
+  return platform() === 'darwin'
+    ? resolve(homedir(), 'Library', 'Application Support', 'deploy.local', 'agent.json')
+    : '/var/lib/deploy.local/agent.json';
+}
+
+function readAgentConfig() {
+  const path = agentConfigPath();
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function agentCapabilities() {
+  const docker = spawnSync('docker', ['version', '--format', '{{.Server.Version}}'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const containers =
+    docker.status === 0
+      ? spawnSync(
+          'docker',
+          [
+            'ps',
+            '-a',
+            '--filter',
+            'name=deploy-sh-',
+            '--format',
+            '{{.ID}}\\t{{.Names}}\\t{{.State}}\\t{{.Status}}',
+          ],
+          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+        )
+      : null;
+  const apps =
+    containers?.status === 0
+      ? containers.stdout
+          .trim()
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => {
+            const [id, containerName, status, detail] = line.split('\t');
+            return {
+              id,
+              name: containerName.replace(/^deploy-sh-/, '').replace(/-prev-\d+$/, ''),
+              containerName,
+              status,
+              detail,
+              relayPort: agentRelays.get(
+                containerName.replace(/^deploy-sh-/, '').replace(/-prev-\d+$/, ''),
+              )?.relayPort,
+            };
+          })
+          .filter((app) => app.containerName.startsWith('deploy-sh-'))
+      : [];
+  return {
+    cpuCount: cpus().length,
+    memoryBytes: totalmem(),
+    docker: docker.status === 0,
+    dockerVersion: docker.status === 0 ? docker.stdout.trim() : null,
+    dockerError:
+      docker.status === 0
+        ? null
+        : String(docker.stderr || docker.error?.message || 'Docker daemon is unreachable')
+            .trim()
+            .slice(0, 240),
+    apps,
+  };
+}
+
+function agentLanAddress() {
+  const configured = process.env.DEPLOY_AGENT_ADDRESS?.trim();
+  if (configured) return configured;
+  const candidates = Object.entries(networkInterfaces()).flatMap(([name, addresses]) =>
+    (addresses || [])
+      .filter((address) => address.family === 'IPv4' && !address.internal)
+      .map((address) => ({ name, address: address.address })),
+  );
+  const virtual = /^(docker|br-|veth|utun|tun|tap|tailscale|wg|vmnet|vbox|colima)/i;
+  const physical = /^(en\d+|eth\d+|eno\d+|ens\d+|enp\w+|wlan\d+|wlp\w+|bond\d+|br0)$/i;
+  const privateAddress = (address) =>
+    /^10\./.test(address) ||
+    /^192\.168\./.test(address) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(address);
+  return (
+    candidates.find(
+      (candidate) =>
+        physical.test(candidate.name) &&
+        !virtual.test(candidate.name) &&
+        privateAddress(candidate.address),
+    )?.address ||
+    candidates.find(
+      (candidate) => !virtual.test(candidate.name) && privateAddress(candidate.address),
+    )?.address ||
+    candidates.find((candidate) => !virtual.test(candidate.name))?.address ||
+    candidates[0]?.address ||
+    '127.0.0.1'
+  );
+}
+
+function xmlEscape(value) {
+  return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
+function agentProgramArguments() {
+  const executable = resolve(process.execPath);
+  // A regular Node invocation is `node /path/to/deploy.js ...`, while a
+  // single-executable application is `/path/to/deploy ...`. In a SEA,
+  // argv[1] is already the first user argument ("agent"), not a script path.
+  // Treating it as a path generated a launchd command like:
+  //   deploy /current/directory/agent agent run
+  // which exited immediately as an unknown command.
+  if (/[/\\]node(?:\\.exe)?$/.test(executable) && process.argv[1]) {
+    return [executable, resolve(process.argv[1])];
+  }
+  return [executable];
+}
+
+function installAgentService() {
+  const args = [...agentProgramArguments(), 'agent', 'run'];
+  if (platform() === 'darwin') {
+    const label = 'sh.deploy.agent';
+    const uid = process.getuid?.();
+    if (uid == null || uid === 0) {
+      throw new Error(
+        'On macOS, install the agent from your normal login without sudo so it can access Docker Desktop and mounted storage.',
+      );
+    }
+    const launchAgentsDir = resolve(homedir(), 'Library', 'LaunchAgents');
+    const logDir = resolve(homedir(), 'Library', 'Logs', 'deploy.local');
+    const agentRoot = resolve(agentConfigPath(), '..');
+    const agentDataDir = resolve(agentRoot, 'data');
+    const plistPath = resolve(launchAgentsDir, `${label}.plist`);
+    mkdirSync(launchAgentsDir, { recursive: true });
+    mkdirSync(logDir, { recursive: true });
+    mkdirSync(agentDataDir, { recursive: true });
+    const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>${label}</string>
+  <key>ProgramArguments</key>
+  <array>${args.map((arg) => `\n    <string>${xmlEscape(arg)}</string>`).join('')}
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>5</integer>
+  <key>WorkingDirectory</key><string>${xmlEscape(agentRoot)}</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>DEPLOY_DATA_DIR</key><string>${xmlEscape(agentDataDir)}</string>
+  </dict>
+  <key>StandardOutPath</key><string>${xmlEscape(resolve(logDir, 'agent.log'))}</string>
+  <key>StandardErrorPath</key><string>${xmlEscape(resolve(logDir, 'agent.err.log'))}</string>
+</dict>
+</plist>
+`;
+    writeFileSync(plistPath, plist);
+    const domain = `gui/${uid}`;
+    const serviceTarget = `${domain}/${label}`;
+    const pause = (milliseconds) => {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+    };
+    spawnSync('launchctl', ['bootout', serviceTarget], { stdio: 'ignore' });
+
+    let loaded;
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      if (attempt > 1) pause(attempt * 250);
+      loaded = spawnSync('launchctl', ['bootstrap', domain, plistPath], {
+        encoding: 'utf8',
+      });
+      if (loaded.status === 0) break;
+      // launchd can return EIO while a KeepAlive process from the previous
+      // definition is still exiting. Ensure both label and plist are unloaded
+      // before retrying instead of telling the user to run the agent as root.
+      spawnSync('launchctl', ['bootout', serviceTarget], { stdio: 'ignore' });
+      spawnSync('launchctl', ['bootout', domain, plistPath], { stdio: 'ignore' });
+    }
+    if (loaded?.status !== 0) {
+      const detail = String(loaded?.stderr || 'launchctl bootstrap failed').trim();
+      throw new Error(
+        `${detail}\nThe user agent could not be restarted after 4 attempts. Do not use sudo; wait a moment and retry.`,
+      );
+    }
+    spawnSync('launchctl', ['kickstart', '-k', serviceTarget], { stdio: 'ignore' });
+    const started = spawnSync('launchctl', ['print', `${domain}/${label}`], {
+      encoding: 'utf8',
+    });
+    if (started.status !== 0) {
+      throw new Error(started.stderr || 'launchd did not retain the agent service');
+    }
+    return;
+  }
+
+  if (process.getuid?.() !== 0) {
+    throw new Error('Linux agent installation requires root. Re-run with sudo.');
+  }
+  const unitPath = '/etc/systemd/system/deploy-local-agent.service';
+  const command = args.map((arg) => JSON.stringify(arg)).join(' ');
+  writeFileSync(
+    unitPath,
+    `[Unit]
+Description=deploy.local execution agent
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=${command}
+WorkingDirectory=/var/lib/deploy.local
+Restart=always
+RestartSec=5
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+Environment=DEPLOY_DATA_DIR=/var/lib/deploy.local/data
+
+[Install]
+WantedBy=multi-user.target
+`,
+  );
+  const reload = spawnSync('systemctl', ['daemon-reload'], { encoding: 'utf8' });
+  if (reload.status !== 0) throw new Error(reload.stderr || 'systemctl daemon-reload failed');
+  const enabled = spawnSync('systemctl', ['enable', '--now', 'deploy-local-agent.service'], {
+    encoding: 'utf8',
+  });
+  if (enabled.status !== 0) throw new Error(enabled.stderr || 'systemctl enable failed');
+}
+
+async function cmdAgentJoin(serverUrl, requestedName) {
+  if (!process.env.DEPLOY_AGENT_CONFIG) {
+    if (platform() === 'darwin' && process.getuid?.() === 0) {
+      throw new Error(
+        'Do not use sudo on macOS. Run deploy agent join from your normal login so the agent can use Docker Desktop and mounted storage.',
+      );
+    }
+    if (platform() !== 'darwin' && process.getuid?.() !== 0) {
+      throw new Error('On Linux, re-run with sudo to install the systemd service.');
+    }
+  }
+  const code = await prompt('Enrollment code: ', true);
+  const capabilities = agentCapabilities();
+  const enrolled = await request(`${serverUrl}/api/agent/enroll`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      code,
+      name: requestedName || undefined,
+      platform: platform(),
+      architecture: arch(),
+      agentVersion: BUILD_INFO.version,
+      capabilities,
+    }),
+  });
+  const configPath = agentConfigPath();
+  mkdirSync(resolve(configPath, '..'), { recursive: true });
+  writeFileSync(
+    configPath,
+    JSON.stringify(
+      {
+        coordinatorUrl: serverUrl,
+        nodeId: enrolled.nodeId,
+        name: enrolled.name,
+        secret: enrolled.secret,
+      },
+      null,
+      2,
+    ) + '\n',
+    { mode: 0o600 },
+  );
+  chmodSync(configPath, 0o600);
+  if (!process.env.DEPLOY_AGENT_CONFIG) installAgentService();
+  console.log(`\n✓ Node registered as ${enrolled.name}`);
+  console.log(`✓ Credentials stored in ${configPath}`);
+  console.log('✓ Agent service installed and started');
+  console.log(`\nConfigure this node at ${serverUrl}/dashboard/nodes\n`);
+}
+
+function cmdAgentInstall() {
+  const config = readAgentConfig();
+  if (!config) {
+    throw new Error(`Agent is not enrolled (${agentConfigPath()} not found)`);
+  }
+  installAgentService();
+  console.log(`Background agent service installed and started for ${config.name}`);
+}
+
+async function sendAgentHeartbeat(config) {
+  return request(`${config.coordinatorUrl}/api/agent/heartbeat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-deploy-node-id': config.nodeId,
+      'x-deploy-node-secret': config.secret,
+    },
+    body: JSON.stringify({
+      platform: platform(),
+      architecture: arch(),
+      agentVersion: BUILD_INFO.version,
+      address: agentLanAddress(),
+      capabilities: agentCapabilities(),
+    }),
+  });
+}
+
+function agentHeaders(config) {
+  return {
+    'x-deploy-node-id': config.nodeId,
+    'x-deploy-node-secret': config.secret,
+  };
+}
+
+const agentRelays = new Map();
+
+function agentRelayStatePath() {
+  return resolve(agentConfigPath(), '..', 'data', 'relays.json');
+}
+
+function persistAgentRelays() {
+  const relays = [...agentRelays.entries()].map(([deploymentName, relay]) => ({
+    deploymentName,
+    targetPort: relay.targetPort,
+    relayPort: relay.relayPort,
+  }));
+  writeFileSync(agentRelayStatePath(), JSON.stringify(relays, null, 2));
+}
+
+function listenAgentRelay(server, preferredPort) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const onError = (err) => {
+      server.off('listening', onListening);
+      rejectPromise(err);
+    };
+    const onListening = () => {
+      server.off('error', onError);
+      resolvePromise(server.address().port);
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(preferredPort || 0);
+  });
+}
+
+async function ensureAgentRelay(deploymentName, targetPort, preferredPort) {
+  const previous = agentRelays.get(deploymentName);
+  if (
+    previous &&
+    previous.targetPort === targetPort &&
+    (!preferredPort || previous.relayPort === preferredPort)
+  ) {
+    return previous.relayPort;
+  }
+  if (previous) {
+    for (const socket of previous.sockets) socket.destroy();
+    await new Promise((resolvePromise) => previous.server.close(resolvePromise));
+    agentRelays.delete(deploymentName);
+  }
+  const sockets = new Set();
+  const server = createServer((client) => {
+    const target = connect({ host: '127.0.0.1', port: targetPort });
+    sockets.add(client);
+    sockets.add(target);
+    client.pipe(target);
+    target.pipe(client);
+    const close = () => {
+      sockets.delete(client);
+      sockets.delete(target);
+      client.destroy();
+      target.destroy();
+    };
+    client.on('close', close);
+    target.on('close', close);
+    client.on('error', close);
+    target.on('error', close);
+  });
+  let relayPort;
+  try {
+    relayPort = await listenAgentRelay(server, preferredPort);
+  } catch (err) {
+    if (!preferredPort) throw err;
+    relayPort = await listenAgentRelay(server, 0);
+  }
+  agentRelays.set(deploymentName, { server, sockets, targetPort, relayPort });
+  persistAgentRelays();
+  return relayPort;
+}
+
+async function restoreAgentRelays() {
+  let saved = [];
+  try {
+    saved = JSON.parse(readFileSync(agentRelayStatePath(), 'utf8'));
+  } catch {
+    return;
+  }
+  for (const relay of saved) {
+    if (
+      typeof relay?.deploymentName !== 'string' ||
+      !Number.isInteger(relay.targetPort) ||
+      !Number.isInteger(relay.relayPort)
+    ) {
+      continue;
+    }
+    try {
+      await ensureAgentRelay(relay.deploymentName, relay.targetPort, relay.relayPort);
+    } catch (err) {
+      console.error(`Unable to restore relay for ${relay.deploymentName}: ${err.message}`);
+    }
+  }
+}
+
+async function discoverAgentRelays() {
+  const containers = spawnSync(
+    'docker',
+    ['ps', '--filter', 'name=deploy-sh-', '--format', '{{.Names}}'],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+  );
+  if (containers.status !== 0) return;
+  for (const containerName of containers.stdout.trim().split('\n').filter(Boolean)) {
+    if (!/^deploy-sh-.+/.test(containerName) || /-prev-\d+$/.test(containerName)) continue;
+    const deploymentName = containerName.replace(/^deploy-sh-/, '');
+    if (agentRelays.has(deploymentName)) continue;
+    const ports = spawnSync('docker', ['port', containerName], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const targetPort = Number(ports.stdout.match(/->\s+.*:(\d+)\s*$/m)?.[1] || 0);
+    if (!Number.isInteger(targetPort) || targetPort <= 0) continue;
+    try {
+      await ensureAgentRelay(deploymentName, targetPort);
+    } catch (err) {
+      console.error(`Unable to expose ${deploymentName} to the coordinator: ${err.message}`);
+    }
+  }
+}
+
+async function removeAgentRelay(deploymentName) {
+  const relay = agentRelays.get(deploymentName);
+  if (!relay) return;
+  for (const socket of relay.sockets) socket.destroy();
+  await new Promise((resolvePromise) => relay.server.close(resolvePromise));
+  agentRelays.delete(deploymentName);
+  persistAgentRelays();
+}
+
+function agentContainerExists(deploymentName) {
+  return (
+    spawnSync('docker', ['container', 'inspect', `deploy-sh-${deploymentName.toLowerCase()}`])
+      .status === 0
+  );
+}
+
+async function claimAgentJobFromCoordinator(config) {
+  const response = await fetch(`${config.coordinatorUrl}/api/agent/jobs/claim`, {
+    method: 'POST',
+    headers: agentHeaders(config),
+  });
+  if (response.status === 204) return null;
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || 'Unable to claim agent job');
+  return body;
+}
+
+async function downloadAgentArtifact(config, job, destination) {
+  const maxAttempts = 5;
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let offset = existsSync(destination) ? statSync(destination).size : 0;
+    try {
+      const headers = agentHeaders(config);
+      if (offset > 0) headers.Range = `bytes=${offset}-`;
+      const response = await fetch(new URL(job.artifactUrl, config.coordinatorUrl), { headers });
+
+      if (response.status === 416) {
+        const total = Number(response.headers.get('content-range')?.match(/\/(\d+)$/)?.[1] || 0);
+        if (total > 0 && offset === total) return;
+        rmSync(destination, { force: true });
+        throw new Error('Coordinator rejected the saved download offset; restarting from zero');
+      }
+      if (!response.ok || !response.body) {
+        throw new Error(`Artifact download failed (${response.status})`);
+      }
+
+      const resumed = response.status === 206 && offset > 0;
+      if (!resumed) offset = 0;
+      const contentRange = response.headers.get('content-range');
+      const totalBytes = Number(
+        contentRange?.match(/\/(\d+)$/)?.[1] ||
+          Number(response.headers.get('content-length') || 0) + offset,
+      );
+      await pipeline(
+        Readable.fromWeb(response.body),
+        createWriteStream(destination, { flags: resumed ? 'a' : 'w' }),
+      );
+      const downloadedBytes = statSync(destination).size;
+      if (totalBytes > 0 && downloadedBytes !== totalBytes) {
+        throw new Error(
+          `Artifact download ended early at ${formatBytes(downloadedBytes)} of ${formatBytes(totalBytes)}`,
+        );
+      }
+      return;
+    } catch (err) {
+      lastError = err;
+      if (attempt === maxAttempts) break;
+      const downloadedBytes = existsSync(destination) ? statSync(destination).size : 0;
+      console.error(
+        `Artifact download interrupted at ${formatBytes(downloadedBytes)}; retrying (${attempt}/${maxAttempts})…`,
+      );
+      await new Promise((resolvePromise) =>
+        setTimeout(resolvePromise, Math.min(8_000, 1_000 * 2 ** (attempt - 1))),
+      );
+    }
+  }
+  const cause = lastError?.cause;
+  const detail = [
+    lastError?.message || String(lastError),
+    cause?.code,
+    cause?.message && cause.message !== lastError?.message ? cause.message : null,
+  ]
+    .filter(Boolean)
+    .join(': ');
+  throw new Error(`Artifact download failed after ${maxAttempts} attempts: ${detail}`, {
+    cause: lastError,
+  });
+}
+
+async function completeAgentJobOnCoordinator(config, jobId, completion) {
+  await request(`${config.coordinatorUrl}/api/agent/jobs/${jobId}/complete`, {
+    method: 'POST',
+    headers: {
+      ...agentHeaders(config),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(completion),
+  });
+}
+
+async function reportAgentJobProgress(config, job, progress) {
+  await request(`${config.coordinatorUrl}/api/agent/jobs/${job.id}/progress`, {
+    method: 'POST',
+    headers: {
+      ...agentHeaders(config),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(progress),
+  });
+}
+
+function agentDirectorySize(directory) {
+  return new Promise((resolvePromise) => {
+    const sizeCheck = spawn('du', ['-sk', directory], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    let stdout = '';
+    sizeCheck.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    sizeCheck.on('error', () => resolvePromise(0));
+    sizeCheck.on('close', (code) => {
+      if (code !== 0) {
+        resolvePromise(0);
+        return;
+      }
+      resolvePromise(Number.parseInt(stdout.trim().split(/\s+/)[0] || '0', 10) * 1024);
+    });
+  });
+}
+
+function extractAgentArchive(config, job, archivePath, volumeDir) {
+  const totalBytes = Math.max(0, Number(job.payload?.totalBytes || 0));
+  return new Promise((resolvePromise, rejectPromise) => {
+    const extraction = spawn('tar', ['-xzf', archivePath, '-C', volumeDir], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    let stderr = '';
+    extraction.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    let currentReport = null;
+    const report = (message) => {
+      if (currentReport) return currentReport;
+      currentReport = (async () => {
+        const processedBytes = await agentDirectorySize(volumeDir);
+        await reportAgentJobProgress(config, job, {
+          stage: 'extracting backup',
+          processedBytes,
+          totalBytes,
+          message,
+        }).catch(() => {});
+      })().finally(() => {
+        currentReport = null;
+      });
+      return currentReport;
+    };
+    void report('Extracting managed volumes');
+    const timer = setInterval(() => void report(), 1000);
+    timer.unref();
+    extraction.on('error', (err) => {
+      clearInterval(timer);
+      rejectPromise(err);
+    });
+    extraction.on('close', (code) => {
+      clearInterval(timer);
+      if (code !== 0) {
+        rejectPromise(new Error(`Backup extraction failed (${code}): ${stderr.trim()}`));
+        return;
+      }
+      void (async () => {
+        await currentReport;
+        await report('Managed-volume extraction completed');
+        resolvePromise();
+      })();
+    });
+  });
+}
+
+async function uploadAgentBackup(config, job, archivePath) {
+  const response = await fetch(`${config.coordinatorUrl}/api/agent/jobs/${job.id}/backup`, {
+    method: 'PUT',
+    headers: {
+      ...agentHeaders(config),
+      'Content-Type': 'application/gzip',
+      'Content-Length': String(statSync(archivePath).size),
+    },
+    body: createReadStream(archivePath),
+    duplex: 'half',
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || 'Backup upload failed');
+  return body;
+}
+
+async function executeAgentDeploy(config, job) {
+  const root = resolve(agentConfigPath(), '..', 'data');
+  const appRoot = resolve(root, 'apps', job.deploymentName);
+  const sourceDir = resolve(appRoot, 'source');
+  const artifactPath = resolve(appRoot, `${job.id}.tar.gz`);
+  const volumeDir = resolve(root, 'volumes', job.deploymentName);
+  rmSync(sourceDir, { recursive: true, force: true });
+  mkdirSync(sourceDir, { recursive: true });
+  mkdirSync(volumeDir, { recursive: true });
+  mkdirSync(resolve(volumeDir, 'data'), { recursive: true });
+  mkdirSync(resolve(volumeDir, 'uploads'), { recursive: true });
+
+  try {
+    await reportAgentJobProgress(config, job, {
+      stage: 'downloading source',
+      processedBytes: 0,
+      totalBytes: 0,
+      message: 'Downloading application source',
+    }).catch(() => {});
+    await downloadAgentArtifact(config, job, artifactPath);
+    await reportAgentJobProgress(config, job, {
+      stage: 'unpacking source',
+      processedBytes: 0,
+      totalBytes: 0,
+      message: 'Unpacking application source',
+    }).catch(() => {});
+    execFileSync('tar', ['-xzf', artifactPath, '-C', sourceDir], { stdio: 'pipe' });
+  } finally {
+    rmSync(artifactPath, { force: true });
+  }
+
+  const type = agentClassifyProject(sourceDir);
+  if (!type) throw new Error('Unknown project type in deployment artifact');
+  agentEnsureDockerfile(sourceDir, type);
+  const deployConfig = agentReadDeployConfig(sourceDir);
+  const payload = job.payload || {};
+  await reportAgentJobProgress(config, job, {
+    stage: 'building image',
+    processedBytes: 0,
+    totalBytes: 0,
+    message: 'Building Docker image',
+  }).catch(() => {});
+
+  // Docker builds can run for several minutes. Stream their output back to the
+  // coordinator in small ordered batches instead of making the UI wait for the
+  // completed job payload (or issuing one HTTP request per BuildKit line).
+  let pendingBuildOutput = '';
+  let buildOutputTimer = null;
+  let buildOutputFlush = Promise.resolve();
+  const flushBuildOutput = () => {
+    if (buildOutputTimer) {
+      clearTimeout(buildOutputTimer);
+      buildOutputTimer = null;
+    }
+    const output = pendingBuildOutput;
+    pendingBuildOutput = '';
+    if (!output) return buildOutputFlush;
+    buildOutputFlush = buildOutputFlush
+      .then(() =>
+        reportAgentJobProgress(config, job, {
+          stage: 'building image',
+          processedBytes: 0,
+          totalBytes: 0,
+          output,
+        }),
+      )
+      .catch(() => {});
+    return buildOutputFlush;
+  };
+  const queueBuildOutput = (line, timestamp) => {
+    pendingBuildOutput += `[${timestamp}] ${line}\n`;
+    if (pendingBuildOutput.length >= 64 * 1024) {
+      void flushBuildOutput();
+      return;
+    }
+    if (!buildOutputTimer) {
+      buildOutputTimer = setTimeout(() => void flushBuildOutput(), 100);
+      buildOutputTimer.unref();
+    }
+  };
+
+  let build;
+  try {
+    build = await agentBuildImage(job.deploymentName, sourceDir, queueBuildOutput, {
+      noCache: payload.noCache === true,
+    });
+  } finally {
+    await flushBuildOutput();
+  }
+  if (!build.success) {
+    throw Object.assign(new Error(`Build failed after ${build.duration}ms`), {
+      buildOutput: build.output,
+      buildDuration: build.duration,
+    });
+  }
+
+  const storedVolumes = Array.isArray(payload.volumes) ? payload.volumes : [];
+  const declaredVolumes = Array.isArray(deployConfig.volumes) ? deployConfig.volumes : [];
+  const customVolumes = [
+    ...storedVolumes,
+    ...declaredVolumes.filter(
+      (declared) =>
+        !storedVolumes.some(
+          (stored) =>
+            stored.hostPath === declared.hostPath &&
+            stored.containerPath === declared.containerPath,
+        ),
+    ),
+  ];
+  const volumeError = agentValidateVolumeMounts(customVolumes, {
+    privilegedDocker: payload.privilegedDocker === true,
+  });
+  if (volumeError) throw new Error(volumeError);
+
+  const port = await agentGetAvailablePort();
+  await reportAgentJobProgress(config, job, {
+    stage: 'starting container',
+    processedBytes: 0,
+    totalBytes: 0,
+    message: `Starting container on port ${port}`,
+  }).catch(() => {});
+  const run = await agentRunContainer(
+    build.tag,
+    job.deploymentName,
+    port,
+    volumeDir,
+    deployConfig,
+    payload.envVars || {},
+    payload.memoryLimit || '4g',
+    customVolumes,
+    payload.gpuEnabled === true,
+    payload.privilegedDocker === true,
+    payload.cpuLimit || undefined,
+  );
+  await reportAgentJobProgress(config, job, {
+    stage: 'health check',
+    processedBytes: 0,
+    totalBytes: 0,
+    message: 'Waiting for the application to become healthy',
+  }).catch(() => {});
+  const healthy = await agentHealthCheckPort(port, 30_000);
+  if (!healthy) throw new Error(`Container did not accept connections on port ${port}`);
+  const relayPort = await ensureAgentRelay(job.deploymentName, port);
+  return {
+    type,
+    port: relayPort,
+    dockerPort: port,
+    containerId: run.id,
+    containerName: run.containerName,
+    extraPorts: run.extraPorts,
+    buildOutput: build.output,
+    buildDuration: build.duration,
+  };
+}
+
+async function processAgentJob(config, job) {
+  try {
+    let result;
+    if (job.type === 'deploy') {
+      result = await executeAgentDeploy(config, job);
+    } else if (job.type === 'restart') {
+      execFileSync('docker', ['restart', `deploy-sh-${job.deploymentName.toLowerCase()}`], {
+        stdio: 'pipe',
+      });
+      result = { restarted: true };
+    } else if (job.type === 'start' || job.type === 'stop') {
+      execFileSync('docker', [job.type, `deploy-sh-${job.deploymentName.toLowerCase()}`], {
+        stdio: 'pipe',
+      });
+      result = { [job.type]: true };
+    } else if (job.type === 'delete') {
+      spawnSync('docker', ['rm', '-f', `deploy-sh-${job.deploymentName.toLowerCase()}`], {
+        stdio: 'ignore',
+      });
+      if (job.payload?.deleteVolumes !== false) {
+        rmSync(resolve(agentConfigPath(), '..', 'data', 'volumes', job.deploymentName), {
+          recursive: true,
+          force: true,
+        });
+      }
+      await removeAgentRelay(job.deploymentName);
+      result = { deleted: true };
+    } else if (job.type === 'logs') {
+      const logResult = spawnSync(
+        'docker',
+        ['logs', '--tail', String(job.payload?.tail || 1000), `deploy-sh-${job.deploymentName}`],
+        { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 },
+      );
+      if (logResult.status !== 0) throw new Error(logResult.stderr || 'Unable to read logs');
+      result = { logs: `${logResult.stdout || ''}${logResult.stderr || ''}` };
+    } else if (job.type === 'backup') {
+      const volumeDir = resolve(agentConfigPath(), '..', 'data', 'volumes', job.deploymentName);
+      mkdirSync(resolve(volumeDir, 'data'), { recursive: true });
+      mkdirSync(resolve(volumeDir, 'uploads'), { recursive: true });
+      const archivePath = resolve(agentConfigPath(), '..', 'data', `${job.id}-backup.tar.gz`);
+      await reportAgentJobProgress(config, job, {
+        stage: 'compressing backup',
+        processedBytes: 0,
+        totalBytes: 0,
+        message: 'Compressing managed volumes',
+      }).catch(() => {});
+      execFileSync('tar', ['-czf', archivePath, '-C', volumeDir, 'data', 'uploads'], {
+        stdio: 'pipe',
+      });
+      try {
+        await reportAgentJobProgress(config, job, {
+          stage: 'uploading backup',
+          processedBytes: 0,
+          totalBytes: statSync(archivePath).size,
+          message: 'Uploading managed-volume archive to the coordinator',
+        }).catch(() => {});
+        result = await uploadAgentBackup(config, job, archivePath);
+      } finally {
+        rmSync(archivePath, { force: true });
+      }
+    } else if (job.type === 'restore') {
+      if (!job.artifactUrl) throw new Error('Restore job is missing its backup archive');
+      const volumeDir = resolve(agentConfigPath(), '..', 'data', 'volumes', job.deploymentName);
+      const archivePath = resolve(agentConfigPath(), '..', 'data', `${job.id}-restore.tar.gz`);
+      try {
+        await downloadAgentArtifact(config, job, archivePath);
+        rmSync(volumeDir, { recursive: true, force: true });
+        mkdirSync(volumeDir, { recursive: true });
+        await extractAgentArchive(config, job, archivePath, volumeDir);
+        if (job.payload?.restart !== false && agentContainerExists(job.deploymentName)) {
+          execFileSync('docker', ['restart', `deploy-sh-${job.deploymentName.toLowerCase()}`], {
+            stdio: 'pipe',
+          });
+        }
+        result = { restored: true };
+      } finally {
+        rmSync(archivePath, { force: true });
+      }
+    } else {
+      throw new Error(`Unsupported agent job type: ${job.type}`);
+    }
+    await completeAgentJobOnCoordinator(config, job.id, { success: true, result });
+  } catch (err) {
+    await completeAgentJobOnCoordinator(config, job.id, {
+      success: false,
+      error: err.message || String(err),
+      result: {
+        buildOutput: err.buildOutput || '',
+        buildDuration: err.buildDuration || 0,
+      },
+    }).catch((reportErr) => {
+      console.error(`Unable to report failed job ${job.id}: ${reportErr.message}`);
+    });
+  }
+}
+
+const activeAgentExecSessions = new Map();
+let claimingAgentExecSession = false;
+
+async function postAgentExec(config, sessionId, action, body = {}) {
+  return request(`${config.coordinatorUrl}/api/agent/exec/${sessionId}/${action}`, {
+    method: 'POST',
+    headers: {
+      ...agentHeaders(config),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function runAgentExecSession(config, descriptor) {
+  const session = agentExecContainer(descriptor.deploymentName, descriptor.cols, descriptor.rows);
+  activeAgentExecSessions.set(descriptor.id, session);
+  let output = Buffer.alloc(0);
+  let flushTimer = null;
+  const flushOutput = async () => {
+    flushTimer = null;
+    if (output.length === 0) return;
+    const chunk = output;
+    output = Buffer.alloc(0);
+    await postAgentExec(config, descriptor.id, 'output', {
+      output: chunk.toString('base64'),
+    }).catch(() => {});
+  };
+  session.on('data', (chunk) => {
+    output = Buffer.concat([output, chunk]);
+    if (!flushTimer) {
+      flushTimer = setTimeout(() => void flushOutput(), 20);
+      flushTimer.unref();
+    }
+  });
+  session.on('exit', (info) => {
+    activeAgentExecSessions.delete(descriptor.id);
+    void (async () => {
+      if (flushTimer) clearTimeout(flushTimer);
+      await flushOutput();
+      await postAgentExec(config, descriptor.id, 'exit', info).catch(() => {});
+    })();
+  });
+  void (async () => {
+    while (!session.closed) {
+      try {
+        const control = await postAgentExec(config, descriptor.id, 'poll');
+        for (const input of control.input || []) {
+          session.write(Buffer.from(input, 'base64'));
+        }
+        if (control.resize) session.resize(control.resize.cols, control.resize.rows);
+        if (control.kill) session.kill();
+      } catch (err) {
+        if (String(err.message || err).includes('not found')) {
+          session.kill();
+          break;
+        }
+      }
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+    }
+  })();
+}
+
+async function claimAgentExecSessionFromCoordinator(config) {
+  if (claimingAgentExecSession) return;
+  claimingAgentExecSession = true;
+  try {
+    const response = await fetch(`${config.coordinatorUrl}/api/agent/exec/claim`, {
+      method: 'POST',
+      headers: agentHeaders(config),
+    });
+    if (response.status === 204) return;
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || 'Unable to claim terminal session');
+    if (!activeAgentExecSessions.has(body.id)) runAgentExecSession(config, body);
+  } finally {
+    claimingAgentExecSession = false;
+  }
+}
+
+async function cmdAgentRun() {
+  const config = readAgentConfig();
+  if (!config) throw new Error(`Agent is not enrolled (${agentConfigPath()} not found)`);
+  // launchd starts user agents with `/` as their working directory. Shared
+  // build code falls back to `<cwd>/.deploy-data`, which would otherwise
+  // become the unwritable `/.deploy-data`. Anchor every agent-owned cache and
+  // temporary artifact beside agent.json instead.
+  process.env.DEPLOY_DATA_DIR = resolve(agentConfigPath(), '..', 'data');
+  mkdirSync(process.env.DEPLOY_DATA_DIR, { recursive: true });
+  await restoreAgentRelays();
+  await discoverAgentRelays();
+  enableLocalTlsTrust(config.coordinatorUrl);
+  let reportedError = '';
+  const heartbeat = async () => {
+    try {
+      await sendAgentHeartbeat(config);
+      reportedError = '';
+    } catch (err) {
+      const message = err.message || String(err);
+      if (message !== reportedError) {
+        console.error(`Agent heartbeat failed: ${message}`);
+        reportedError = message;
+      }
+    }
+  };
+  await heartbeat();
+  const heartbeatTimer = setInterval(heartbeat, 10_000);
+  heartbeatTimer.unref();
+  const execClaimTimer = setInterval(
+    () =>
+      void claimAgentExecSessionFromCoordinator(config).catch((err) => {
+        console.error(`Agent terminal poll failed: ${err.message || err}`);
+      }),
+    500,
+  );
+  execClaimTimer.unref();
+  while (true) {
+    try {
+      const job = await claimAgentJobFromCoordinator(config);
+      if (job) await processAgentJob(config, job);
+    } catch (err) {
+      console.error(`Agent job poll failed: ${err.message || err}`);
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 2_000));
+  }
+}
+
+async function cmdAgentStatus() {
+  const config = readAgentConfig();
+  if (!config) {
+    console.log('Agent is not enrolled.');
+    process.exitCode = 1;
+    return;
+  }
+  enableLocalTlsTrust(config.coordinatorUrl);
+  try {
+    await sendAgentHeartbeat(config);
+    console.log(`${config.name} is enrolled and connected to ${config.coordinatorUrl}`);
+    if (!process.env.DEPLOY_AGENT_CONFIG) {
+      const service =
+        platform() === 'darwin'
+          ? spawnSync('launchctl', ['print', `gui/${process.getuid?.()}/sh.deploy.agent`], {
+              stdio: 'ignore',
+            })
+          : spawnSync('systemctl', ['is-active', '--quiet', 'deploy-local-agent.service'], {
+              stdio: 'ignore',
+            });
+      console.log(
+        service.status === 0
+          ? 'Background agent service is running'
+          : 'Background agent service is not running; re-run agent join to install it',
+      );
+      if (service.status !== 0) process.exitCode = 1;
+    }
+  } catch (err) {
+    console.log(`${config.name} is enrolled but cannot reach ${config.coordinatorUrl}`);
+    console.log(`  ${err.message}`);
+    process.exitCode = 1;
+  }
+}
+
 async function cmdDeploy(serverUrl, appName, { noCache = false } = {}) {
   const config = loadConfig();
   if (!config.token) {
@@ -613,6 +1700,42 @@ async function cmdDeploy(serverUrl, appName, { noCache = false } = {}) {
 
   const dir = process.cwd();
   const name = (appName || basename(dir)).toLowerCase();
+
+  // Ask the coordinator before doing any bundling work. Older servers omit
+  // placementReady, in which case the legacy single-node behavior continues.
+  const admission = await request(`${serverUrl}/api/deploy-admission`, {
+    headers: authHeaders(config),
+  });
+  if (admission.placementReady === false) {
+    const setupUrl = new URL(admission.setupUrl || '/dashboard/nodes', serverUrl).toString();
+    throw new Error(
+      `A default deployment node has not been configured.\n\nChoose one at ${setupUrl}\nThen run deploy again.`,
+    );
+  }
+
+  // A node move owns the application exclusively until its backup and restore
+  // finish. New coordinators expose this preflight so a second deploy is
+  // rejected before we spend time bundling or uploading it.
+  const appAdmissionResponse = await fetch(
+    `${serverUrl}/api/deploy-admission/${encodeURIComponent(name)}`,
+    { headers: authHeaders(config) },
+  );
+  if (appAdmissionResponse.ok) {
+    const appAdmission = await appAdmissionResponse.json();
+    if (appAdmission.migrationActive) {
+      const statusUrl = new URL(
+        appAdmission.dashboardUrl || `/dashboard/${encodeURIComponent(name)}/build`,
+        serverUrl,
+      ).toString();
+      throw new Error(
+        `${name} is currently migrating between nodes.\n\nFollow its progress at ${statusUrl}`,
+      );
+    }
+  } else if (appAdmissionResponse.status !== 404) {
+    const message = await appAdmissionResponse.text();
+    throw new Error(`Unable to check deployment admission: ${message}`);
+  }
+
   const tarball = resolve(dir, `${name}.tar.gz`);
 
   console.log(`Bundling ${name}${noCache ? ' (no cache)' : ''}...`);
@@ -647,6 +1770,7 @@ async function cmdDeploy(serverUrl, appName, { noCache = false } = {}) {
   // versions still accept the request.
   const nameField =
     `\r\n--${boundary}\r\nContent-Disposition: form-data; name="name"\r\n\r\n${name}` +
+    `\r\n--${boundary}\r\nContent-Disposition: form-data; name="detached"\r\n\r\n1` +
     (noCache
       ? `\r\n--${boundary}\r\nContent-Disposition: form-data; name="noCache"\r\n\r\n1`
       : '') +
@@ -684,6 +1808,10 @@ async function cmdDeploy(serverUrl, appName, { noCache = false } = {}) {
           const status = event.data.status;
           if (status === 'building') {
             process.stdout.write('Building...\n');
+          } else if (status === 'backing-up') {
+            process.stdout.write('Backing up application data before moving nodes...\n');
+          } else if (status === 'restoring') {
+            process.stdout.write('Restoring application data on the destination node...\n');
           } else if (status === 'starting') {
             process.stdout.write('Starting container...\n');
           }
@@ -719,7 +1847,7 @@ async function cmdDeploy(serverUrl, appName, { noCache = false } = {}) {
     // WebSocket not available — upload still works, just no streaming
   }
 
-  await uploadWithProgress(`${serverUrl}/api/upload`, bodyParts, {
+  const deployment = await uploadWithProgress(`${serverUrl}/api/upload`, bodyParts, {
     ...authHeaders(config),
     'Content-Type': `multipart/form-data; boundary=${boundary}`,
   });
@@ -739,6 +1867,18 @@ async function cmdDeploy(serverUrl, appName, { noCache = false } = {}) {
     // ignore
   }
 
+  if (deployment?.accepted) {
+    const dashboardUrl = new URL(
+      deployment.dashboardUrl || `/dashboard/${encodeURIComponent(name)}/build`,
+      serverUrl,
+    ).toString();
+    console.log(`Deployment accepted. The coordinator is handling the remaining lifecycle.`);
+    console.log(`  Status: ${dashboardUrl}`);
+    console.log(`  App:    ${appUrl(serverUrl, name)}`);
+    return;
+  }
+
+  // Compatibility with coordinators that predate detached deployments.
   console.log(`Deployed ${name}`);
   console.log(`  URL: ${appUrl(serverUrl, name)}`);
 }
@@ -1071,6 +2211,10 @@ Usage:
   deploy whoami              Show current user
   deploy version             Show the installed build (commit + build time)
   deploy upgrade             Replace this CLI with the build the server serves
+  deploy nodes enroll        Create enrollment (also in Dashboard → Nodes)
+  deploy agent join <url>     Enroll this machine as an execution node
+  deploy agent install        Repair or reinstall the background agent service
+  deploy agent status         Check this machine's agent connection
 
 Options:
   -u, --url <url>            Server URL (default: https://deploy.local)
@@ -1094,6 +2238,7 @@ const { values, positionals } = parseArgs({
     url: { type: 'string', short: 'u', default: _initialConfig.url || DEFAULT_URL },
     application: { type: 'string', short: 'a' },
     app: { type: 'string' },
+    name: { type: 'string' },
     port: { type: 'string', short: 'p', default: '80' },
     help: { type: 'boolean', short: 'h', default: false },
     version: { type: 'boolean', short: 'v', default: false },
@@ -1181,6 +2326,29 @@ try {
     case 'update':
       await cmdUpgrade(serverUrl, { check: !!values.check, force: !!values.force });
       break;
+    case 'nodes':
+      if (positionals[1] !== 'enroll') {
+        throw new Error('Usage: deploy nodes enroll --name <node-name>');
+      }
+      await cmdNodesEnroll(serverUrl, values.name);
+      break;
+    case 'agent': {
+      const agentCommand = positionals[1];
+      if (agentCommand === 'join') {
+        const coordinatorUrl = positionals[2] || serverUrl;
+        enableLocalTlsTrust(coordinatorUrl);
+        await cmdAgentJoin(coordinatorUrl, values.name);
+      } else if (agentCommand === 'run') {
+        await cmdAgentRun();
+      } else if (agentCommand === 'install') {
+        cmdAgentInstall();
+      } else if (agentCommand === 'status') {
+        await cmdAgentStatus();
+      } else {
+        throw new Error('Usage: deploy agent <join|install|status>');
+      }
+      break;
+    }
     default:
       console.error(`Unknown command: ${command}`);
       console.log(HELP);

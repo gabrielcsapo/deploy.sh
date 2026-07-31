@@ -106,6 +106,36 @@ export default function Component() {
   }, [name]);
 
   useEffect(() => {
+    if (!deployment.activeNodeId || deployment.activeNodeId === 'coordinator') return;
+    let cancelled = false;
+    let refreshing = false;
+    const refresh = async () => {
+      if (refreshing) return;
+      refreshing = true;
+      const auth = getAuth();
+      if (!auth) {
+        refreshing = false;
+        return;
+      }
+      try {
+        const data = await serverFetchLogs(auth.username, auth.token, name, 1000);
+        if (cancelled || !data) return;
+        const parsed = parseLogLines(data as string);
+        setLines(parsed.length > MAX_LINES ? parsed.slice(parsed.length - MAX_LINES) : parsed);
+      } catch {
+        // The agent may be between jobs or temporarily offline.
+      } finally {
+        refreshing = false;
+      }
+    };
+    const timer = window.setInterval(refresh, 2_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [deployment.activeNodeId, name]);
+
+  useEffect(() => {
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };

@@ -3,6 +3,7 @@ import { sqliteTable, text, integer, real, index, primaryKey } from 'drizzle-orm
 export const users = sqliteTable('users', {
   username: text('username').primaryKey(),
   password: text('password').notNull(),
+  role: text('role').notNull().default('member'),
   createdAt: text('created_at').notNull(),
 });
 
@@ -45,12 +46,76 @@ export const deployments = sqliteTable(
     privilegedDocker: integer('privileged_docker', { mode: 'boolean' }).default(false),
     autoBackup: integer('auto_backup', { mode: 'boolean' }).default(false),
     discoverable: integer('discoverable', { mode: 'boolean' }).default(false),
+    desiredNodeId: text('desired_node_id'),
+    activeNodeId: text('active_node_id'),
     containerStartedAt: integer('container_started_at'),
     createdAt: text('created_at'),
     updatedAt: text('updated_at'),
   },
   (table) => ({
     usernameIdx: index('idx_deployments_username').on(table.username),
+  }),
+);
+
+export const nodes = sqliteTable(
+  'nodes',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull().unique(),
+    kind: text('kind').notNull().default('agent'),
+    platform: text('platform'),
+    architecture: text('architecture'),
+    agentVersion: text('agent_version'),
+    address: text('address'),
+    capabilities: text('capabilities'),
+    credentialHash: text('credential_hash'),
+    enrolledAt: text('enrolled_at').notNull(),
+    lastSeenAt: integer('last_seen_at'),
+    revokedAt: text('revoked_at'),
+  },
+  (table) => ({
+    lastSeenIdx: index('idx_nodes_last_seen').on(table.lastSeenAt),
+  }),
+);
+
+export const nodeEnrollments = sqliteTable(
+  'node_enrollments',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    codeHash: text('code_hash').notNull().unique(),
+    createdBy: text('created_by').notNull(),
+    createdAt: text('created_at').notNull(),
+    expiresAt: integer('expires_at').notNull(),
+    usedAt: text('used_at'),
+  },
+  (table) => ({
+    expiresIdx: index('idx_node_enrollments_expires').on(table.expiresAt),
+  }),
+);
+
+export const agentJobs = sqliteTable(
+  'agent_jobs',
+  {
+    id: text('id').primaryKey(),
+    nodeId: text('node_id').notNull(),
+    type: text('type').notNull(),
+    deploymentName: text('deployment_name').notNull(),
+    artifactPath: text('artifact_path'),
+    payload: text('payload').notNull(),
+    status: text('status').notNull().default('queued'),
+    result: text('result'),
+    error: text('error'),
+    createdAt: integer('created_at').notNull(),
+    claimedAt: integer('claimed_at'),
+    completedAt: integer('completed_at'),
+  },
+  (table) => ({
+    nodeStatusIdx: index('idx_agent_jobs_node_status').on(
+      table.nodeId,
+      table.status,
+      table.createdAt,
+    ),
   }),
 );
 

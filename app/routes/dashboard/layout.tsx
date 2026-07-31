@@ -9,6 +9,7 @@ import {
   OverviewIcon,
   HistoryIcon,
   LogsIcon,
+  NodesIcon,
 } from '../../components/dashboard/icons';
 import { DashboardSidebarTail } from './sidebar-tail.client';
 import { DashboardDataShell } from './data.client';
@@ -39,6 +40,15 @@ export default function Component() {
                   trailing={<UnhealthyAppsDot />}
                 >
                   Apps
+                </SidebarLink>
+              </li>
+              <li>
+                <SidebarLink
+                  to="/dashboard/nodes"
+                  icon={<NodesIcon />}
+                  hint="Execution machines connected to this control plane"
+                >
+                  Nodes
                 </SidebarLink>
               </li>
               <li>

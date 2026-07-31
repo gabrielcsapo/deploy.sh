@@ -49,6 +49,11 @@ export const routes: RouteConfig[] = [
             component: () => import('./routes/docs/managing.js'),
           },
           {
+            id: 'docs-nodes',
+            path: 'nodes',
+            component: () => import('./routes/docs/nodes.js'),
+          },
+          {
             id: 'docs-cli',
             path: 'cli',
             component: () => import('./routes/docs/cli.js'),
@@ -99,6 +104,11 @@ export const routes: RouteConfig[] = [
             id: 'dashboard-settings',
             path: 'settings',
             component: () => import('./routes/dashboard/settings.js'),
+          },
+          {
+            id: 'dashboard-nodes',
+            path: 'nodes',
+            component: () => import('./routes/dashboard/nodes.js'),
           },
           {
             id: 'dashboard-detail',

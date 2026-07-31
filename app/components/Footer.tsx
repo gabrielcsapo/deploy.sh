@@ -68,6 +68,14 @@ export function AppFooter() {
               </li>
               <li>
                 <Link
+                  to="/docs/nodes"
+                  className="text-sm text-text-secondary hover:text-text transition-colors"
+                >
+                  Nodes &amp; Placement
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/docs/cli"
                   className="text-sm text-text-secondary hover:text-text transition-colors"
                 >
