@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { compileDeployYaml } from './application-spec.ts';
 import {
   rebaseApplicationRevision,
+  repositoryUploadCanSkipRuntime,
   renderParentRelativeApplicationPatch,
 } from './application-revision.ts';
 
@@ -19,6 +20,29 @@ routes:
 `).spec;
 
 describe('application revision ancestry', () => {
+  it('rebuilds unchanged graphs when their source artifact changed', () => {
+    assert.equal(
+      repositoryUploadCanSkipRuntime({
+        revisionUnchanged: true,
+        desiredDigest: 'sha256:graph',
+        activeDigest: 'sha256:graph',
+        previousSourceArtifactDigest: 'sha256:old-source',
+        nextSourceArtifactDigest: 'sha256:new-source',
+      }),
+      false,
+    );
+    assert.equal(
+      repositoryUploadCanSkipRuntime({
+        revisionUnchanged: true,
+        desiredDigest: 'sha256:desired',
+        activeDigest: 'sha256:active',
+        previousSourceArtifactDigest: 'sha256:old-source',
+        nextSourceArtifactDigest: 'sha256:new-source',
+      }),
+      true,
+    );
+  });
+
   it('rebases independent repository edits and anchors the exported result to current', () => {
     const current = structuredClone(BASE);
     current.metadata.description = 'Edited in UI';

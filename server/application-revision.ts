@@ -53,6 +53,24 @@ export function admitRepositoryRevision(input: {
   throw new RepositoryRevisionConflictError(input.currentDigest, input.declaredBaseDigest);
 }
 
+export function repositoryUploadCanSkipRuntime(input: {
+  revisionUnchanged: boolean;
+  desiredDigest: string | null;
+  activeDigest: string | null;
+  previousSourceArtifactDigest: string | null;
+  nextSourceArtifactDigest: string;
+}) {
+  if (!input.revisionUnchanged) return false;
+  const alignsAnUnactivatedDesiredRevision = Boolean(
+    input.desiredDigest && input.activeDigest && input.desiredDigest !== input.activeDigest,
+  );
+  const sourceIsKnownAndChanged = Boolean(
+    input.previousSourceArtifactDigest &&
+    input.previousSourceArtifactDigest !== input.nextSourceArtifactDigest,
+  );
+  return alignsAnUnactivatedDesiredRevision || !sourceIsKnownAndChanged;
+}
+
 /**
  * Replay the repository's semantic changes from `base` onto `current`.
  * Independent map edits merge; overlapping scalar/array/removal edits are

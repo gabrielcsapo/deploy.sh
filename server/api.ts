@@ -183,6 +183,7 @@ import { emptyApplicationSpec, planApplicationChange } from './application-plan.
 import {
   admitRepositoryRevision,
   rebaseApplicationRevision,
+  repositoryUploadCanSkipRuntime,
   renderParentRelativeApplicationPatch,
   RepositoryRevisionConflictError,
 } from './application-revision.ts';
@@ -1838,6 +1839,8 @@ export function apiMiddleware() {
         let uploadLimitError: UploadArchiveError | null = null;
         let clientAborted = false;
         let repositoryRevisionUnchanged = false;
+        let repositoryRuntimeCanBeSkipped = false;
+        let repositorySourceChanged = false;
         let repositoryChangePlan: ReturnType<typeof planApplicationChange> | null = null;
         req.once('aborted', () => {
           clientAborted = true;
@@ -2099,6 +2102,17 @@ export function apiMiddleware() {
                 mediaType: 'application/gzip',
                 retentionClass: 'release',
               });
+              repositorySourceChanged = Boolean(
+                existingDeployment?.sourceArtifactDigest &&
+                existingDeployment.sourceArtifactDigest !== sourceArtifact.digest,
+              );
+              repositoryRuntimeCanBeSkipped = repositoryUploadCanSkipRuntime({
+                revisionUnchanged: repositoryRevisionUnchanged,
+                desiredDigest: existingDeployment?.desiredSpecDigest || null,
+                activeDigest: existingDeployment?.activeSpecDigest || null,
+                previousSourceArtifactDigest: existingDeployment?.sourceArtifactDigest || null,
+                nextSourceArtifactDigest: sourceArtifact.digest,
+              });
               updateDeploymentArtifactDigests(name, {
                 sourceArtifactDigest: sourceArtifact.digest,
               });
@@ -2238,7 +2252,7 @@ export function apiMiddleware() {
           ? getApplicationSpecRevision(name, previousSpecDigest)
           : null;
 
-        if (graphDeployment && repositoryRevisionUnchanged && previousDeployment) {
+        if (graphDeployment && repositoryRuntimeCanBeSkipped && previousDeployment) {
           saveDesiredApplicationSpec({
             digest: deploymentDefinition.compiled.digest,
             deploymentName: name,
@@ -2821,6 +2835,7 @@ export function apiMiddleware() {
               memoryLimit: cachedDeployment?.memoryLimit || '4g',
               cpuLimit: cachedDeployment?.cpuLimit || undefined,
               noCache: fields.noCache === '1' || fields.noCache === 'true',
+              forceReplace: repositorySourceChanged,
             });
             updateDeploymentStatus(name, 'starting');
             saveDeployment({
