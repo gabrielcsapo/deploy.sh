@@ -2279,10 +2279,9 @@ export function apiMiddleware() {
           source: deploymentDefinition.format === 'deploy.yaml' ? 'repository' : 'legacy',
           manifestFormat: deploymentDefinition.format,
           normalizedSpec: deploymentDefinition.compiled.canonicalJson,
-          originalSource: readFileSync(
-            resolve(deploymentDirectory, deploymentDefinition.format),
-            'utf8',
-          ),
+          ...(deploymentDefinition.source == null
+            ? {}
+            : { originalSource: deploymentDefinition.source }),
           createdBy: username,
         });
         if (previousSpecRevision) {
