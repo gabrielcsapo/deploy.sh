@@ -139,6 +139,7 @@ import {
   startDockerEventStream,
 } from './docker.ts';
 import { resolveApplicationInstanceTarget } from './application-instance-target.ts';
+import { inspectContainer as inspectDockerContainer } from './docker-api.ts';
 import { createAgentGraphPayload } from './agent-graph-payload.ts';
 import { recordAgentGraphMaterialization } from './agent-graph-recording.ts';
 import type { AgentGraphExecutionResult } from './agent-graph-runtime.ts';
@@ -1855,6 +1856,7 @@ export function apiMiddleware() {
         let repositoryRevisionUnchanged = false;
         let repositoryRuntimeCanBeSkipped = false;
         let repositorySourceChanged = false;
+        let repositoryRetryAfterFailure = false;
         let repositoryChangePlan: ReturnType<typeof planApplicationChange> | null = null;
         req.once('aborted', () => {
           clientAborted = true;
@@ -2121,8 +2123,11 @@ export function apiMiddleware() {
                 existingDeployment?.sourceArtifactDigest &&
                 existingDeployment.sourceArtifactDigest !== sourceArtifact.digest,
               );
+              repositoryRetryAfterFailure = existingDeployment?.status === 'failed';
               repositoryRuntimeCanBeSkipped = repositoryUploadCanSkipRuntime({
                 revisionUnchanged: repositoryRevisionUnchanged,
+                forceBuild: fields.noCache === '1' || fields.noCache === 'true',
+                runtimeReady: existingDeployment?.status === 'running',
                 desiredDigest: existingDeployment?.desiredSpecDigest || null,
                 activeDigest: existingDeployment?.activeSpecDigest || null,
                 previousSourceArtifactDigest: existingDeployment?.sourceArtifactDigest || null,
@@ -2858,7 +2863,16 @@ export function apiMiddleware() {
               memoryLimit: cachedDeployment?.memoryLimit || '4g',
               cpuLimit: cachedDeployment?.cpuLimit || undefined,
               noCache: fields.noCache === '1' || fields.noCache === 'true',
-              forceReplace: repositorySourceChanged,
+              forceReplace:
+                repositorySourceChanged ||
+                repositoryRetryAfterFailure ||
+                fields.noCache === '1' ||
+                fields.noCache === 'true',
+              forceBuild:
+                repositorySourceChanged ||
+                repositoryRetryAfterFailure ||
+                fields.noCache === '1' ||
+                fields.noCache === 'true',
             });
             updateDeploymentStatus(name, 'starting');
             saveDeployment({
@@ -3499,10 +3513,34 @@ export function apiMiddleware() {
             );
           }
         }
+        const localSiteId = localGraphSiteFor(deployment);
+        const runningInstances = localSiteId
+          ? getApplicationGraphState(name, deployment.appId || name, localSiteId).instances.filter(
+              (instance) => instance.status === 'ready',
+            )
+          : [];
+        const runningImages = await Promise.all(
+          runningInstances.map(async (instance) => {
+            const container = await inspectDockerContainer(instance.containerName).catch(
+              () => null,
+            );
+            return container?.State.Status === 'running'
+              ? {
+                  component: instance.componentKey,
+                  image: instance.image,
+                  imageId: container.Image,
+                }
+              : null;
+          }),
+        );
         return json(res, {
           applicationId: deployment.appId,
           desiredDigest: deployment.desiredSpecDigest,
           activeDigest: deployment.activeSpecDigest,
+          sourceArtifactDigest: deployment.sourceArtifactDigest,
+          imageArtifactDigest: deployment.imageArtifactDigest,
+          runningImages: runningImages.filter((image) => image !== null),
+          runningImagesAvailable: Boolean(localSiteId),
           source: deployment.specSource,
           sourceAligned:
             deployment.specSource === 'repository' || deployment.specSource === 'legacy',

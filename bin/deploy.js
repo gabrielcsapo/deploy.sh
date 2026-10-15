@@ -27,6 +27,7 @@ import { pipeline } from 'node:stream/promises';
 import { connect, createServer } from 'node:net';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
+import { getCACertificates, setDefaultCACertificates } from 'node:tls';
 import {
   buildImage as agentBuildImage,
   classifyProject as agentClassifyProject,
@@ -104,15 +105,15 @@ async function isPackagedBinary() {
   return !/[/\\]node(\.exe)?$/.test(process.execPath);
 }
 
-// Trust self-signed certs when connecting to .local domains over HTTPS.
-// This only affects this CLI process, not the server.
+// Include the OS trust store, where the deploy.local CA is installed, without
+// discarding Node's bundled roots. This affects this CLI process only.
+let systemCaEnabled = false;
 function enableLocalTlsTrust(serverUrl) {
-  try {
-    const u = new URL(serverUrl);
-    if (u.protocol === 'https:' && u.hostname.endsWith('.local')) {
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    }
-  } catch {}
+  if (systemCaEnabled) return;
+  const u = new URL(serverUrl);
+  if (u.protocol !== 'https:' || !u.hostname.endsWith('.local')) return;
+  setDefaultCACertificates([...getCACertificates('default'), ...getCACertificates('system')]);
+  systemCaEnabled = true;
 }
 
 function appUrl(serverUrl, name) {
@@ -297,8 +298,6 @@ function uploadAttempt(url, { prefix, filePath, suffix }, headers, totalBytes, a
       path: urlObj.pathname + urlObj.search,
       method: 'POST',
       headers: { ...headers, 'Content-Length': totalBytes },
-      // Trust self-signed certs for .local domains
-      ...(isHttps && urlObj.hostname.endsWith('.local') && { rejectUnauthorized: false }),
     };
 
     const cleanup = () => {
@@ -657,8 +656,19 @@ async function cmdPlan(serverUrl, appName) {
     source: 'repository',
   });
   console.log(`Plan for ${name}`);
-  console.log(`  Current: ${remote.desiredDigest}`);
-  console.log(`  Desired: ${local.compiled.digest} (${local.format})`);
+  console.log(`  Server configuration: ${remote.desiredDigest}`);
+  console.log(`  Local configuration: ${local.compiled.digest} (${local.format})`);
+  console.log(`  Uploaded source: ${remote.sourceArtifactDigest || 'not recorded'}`);
+  const images = remote.runningImages || [];
+  console.log(
+    `  Running images: ${images.length ? images.map((item) => `${item.component}: ${item.imageId} (${item.image})`).join(', ') : remote.runningImagesAvailable === false ? 'unavailable on remote node' : 'not recorded'}`,
+  );
+  console.log(`  Active configuration: ${remote.activeDigest || 'not active'}`);
+  console.log(
+    remote.desiredDigest === local.compiled.digest
+      ? '  Configuration unchanged; source changes not checked.'
+      : '  Source changes not checked by this plan.',
+  );
   console.log('');
   for (const action of plan.actions) {
     const marker = action.blocked ? '✗' : action.destructive ? '!' : '•';

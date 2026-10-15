@@ -50,6 +50,8 @@ export interface GraphExecutorContext {
     readOnly?: boolean;
   }[];
   noCache?: boolean;
+  /** Uploaded repository source changed while the graph spec stayed the same. */
+  forceBuild?: boolean;
   writerSiteId?: string | null;
   healthTimeoutMs?: number;
   drainTimeoutMs?: number;
@@ -349,6 +351,7 @@ export class ApplicationGraphExecutor {
           source: component.source,
           projectDirectory: context.projectDirectory,
           noCache: context.noCache,
+          forceBuild: context.forceBuild,
         }),
       );
       this.#state.upsertPlacement({
