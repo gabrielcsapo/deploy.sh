@@ -65,7 +65,7 @@
     "react-flight-router": "0.12.0",
     "react-server-dom-webpack": "^19.2.8",
     "tar-stream": "^3.2.0",
-    "vite": "^8.1.5",
+    "vite": "^8.1.6",
     "ws": "^8.21.1",
     "yaml": "^2.9.0"
   },
